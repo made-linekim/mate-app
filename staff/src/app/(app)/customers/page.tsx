@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 
@@ -15,6 +16,7 @@ const PAGE = 50;
 
 export default function Customers() {
   const me = useMe();
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -75,7 +77,8 @@ export default function Customers() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={`${r.branch}:${r.key}`}>
+                <tr key={`${r.branch}:${r.key}`} style={{ cursor: "pointer" }}
+                  onClick={() => router.push(`/customers/chart?b=${encodeURIComponent(r.branch)}&k=${encodeURIComponent(r.key)}`)}>
                   <td style={{ fontWeight: 600 }}>
                     {r.name}
                     {expiring(r) && <span className="badge em" style={{ marginLeft: 6 }}>만료 임박</span>}
