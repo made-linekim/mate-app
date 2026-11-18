@@ -42,11 +42,18 @@ export default function Work() {
   const [data, setData] = useState<Today | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  // 해피콜 화면과 같은 숫자: happycall_list(고객 데이터로 계산한 대상 포함)를 세기만 함. 이름·번호는 쓰지 않음.
+  const [hcList, setHcList] = useState<{ total: number; late: number } | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await sb.rpc("work_today", { p_branch: branch });
     if (error) { setErr(errText(error.message)); setData(null); return; }
     setErr(""); setData(data as Today);
+    const hl = await sb.rpc("happycall_list", { p_branch: branch });
+    if (hl.error || !Array.isArray(hl.data)) { setHcList(null); return; }
+    const td = (data as Today).day;
+    const rows = hl.data as { due_day: string | null }[];
+    setHcList({ total: rows.length, late: rows.filter((r) => !!r.due_day && r.due_day < td).length });
   }, [branch]);
   useEffect(() => { load(); }, [load]);
 
@@ -67,7 +74,10 @@ export default function Work() {
   };
 
   const pick = (xs: Item[]) => (mineOnly ? xs.filter((x) => x.mine) : xs);
-  const hc = data?.happycall;
+  const hc0 = data?.happycall;
+  const hc = hc0 && (hcList
+    ? { today_left: hcList.total - hcList.late, today_done: hc0.today_done, overdue: hcList.late }
+    : hc0);
   const overdue = pick(data?.overdue ?? []);
   const approvals = pick(data?.approvals.items ?? []);
   const remaining = pick(data?.remaining ?? []);

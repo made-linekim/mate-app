@@ -25,7 +25,8 @@ begin
 
   with open_items as (
     select w.* from public.work_items w
-    where w.branch = b and w.done_at is null and w.status in ('대기','진행','기한지남')
+    where w.branch = b and w.done_at is null
+      and (w.status in ('대기','기한지남') or (w.status = '진행' and (w.follow_day is null or w.follow_day <= d)))
   ),
   item_json as (
     select o.*, jsonb_build_object(
@@ -48,21 +49,22 @@ begin
   select jsonb_build_object(
     'day', d, 'branch', b,
     'happycall', jsonb_build_object(
-      'today_left', (select count(*) from open_items where kind = '해피콜' and status <> '기한지남' and (assigned_day = d or (due_at >= d0 and due_at < d1))),
+      -- 해피콜 화면 '오늘 할 일'과 같은 기준: 대기·기한지남 전부 + 부재(진행) 중 다시 연락할 날이 오늘 이전
+      'today_left', (select count(*) from open_items where kind = '해피콜' and not (status = '기한지남' or (status = '대기' and due_at < d0))),
       'today_done', (select count(*) from public.work_items where branch = b and kind = '해피콜' and done_at >= d0 and done_at < d1),
-      'overdue', (select count(*) from open_items where kind = '해피콜' and (status = '기한지남' or due_at < d0))
+      'overdue', (select count(*) from open_items where kind = '해피콜' and (status = '기한지남' or (status = '대기' and due_at < d0)))
     ),
     'overdue', coalesce((select jsonb_agg(j order by due_at) from item_json
-                 where kind <> '해피콜' and (status = '기한지남' or due_at < d0)), '[]'::jsonb),
+                 where kind <> '해피콜' and (status = '기한지남' or (status = '대기' and due_at < d0))), '[]'::jsonb),
     'approvals', jsonb_build_object(
       'can', can_cert,
       'items', case when can_cert then coalesce((select jsonb_agg(j order by due_at nulls last) from item_json
-                 where kind = '승인' and not (status = '기한지남' or due_at < d0)), '[]'::jsonb) else '[]'::jsonb end,
+                 where kind = '승인' and not (status = '기한지남' or (status = '대기' and due_at < d0))), '[]'::jsonb) else '[]'::jsonb end,
       'manual_certs', case when can_cert then (select count(*) from public.diet_certs
                  where branch = b and feedback_at is null and day >= d - 7) else 0 end
     ),
     'remaining', coalesce((select jsonb_agg(j order by due_at nulls last) from item_json
-                 where kind not in ('해피콜','승인') and not (status = '기한지남' or due_at < d0)
+                 where kind not in ('해피콜','승인') and not (status = '기한지남' or (status = '대기' and due_at < d0))
                    and (due_at is null or due_at < d1)), '[]'::jsonb),
     'checklist', coalesce((select jsonb_agg(jsonb_build_object(
                  'id', id, 'title', title, 'cycle', cycle, 'checked', checked_at is not null,
