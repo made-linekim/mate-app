@@ -7,6 +7,7 @@ import { MeCtx } from "@/lib/me";
 
 const NAV = [
   { href: "/work", label: "업무" },
+  { href: "/schedule", label: "예약표" },
   { href: "/customers", label: "고객" },
   { href: "/happycall", label: "해피콜" },
   { href: "/sales", label: "매출" },
