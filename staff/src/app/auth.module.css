@@ -1,0 +1,8 @@
+.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg-soft);padding:var(--page-x)}
+.box{width:400px;max-width:100%}
+.logo{font-size:var(--fs-2xl);line-height:var(--lh-2xl);font-weight:700;color:var(--red);margin:0 0 4px}
+.sub{color:var(--ink-3);font-size:var(--fs-sm);margin:0 0 24px}
+.err{margin-top:12px;color:var(--red);font-size:var(--fs-sm)}
+.ok{margin-top:12px;color:var(--grn);font-size:var(--fs-sm)}
+.foot{margin-top:16px;font-size:var(--fs-sm);color:var(--ink-3);text-align:center}
+.foot a{color:var(--ink);font-weight:600;text-decoration:underline}
