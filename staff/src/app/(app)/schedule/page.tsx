@@ -8,6 +8,7 @@ import {
   usedAt, lanes, STATUS_STYLE,
 } from "@/lib/schedule";
 import RsvDrawer, { type Draft } from "./RsvDrawer";
+import CapacityDrawer from "./CapacityDrawer";
 
 type View = "day" | "week";
 const GROUPS = [
@@ -32,8 +33,11 @@ export default function SchedulePage() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [capOpen, setCapOpen] = useState(false);
+  const [progVer, setProgVer] = useState(0);
 
   const canWrite = me.tier !== "staff" || !!me.perms?.["schedule.reserve"];
+  const canSet = me.tier !== "staff" || !!me.perms?.["settings.edit"];
   const from = view === "day" ? day : weekStart(day);
   const to = view === "day" ? day : addDays(from, 6);
 
@@ -42,7 +46,7 @@ export default function SchedulePage() {
       if (error) setErr(error.message);
       setPrograms((data ?? []) as Program[]);
     });
-  }, [branch]);
+  }, [branch, progVer]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,6 +108,7 @@ export default function SchedulePage() {
             {BRANCHES.map((b) => <button key={b} className={branch === b ? "on" : ""} onClick={() => setBranch(b)}>{b}</button>)}
           </div>
         )}
+        {canSet && <button className="btn" onClick={() => setCapOpen(true)}>정원 설정</button>}
         {canWrite && <button className="btn p" onClick={() => openNew(view === "day" ? day : today >= from && today <= to ? today : from, 10 * 60)}>예약 등록</button>}
       </header>
 
@@ -265,6 +270,9 @@ export default function SchedulePage() {
         )}
       </div>
 
+      {capOpen && (
+        <CapacityDrawer programs={programs} onClose={() => setCapOpen(false)} onSaved={() => { setCapOpen(false); setProgVer((v) => v + 1); }} />
+      )}
       {draft && (
         <RsvDrawer branch={branch} draft={draft} programs={programs} rows={rows} canWrite={canWrite}
           onClose={() => setDraft(null)} onSaved={() => { setDraft(null); load(); }} />
