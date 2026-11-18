@@ -6,6 +6,7 @@ import { sb, TIER_LABEL, type Staff } from "@/lib/sb";
 import { MeCtx } from "@/lib/me";
 
 const NAV = [
+  { href: "/work", label: "업무" },
   { href: "/customers", label: "고객" },
   { href: "/staff", label: "직원 관리" },
 ];
