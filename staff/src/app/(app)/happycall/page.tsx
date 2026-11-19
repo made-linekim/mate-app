@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
+import { PhoneReveal } from "@/lib/phone";
 
 // 해피콜 대상: 뷰티사랑넷에서 가져온 할 일(todo) + MERA가 고객 데이터로 계산한 대상
 type Kind = "todo" | "expiring" | "lapsed" | "new";
@@ -113,7 +114,7 @@ export default function HappyCall() {
                     {r.name ?? "-"}
                     {me.tier === "owner" && !branch && <span style={{ fontWeight: 400, color: "var(--ink-4)", fontSize: 12, marginLeft: 6 }}>{r.branch}</span>}
                   </td>
-                  <td className="num" style={{ whiteSpace: "nowrap" }}>{r.phone ? <a href={`tel:${r.phone.replace(/[^\d]/g, "")}`}>{r.phone}</a> : "-"}</td>
+                  <td style={{ whiteSpace: "nowrap" }}><PhoneReveal branch={r.branch} customerKey={r.customer_key} masked={r.phone} view={false} /></td>
                   <td>
                     <span className={`badge ${r.kind === "expiring" ? "em" : r.kind === "lapsed" ? "warn" : r.kind === "new" ? "ok" : ""}`}>{KIND_LABEL[r.kind]}</span>
                   </td>
@@ -175,7 +176,7 @@ function LogDrawer({ row, onClose, onDone }: { row: Row; onClose: () => void; on
         <div className="bd">
           <div className="card" style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 16, fontWeight: 700 }}>{row.name ?? "-"} <span style={{ fontSize: 13, fontWeight: 400, color: "var(--ink-3)" }}>{row.branch}</span></div>
-            <div className="num" style={{ marginTop: 4 }}>{row.phone ? <a href={`tel:${row.phone.replace(/[^\d]/g, "")}`}>{row.phone}</a> : "연락처 없음"}</div>
+            <div style={{ marginTop: 4 }}>{row.phone ? <PhoneReveal branch={row.branch} customerKey={row.customer_key} masked={row.phone} /> : "연락처 없음"}</div>
             <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 8 }}>
               {KIND_LABEL[row.kind]} · {row.reason}<br />
               회원권 {row.membership || "-"}{row.min_remaining != null ? ` (잔여 ${row.min_remaining})` : ""} · 최근 방문 {row.last_visit_on ?? "-"}
