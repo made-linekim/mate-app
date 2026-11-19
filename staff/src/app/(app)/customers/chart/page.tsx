@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { sb } from "@/lib/sb";
+import { PhoneReveal } from "@/lib/phone";
 
 type Item = { program: string; total: number; used: number; service: number | null };
 type Membership = {
@@ -25,7 +26,7 @@ type Chart = {
   payments: Payment[] | null;
   pay_sum: { total: number; last_day: string | null; unpaid: number } | null;
   health: { note: string | null; flags: string | null; by: string | null; at: string | null } | null;
-  perms: { pay: boolean; health: boolean; memo: boolean; sms: boolean; reserve: boolean };
+  perms: { phone?: boolean; pay: boolean; health: boolean; memo: boolean; sms: boolean; reserve: boolean };
 };
 
 const won = (n: number | null | undefined) => (n == null ? "-" : `${n.toLocaleString()}원`);
@@ -184,7 +185,7 @@ function InfoTab({ c, go }: { c: Chart; go: (t: TabK) => void }) {
       <div className="card">
         <div className="hd"><h2>기본 정보</h2></div>
         <Row k="고객번호" v={cu.customer_no} />
-        <Row k="연락처" v={cu.phone} />
+        <Row k="연락처" v={c.perms.phone ? <PhoneReveal branch={cu.branch} customerKey={cu.key} masked={cu.phone} /> : cu.phone} />
         <Row k="지점" v={cu.branch} />
         <Row k="담당" v={cu.manager} />
         <Row k="최초 등록" v={cu.registered_on} />
