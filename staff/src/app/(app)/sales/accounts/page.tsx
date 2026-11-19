@@ -27,7 +27,7 @@ export default function Accounts() {
   }
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div>
       <div className="card">
         <div className="hd"><h2>계정 추가</h2><span className="meta">경비 지출을 나눌 항목이에요 (예: 임대료, 소모품, 광고비)</span></div>
         <form style={{ display: "flex", gap: 8, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); if (name.trim()) { save({ name: name.trim() }); setName(""); } }}>

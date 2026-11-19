@@ -92,7 +92,7 @@ function ChartView() {
       <header className="top">
         <Link href="/customers" className="btn t sm" style={{ paddingLeft: 0 }}>← 고객 목록</Link>
       </header>
-      <div className="page" style={{ maxWidth: "var(--content-w)" }}>
+      <div className="page">
         {/* 머리 */}
         <div className="card" style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ width: 56, height: 56, borderRadius: "var(--r-pill)", background: "var(--red-50)", color: "var(--red)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-xl)", fontWeight: 700, flex: "none" }}>

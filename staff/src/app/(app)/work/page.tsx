@@ -132,7 +132,7 @@ export default function Work() {
           <button className="btn sm" onClick={load}>새로 고침</button>
         </div>
       </header>
-      <div className="page" style={{ display: "grid", gap: "var(--section-gap)", maxWidth: "var(--content-w)" }}>
+      <div className="page" style={{ display: "grid", gap: "var(--section-gap)" }}>
         {err && <p style={{ color: "var(--red)", margin: 0 }}>{err}</p>}
 
         <div style={{ display: "grid", gap: "var(--gap)", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
