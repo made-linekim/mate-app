@@ -35,7 +35,7 @@ const ICONS = {
   card: <><rect x="3" y="5.5" width="18" height="13" rx="2.5" {...P} /><path d="M3 10h18M7 15h4" {...P} /></>,
   note: <><path d="M6 3.5h9l3.5 3.5v13.5H6z" {...P} /><path d="M9 11h6M9 15h6" {...P} /></>,
   grid: <><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" {...P} /><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" {...P} /><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" {...P} /><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" {...P} /></>,
-  won: <><circle cx="12" cy="12" r="8.5" {...P} /><path d="M7.5 9l1.8 6 2.7-6 2.7 6 1.8-6M7 11.5h10" {...P} /></>,
+  won: <path d="M4.5 6l3 12 4.5-10 4.5 10 3-12M3.5 11h17M3.5 14h17" {...P} />,
   bar: <path d="M4 20h16M7 16.5V11M12 16.5V6M17 16.5v-8" {...P} />,
   mega: <><path d="M4 10v4l11 4.5V5.5L4 10z" {...P} /><path d="M8 15l1 4.5M18.5 9.5v5" {...P} /></>,
   team: <><circle cx="9" cy="9" r="3.3" {...P} /><path d="M3 19.5c.9-3.2 3.2-4.7 6-4.7s5.1 1.5 6 4.7M15.5 5.9a3.3 3.3 0 010 6.3M17.5 14.9c1.7.6 3 2 3.5 4.6" {...P} /></>,
@@ -73,7 +73,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!me) return null;
   return (
     <MeCtx.Provider value={me}>
-      <div className="app">
+      <div className={`app ${path.startsWith("/customers/chart") ? "nomtab" : ""}`}>
         <aside className="side">
           <div className="logo"><span>M</span>MERA</div>
           <nav className="nav">
@@ -110,7 +110,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               ? <Link key={t.label} href={t.href} className={isOn(path, t.href) ? "on" : ""}>{icon}<span>{t.label}</span></Link>
               : <span key={t.label} className="off">{icon}<span>{t.label}</span></span>;
           })}
-          <button className={more ? "on" : ""} onClick={() => setMore(!more)}>
+          <button className={more || !TABS.some((t) => t.href && isOn(path, t.href)) ? "on" : ""} onClick={() => setMore(!more)}>
             <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden><circle cx="6" cy="12" r="1.6" fill="currentColor" /><circle cx="12" cy="12" r="1.6" fill="currentColor" /><circle cx="18" cy="12" r="1.6" fill="currentColor" /></svg>
             <span>더보기</span>
           </button>

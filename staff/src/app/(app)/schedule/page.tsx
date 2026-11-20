@@ -158,7 +158,7 @@ export default function SchedulePage() {
           border: cancel ? "1px dashed var(--st-cancel-line)" : "0", borderLeft: `3px solid ${cancel ? "var(--st-cancel-line)" : c}`,
           outline: sel ? "2px solid var(--ink)" : undefined, outlineOffset: -2, opacity: done ? "var(--st-done-opacity)" as unknown as number : undefined,
         }}>
-        <div className="l1 num" style={{ paddingRight: noshow || cancel ? 40 : 0 }}><b>{r.start_time.slice(0, 5)} {name}</b>{done && <span> · 결제 완료</span>}{h < 40 && <span> {p?.short || p?.name}</span>}</div>
+        <div className="l1 num" style={{ paddingRight: noshow || cancel ? 40 : 0 }}><b>{r.start_time.slice(0, 5)} {name}</b>{done && <span> · 완료</span>}{h < 40 && <span> {p?.short || p?.name}</span>}</div>
         {h >= 40 && <div className="l2">{p?.short || p?.name || r.kind} {r.minutes}분{showStaff && r.staff_name ? ` · ${r.staff_name}` : ""}</div>}
         {(noshow || cancel) && <span className={`tag ${noshow ? "ns" : "cc"}`}>{STATUS_TXT[r.status]}</span>}
         {!noshow && !cancel && r.customer_key && soon.has(r.customer_key) && <i className="dot" title="회원권 만료 예정" />}
@@ -175,13 +175,13 @@ export default function SchedulePage() {
       }));
     const gridH = slots.length * ROW_H;
     return (
-      <div className="tg" style={{ gridTemplateColumns: `64px repeat(${cols.length}, minmax(${view === "day" ? 180 : 120}px, 1fr))` }}>
+      <div className="tg" style={{ gridTemplateColumns: `64px repeat(${cols.length}, minmax(${view === "day" ? 120 : 110}px, 1fr))` }}>
         <div className="tg-h tg-corner" />
         {cols.map((c) => {
           const hol = holidayOf(c.day);
           return (
             <div key={c.key} className="tg-h">
-              <b style={{ color: view === "week" && (hol || dow(c.day) === 0) ? "var(--red)" : view === "week" && c.day === today ? "var(--red)" : undefined }}>{c.head}</b>
+              <b style={{ color: view === "week" && (hol || c.day === today) ? "var(--red)" : undefined }}>{c.head}</b>
               <span>{hol && view === "week" ? "휴무" : c.sub || " "}</span>
             </div>
           );
@@ -206,6 +206,12 @@ export default function SchedulePage() {
               {placed.map(({ r, start, minutes, lane, lanes: n }) => {
                 const top = ((start - dStart) / STEP) * ROW_H;
                 const h = Math.max((minutes / STEP) * ROW_H - 4, 26);
+                // 주간에서 3개 이상 겹치면 칸이 너무 좁아져요: 2칸까지만 나누고 나머지는 +N 으로
+                if (view === "week" && n > 2) {
+                  if (lane > 1) return null;
+                  const more = lane === 1 ? placed.filter((x) => x.lane > 1 && x.start < start + minutes && x.start + x.minutes > start).length : 0;
+                  return <div key={r.id}>{block(r, top, h, lane, 2, true)}{more > 0 && <span className="rv-more num" style={{ top: top + h - 16 }}>+{more}</span>}</div>;
+                }
                 return block(r, top, h, lane, n, view === "week");
               })}
             </div>
@@ -233,7 +239,17 @@ export default function SchedulePage() {
           return (
             <div key={d} className={`mg-c ${inM ? "" : "out"} ${d === today ? "td" : ""}`} onClick={() => { setDay(d); setView("day"); }}>
               <div className="mg-d num" style={{ color: hol || dow(d) === 0 ? "var(--red)" : undefined }}><i>{Number(d.slice(8))}</i>{hol && <span> 휴무</span>}</div>
-              {inM && brief && list.length > 0 && (
+              {inM && brief && mobile && (
+                <div className="mg-chips num">
+                  {list.slice(0, 5).map((r) => {
+                    const p = progMap.get(r.program_id ?? "");
+                    const off = r.status === "취소" || r.status === "노쇼";
+                    return <div key={r.id} style={{ background: off ? "var(--bg-sub)" : tint(p?.color ?? "#8A8A8A", 22), color: off ? "var(--ink-4)" : undefined }}>{r.start_time.slice(0, 5)} {r.kind === "고객" ? r.customer_name : r.title || p?.short}</div>;
+                  })}
+                  {list.length > 5 && <div className="mg-more">+{list.length - 5}</div>}
+                </div>
+              )}
+              {inM && brief && !mobile && list.length > 0 && (
                 <div className="mg-brief num">
                   <div>예약 <b>{act.length}</b></div>
                   <div>결제 <b>{list.filter((r) => r.status === "완료").length}</b></div>
@@ -248,12 +264,12 @@ export default function SchedulePage() {
                   {list.slice(0, 4).map((r) => {
                     const p = progMap.get(r.program_id ?? "");
                     return (
-                      <div key={r.id} className="mg-it num" style={{ borderLeftColor: p?.color ?? "var(--ink-4)", opacity: r.status === "완료" ? .5 : 1, textDecoration: r.status === "취소" ? "line-through" : undefined }}>
-                        {r.start_time.slice(0, 5)} {r.kind === "고객" ? r.customer_name : r.title || p?.name}
+                      <div key={r.id} className="mg-it num" style={{ borderLeftColor: p?.color ?? "var(--ink-4)", background: tint(p?.color ?? "#8A8A8A", 13), opacity: r.status === "완료" ? .6 : 1, textDecoration: r.status === "취소" ? "line-through" : undefined }}>
+                        {r.start_time.slice(0, 5)} {r.kind === "고객" ? r.customer_name : r.title || p?.name}{r.kind === "고객" && (p?.short || p?.name) ? `(${p?.short || p?.name})` : ""}{r.status === "완료" ? " ✓" : ""}
                       </div>
                     );
                   })}
-                  {list.length > 4 && <div className="mg-more">+{list.length - 4}건</div>}
+                  {list.length > 4 && <div className="mg-more">+{list.length - 4}</div>}
                 </>
               )}
             </div>
@@ -330,7 +346,7 @@ export default function SchedulePage() {
         </header>
         <div className="rm-bar">
           <button className="btn t sm" onClick={() => move(-1)} aria-label="이전">‹</button>
-          <b className="num">{view === "week" ? `${Number(from.slice(5, 7))}월 ${wkNo(from)}주` : `${Number(day.slice(5, 7))}월`}</b>
+          <b className="num">{view === "week" ? `${Number(from.slice(5, 7))}월 ${wkNo(from)}주` : `${day.slice(0, 4)}년 ${Number(day.slice(5, 7))}월`}</b>
           <button className="btn t sm" onClick={() => move(1)} aria-label="다음">›</button>
           <div style={{ flex: 1 }} />
           <button className="btn t sm" onClick={() => setDay(today)}>오늘</button>
@@ -385,7 +401,7 @@ export default function SchedulePage() {
               {VIEWS.map((v) => <button key={v.k} className={view === v.k ? "on" : ""} onClick={() => setView(v.k)}>{v.l}</button>)}
             </div>
           </div>
-          {(view === "day" || view === "week") && (
+          {view === "week" && (
             <div className="rsv-strip num">
               {Array.from({ length: Number(monthEnd(day).slice(8)) }, (_, i) => `${day.slice(0, 8)}${String(i + 1).padStart(2, "0")}`).map((d) => (
                 <button key={d} onClick={() => setDay(d)}

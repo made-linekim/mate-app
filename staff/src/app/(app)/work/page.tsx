@@ -421,7 +421,7 @@ function ApprovalTab({ can, items, certN, busy, onDone }: { can: boolean; items:
       <section className="card w-tcard">
         <div className="w-x">
           <table className="t">
-            <thead><tr><th>종류</th><th>내용</th><th>요청</th><th>기한</th><th></th></tr></thead>
+            <thead><tr><th>종류</th><th>내용</th><th>요청</th><th>요청 시각</th><th></th></tr></thead>
             <tbody>
               {showItems && items.map((it) => (
                 <tr key={it.id}>

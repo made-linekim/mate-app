@@ -55,7 +55,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font
 .side .nav .off{color:var(--ink-4);cursor:default}
 .side .nav .off svg{color:var(--line-strong)}
 .side .nav .off em{margin-left:auto;font-style:normal;font-size:11px;color:var(--ink-4)}
-.side .mecard{margin-top:auto;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r-card);padding:12px}
+.side .mecard{margin-top:auto;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:14px 4px 0}
 .side .mecard .av{width:36px;height:36px;border-radius:50%;background:var(--bg-sub);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--ink-2);flex:none}
 .side .mecard .nm{font-weight:600;font-size:var(--fs-md);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .side .mecard .sb{font-size:var(--fs-xs);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -103,6 +103,7 @@ table.t{width:100%;border-collapse:collapse}
 table.t th{height:var(--th-h);background:var(--bg-sub);font-size:var(--fs-xs);font-weight:600;color:var(--ink-3);text-align:left;padding:0 12px}
 table.t td{height:var(--tr-h);border-bottom:1px solid var(--line);font-size:var(--fs-md);padding:0 12px}
 table.t tr:hover td{background:var(--bg-soft)}
+.sel{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%235F5F5F' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px!important}
 .inp,.sel{height:var(--input-h);border:1px solid var(--line-strong);border-radius:var(--r-ctl);padding:0 12px;font-size:var(--fs-md);background:var(--bg);color:var(--ink);font-family:inherit;width:100%}
 .inp::placeholder{color:var(--ink-4)}
 .inp:focus,.sel:focus{outline:none;border-color:var(--ink)}
@@ -165,7 +166,7 @@ table.t tr:hover td{background:var(--bg-soft)}
 .tg-slot.half{border-top:1px solid var(--bg-sub)}
 .tg-slot:hover{background:var(--bg-soft)}
 .tg-now{position:absolute;left:0;right:0;border-top:1.5px solid var(--red);z-index:1;pointer-events:none}
-.rv{position:absolute;z-index:2;text-align:left;padding:5px 8px;border:0;border-radius:var(--r-badge);overflow:hidden;color:var(--ink);font-size:var(--fs-xs);line-height:17px}
+.rv{position:absolute;z-index:2;text-align:left;display:flex;flex-direction:column;justify-content:flex-start;padding:5px 8px;border:0;border-radius:var(--r-badge);overflow:hidden;color:var(--ink);font-size:var(--fs-xs);line-height:17px}
 .rv .l1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm)}
 .rv .l1 span{color:var(--ink-3)}
 .rv .l2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
@@ -191,6 +192,10 @@ table.t tr:hover td{background:var(--bg-soft)}
 .fsel{width:auto;height:var(--btn-h-sm);font-size:var(--fs-sm);font-weight:600;padding:0 28px 0 12px}
 .mg-it{font-size:11px;line-height:16px;border-left:3px solid;padding-left:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mg-more{font-size:11px;color:var(--ink-3)}
+.mg-it{border-radius:3px;padding:1px 5px;margin-bottom:2px}
+.rv-more{position:absolute;right:4px;z-index:4;font-size:11px;font-weight:600;background:var(--ink);color:#fff;border-radius:8px;padding:0 6px;line-height:16px;pointer-events:none}
+.mg-chips{display:flex;flex-direction:column;gap:2px;margin-top:2px}
+.mg-chips>div{font-size:9.5px;line-height:14px;border-radius:3px;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:clip}
 @media (max-width:1100px){.rsv-body{grid-template-columns:1fr}.sb-panel{display:none}}
 /* 예약 수정 시트 (시안 8차 P03) */
 .rd .hd{gap:10px}
@@ -260,3 +265,6 @@ table.t tr:hover td{background:var(--bg-soft)}
  .rd-ro{width:72px}
  .rd .ft{gap:6px;padding:0 16px}
 }
+
+/* 고객 차트 모바일: 아래 문자·예약 잡기 바만 (시안 M01) */
+@media (max-width:767px){.nomtab .mtab{display:none}.nomtab .c-mbar{bottom:0!important;padding-bottom:calc(10px + env(safe-area-inset-bottom))}}
