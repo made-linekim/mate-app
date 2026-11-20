@@ -7,7 +7,7 @@ import { BranchOne, friendly, useBranchPick } from "../ui";
 type P = {
   id: string; branch: string; name: string; kind: string; valid_days: number | null; price: number | null;
   face_amount: number | null; share_ok: boolean; swap_ok: boolean; app_visible: boolean; on_sale: boolean;
-  items: { program: string; count: number }[]; sold: number;
+  items: { program_id: string; program: string; count: number; unit_price: number }[]; sold: number;
 };
 const KINDS = [null, "회차", "기간", "금액"] as const;
 
@@ -75,7 +75,7 @@ export default function Products() {
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>상품 추가·수정은 설정 메뉴(다음 작업)에서 할 수 있게 만들 예정이에요.</p>
+      <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>상품 추가·수정은 설정 › 회원권 상품에서 해요.</p>
     </>
   );
 }

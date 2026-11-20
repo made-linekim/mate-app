@@ -48,7 +48,7 @@ returns table(id text, branch text, name text, kind text, valid_days integer, pr
               share_ok boolean, swap_ok boolean, app_visible boolean, on_sale boolean, items jsonb, sort integer, sold bigint)
 language sql stable security definer set search_path to 'public' as $$
   select p.id, p.branch, p.name, p.kind, p.valid_days, p.price, p.face_amount, p.share_ok, p.swap_ok, p.app_visible, p.on_sale,
-         (select coalesce(jsonb_agg(jsonb_build_object('program', coalesce(g.name, it->>'program_id'), 'count', (it->>'count')::int)), '[]'::jsonb)
+         (select coalesce(jsonb_agg(jsonb_build_object('program_id', it->>'program_id', 'program', coalesce(g.name, it->>'program_id'), 'count', (it->>'count')::int, 'unit_price', coalesce((it->>'unit_price')::int,0))), '[]'::jsonb)
             from jsonb_array_elements(coalesce(p.items,'[]'::jsonb)) it left join rsv_programs g on g.id = it->>'program_id'),
          p.sort,
          (select count(*) from rsv_memberships m where m.product_id = p.id and m.branch = p_branch)

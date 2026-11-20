@@ -13,6 +13,7 @@ const NAV = [
   { href: "/membership", label: "회원권" },
   { href: "/sales", label: "매출" },
   { href: "/staff", label: "직원 관리" },
+  { href: "/settings", label: "설정" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
