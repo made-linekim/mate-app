@@ -20,8 +20,8 @@ const md = (d: string) => `${Number(d.slice(5, 7))}.${d.slice(8)}`;
 const daysTo = (d: string, from: string) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 864e5);
 const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onClose, onSaved }: {
-  branch: string; draft: Draft; programs: Program[]; rows: Rsv[]; canWrite: boolean;
+export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onClose, onSaved, docked }: {
+  docked?: boolean; branch: string; draft: Draft; programs: Program[]; rows: Rsv[]; canWrite: boolean;
   onClose: () => void; onSaved: () => void;
 }) {
   const editing = !!draft.id;
@@ -127,8 +127,8 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
 
   return (
     <>
-      <div className="dim" style={{ zIndex: 20 }} onClick={onClose} />
-      <aside className={editing ? "drawer rd" : "drawer rd rd-modal"} style={{ zIndex: 21 }} role="dialog" aria-label={editing ? "예약 수정" : "새 예약"}>
+      {!docked && <div className="dim" style={{ zIndex: 20 }} onClick={onClose} />}
+      <aside className={docked ? "rd rd-docked" : editing ? "drawer rd" : "drawer rd rd-modal"} style={docked ? undefined : { zIndex: 21 }} role="dialog" aria-label={editing ? "예약 수정" : "새 예약"}>
         <div className="hd">
           {editing ? "예약 수정" : "새 예약"}
           <span className="rd-sub num">{md(day)} ({DOW[dow(day)]}) {time}</span>
@@ -138,7 +138,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <button className="rd-x" onClick={onClose} aria-label="닫기">×</button>
+          {(!docked || editing) && <button className="rd-x" onClick={onClose} aria-label="닫기" title={docked ? "새 예약으로" : "닫기"}>×</button>}
         </div>
         {!editing && (
           <div className="rd-tabs">
