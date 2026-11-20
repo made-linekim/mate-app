@@ -18,6 +18,7 @@ type Summary = {
 };
 const md = (d: string) => `${Number(d.slice(5, 7))}.${d.slice(8)}`;
 const daysTo = (d: string, from: string) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 864e5);
+const addD = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onClose, onSaved, docked }: {
@@ -49,6 +50,13 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   // 겹침 안내 (시안 1120 U-MO-RSV-1 시간겹침 · 같은고객): 강제 저장 없이 비어 있는 다른 시간을 골라 저장
   const [clash, setClash] = useState<{ cust: boolean; other: Rsv; alts: number[] } | null>(null);
   const [alt, setAlt] = useState<number | null>(null);
+  // 반복 예약: 첫 예약과 같은 시간·관리로 주기마다 N회
+  const [rep, setRep] = useState(false);
+  const [repEvery, setRepEvery] = useState(7);
+  const [repN, setRepN] = useState(4);
+  const [repMsg, setRepMsg] = useState("");
+  const [repDone, setRepDone] = useState(false);
+  const repDays = useMemo(() => Array.from({ length: rep ? repN : 1 }, (_, i) => addD(day, i * repEvery)), [rep, repN, repEvery, day]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 고객 요약 (시안 8차 P03: 이력 · 보유 회원권 · 비고)
   const [sum, setSum] = useState<Summary | null>(null);
@@ -88,8 +96,8 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   };
 
   // 같은 담당 또는 같은 고객이 같은 시간에 이미 예약(취소·노쇼 제외)이 있는지
-  const findClash = (at: number, ck: string | null, mins: number) => rows.find((r) =>
-    r.day === day && r.id !== draft.id && (r.status === "예약" || r.status === "완료")
+  const findClash = (at: number, ck: string | null, mins: number, onDay = day) => rows.find((r) =>
+    r.day === onDay && r.id !== draft.id && (r.status === "예약" || r.status === "완료")
     && toMin(r.start_time) < at + mins && at < toMin(r.start_time) + (r.minutes || 30)
     && ((!!ck && r.customer_key === ck) || (!!staffId && r.staff_id === staffId)));
   const save = async (atOverride?: number) => {
@@ -125,6 +133,17 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
       : await sb.rpc("rsv_create", { p: body });
     setBusy(false);
     if (error) return setErr(error.message);
+    if (!editing && rep && repDays.length > 1) {
+      setBusy(true);
+      const fail: string[] = [];
+      for (const d of repDays.slice(1)) {
+        if (findClash(at, ck, prog.minutes, d)) { fail.push(`${md(d)} 겹침`); continue; }
+        const r = await sb.rpc("rsv_create", { p: { ...body, day: d } });
+        if (r.error) fail.push(`${md(d)} ${/capacity|정원/i.test(r.error.message) ? "정원 참" : "실패"}`);
+      }
+      setBusy(false);
+      if (fail.length) { setRepMsg(`${repDays.length - fail.length}건 등록했어요. 못 넣은 날: ${fail.join(", ")}`); setRepDone(true); return; }
+    }
     onSaved();
   };
 
@@ -303,10 +322,32 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             </div>
           </div>
 
-          <div className="rd-grid">
+          <div className="rd-memo">
             <span className="rd-k">관리 메모</span>
-            <input className="inp" value={memo} disabled={ro} onChange={(e) => setMemo(e.target.value)} placeholder="예: 왼쪽 어깨 위주 · 압 약하게" />
+            <textarea className="inp" rows={5} value={memo} disabled={ro} onChange={(e) => setMemo(e.target.value)} placeholder="예: 왼쪽 어깨 위주 · 압 약하게" />
           </div>
+
+          {!editing && !ro && (
+            <div className="rd-rep">
+              <label className="rd-rep-on"><input type="checkbox" checked={rep} onChange={(e) => setRep(e.target.checked)} /> 반복 예약</label>
+              {rep && (
+                <>
+                  <div className="rd-rep-row">
+                    <select className="sel" value={repEvery} onChange={(e) => setRepEvery(Number(e.target.value))}>
+                      <option value={7}>매주 같은 요일</option>
+                      <option value={14}>2주마다</option>
+                      <option value={1}>매일</option>
+                    </select>
+                    <select className="sel" value={repN} onChange={(e) => setRepN(Number(e.target.value))}>
+                      {Array.from({ length: 19 }, (_, i) => i + 2).map((n) => <option key={n} value={n}>총 {n}회</option>)}
+                    </select>
+                  </div>
+                  <div className="rd-rep-days num">{repDays.map((d) => <span key={d}>{md(d)}({DOW[dow(d)]})</span>)}</div>
+                </>
+              )}
+            </div>
+          )}
+          {repMsg && <div className="rd-rep-msg">{repMsg}</div>}
 
           {editing && (
             <div className="rd-help">
@@ -339,7 +380,8 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
               <button className="btn" disabled={busy} onClick={() => setStatus("예약")}>예약으로 되돌리기</button>
             )}
             <div style={{ flex: 1 }} />
-            {!locked && <button className={editing ? "btn" : "btn p"} disabled={busy} onClick={() => save()}>{editing ? "저장" : "예약 등록"}</button>}
+            {repDone ? <button className="btn p" onClick={onSaved}>닫기</button>
+              : !locked && <button className={editing ? "btn" : "btn p"} disabled={busy} onClick={() => save()}>{editing ? "저장" : rep ? `반복 예약 ${repN}건 등록` : "예약 등록"}</button>}
             {editing && !work && <button className="btn p" disabled title="결제 화면은 준비 중이에요">결제</button>}
           </div>
         )}

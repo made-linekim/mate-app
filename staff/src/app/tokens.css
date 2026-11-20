@@ -435,3 +435,13 @@ table.t tr:hover td{background:var(--bg-soft)}
  .rsv-m .mg-d{flex-direction:column;align-items:flex-start;gap:2px}
  .rsv-m .mg-hol{font-size:10px;padding:0 3px}
 }
+
+/* 예약 창: 관리 메모 크게 + 반복 예약 */
+.rd-memo{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.rd-memo textarea{height:auto;min-height:120px;padding:10px 12px;line-height:1.5;resize:vertical;font-size:var(--fs-md)}
+.rd-rep{margin-top:12px;border:1px solid var(--line);border-radius:var(--r-ctl);padding:10px 12px;background:var(--bg-soft)}
+.rd-rep-on{display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer}
+.rd-rep-row{display:flex;gap:8px;margin-top:8px}.rd-rep-row .sel{flex:1}
+.rd-rep-days{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.rd-rep-days span{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:var(--fs-xs)}
+.rd-rep-msg{margin-top:10px;padding:10px 12px;border-radius:var(--r-ctl);background:var(--amb-50,#FFF1DC);color:var(--amb,#965A00);font-size:var(--fs-sm)}
