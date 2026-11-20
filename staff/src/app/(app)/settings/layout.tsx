@@ -1,32 +1,50 @@
 "use client";
+import "./settings.css";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const TABS = [
-  { href: "/settings", label: "업무시간 · 휴무" },
-  { href: "/settings/programs", label: "관리 항목" },
-  { href: "/settings/products", label: "회원권 상품" },
-];
+import { BRANCHES } from "@/lib/sb";
+import { useMe } from "@/lib/me";
+import { ALL_OK, Ico, SET_NAV, SetCtx } from "./ui";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+  const me = useMe();
   const path = usePathname();
-  const cur = TABS.find((t) => (t.href === "/settings" ? path === "/settings" : path.startsWith(t.href)));
+  const [branch, setBranch] = useState(me.branch || BRANCHES[0]);
+  const home = path === "/settings";
+  // PC에서 /settings 는 업무시간을 보여 줘요 (모바일에선 메뉴 목록)
+  const curHref = home ? "/settings/hours" : path;
+  const cur = SET_NAV.flatMap((g) => g.items).find((i) => i.href && curHref.startsWith(i.href));
+  const allOk = ALL_OK.some((h) => path.startsWith(h));
+  const owner = me.tier === "owner";
+  const shown = branch === "all" && !allOk ? me.branch || BRANCHES[0] : branch;
+
   return (
-    <>
-      <header className="top"><h1>설정</h1><span className="sub">{cur?.label}</span></header>
-      <nav style={{ display: "flex", gap: 4, padding: "0 var(--page-x)", borderBottom: "1px solid var(--line)", overflowX: "auto" }}>
-        {TABS.map((t) => {
-          const on = t === cur;
-          return (
-            <Link key={t.href} href={t.href} style={{
-              height: "var(--tab-h)", display: "flex", alignItems: "center", padding: "0 12px", whiteSpace: "nowrap",
-              fontSize: "var(--fs-md)", fontWeight: on ? 700 : 500, color: on ? "var(--red)" : "var(--ink-3)",
-              borderBottom: on ? "2px solid var(--red)" : "2px solid transparent",
-            }}>{t.label}</Link>
-          );
-        })}
-      </nav>
-      <div className="page">{children}</div>
-    </>
+    <SetCtx.Provider value={{ branch: shown, setBranch }}>
+      <header className={`top st-top ${home ? "" : "sub"}`}>
+        <Link href="/settings" className="st-back" aria-label="설정 목록으로"><Ico n="back" s={20} /></Link>
+        <h1>설정</h1>
+        <span className="st-mt">{cur?.label}</span>
+        <select className="sel st-br" aria-label="지점" value={owner ? shown : me.branch} disabled={!owner} onChange={(e) => setBranch(e.target.value)}>
+          {owner && allOk && <option value="all">전 지점</option>}
+          {(owner ? BRANCHES : [me.branch]).map((b) => <option key={b} value={b}>{b}</option>)}
+        </select>
+      </header>
+      <div className={`st-wrap ${home ? "home" : ""}`}>
+        <nav className="st-nav" aria-label="설정 메뉴">
+          {SET_NAV.map((g) => (
+            <div key={g.group} style={{ display: "contents" }}>
+              <div className="g">{g.group}</div>
+              {g.items.map((i) => i.href ? (
+                <Link key={i.label} href={i.href} className={cur === i ? "on" : ""}>{i.label}<span className="chev"><Ico n="chev" /></span></Link>
+              ) : (
+                <span key={i.label} className="off" title="준비 중이에요">{i.label}<em>준비 중</em></span>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <section className="st-body">{children}</section>
+      </div>
+    </SetCtx.Provider>
   );
 }

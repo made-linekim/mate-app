@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sb } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { canSee, won, todayKST, downloadCsv } from "@/lib/sales";
-import { BranchOne, Kpis, friendly, useBranchPick } from "./ui";
+import { MbKpi, friendly, useMb } from "./ui";
 
 type Row = {
   id: string; customer_key: string; customer: string | null; manager: string | null; name: string; kind: string;
@@ -24,16 +24,19 @@ const FILTERS = [
   { v: "all", label: "전체" },
 ];
 const ST = { active: { t: "사용 중", c: "ok" }, soon: { t: "임박", c: "warn" }, expired: { t: "끝남", c: "" } } as const;
+const n = (v: number) => Number(v).toLocaleString();
+const md = (d: string | null) => (d ? `${d.slice(2, 4)}.${d.slice(5, 7)}.${d.slice(8, 10)}` : "");
 
 export default function Holdings() {
   const me = useMe();
   const router = useRouter();
-  const [branch, setBranch] = useState(useBranchPick());
+  const { branch, q } = useMb();
   const [filter, setFilter] = useState("active");
-  const [q, setQ] = useState("");
+  const [prod, setProd] = useState<string | null>(null);
   const [data, setData] = useState<Data | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let on = true;
@@ -49,8 +52,8 @@ export default function Holdings() {
 
   const rows = useMemo(() => {
     const s = q.trim();
-    return (data?.rows ?? []).filter((r) => !s || (r.customer ?? "").includes(s) || r.name.includes(s));
-  }, [data, q]);
+    return (data?.rows ?? []).filter((r) => (!s || (r.customer ?? "").includes(s) || r.name.includes(s)) && (!prod || r.name === prod));
+  }, [data, q, prod]);
 
   // 고객당 한 줄로 묶기 (회원권 여러 장은 한 칸 안에)
   const groups = useMemo(() => {
@@ -66,97 +69,128 @@ export default function Holdings() {
     return [...m.values()];
   }, [rows]);
 
+  // 회원권별 요약: 보유 고객 수는 지금 받은 목록에서 고객 수로 셈
+  const full = (data?.rows.length ?? 0) < 500; // 서버는 목록을 500줄까지만 줘요
+  const byProd = useMemo(() => (data?.by_product ?? []).map((p) => {
+    const custs = new Set((data?.rows ?? []).filter((r) => r.name === p.name && r.kind === p.kind).map((r) => r.customer_key));
+    const cnt = Number(p.remain_cnt), amt = Number(p.remain_amt);
+    return { ...p, custs: full ? custs.size : p.n, unit: p.kind === "회차" && cnt > 0 ? Math.round(amt / cnt) : null };
+  }), [data, full]);
+  const sumCusts = full ? new Set((data?.rows ?? []).map((r) => r.customer_key)).size : byProd.reduce((a, p) => a + p.custs, 0);
+
+  function show(name: string | null) {
+    setProd(name);
+    setTimeout(() => listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }
+
   const k = data?.kpi;
   return (
     <>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <div className="seg">
-          {FILTERS.map((f) => <button key={f.v} className={filter === f.v ? "on" : ""} onClick={() => setFilter(f.v)}>{f.label}</button>)}
-        </div>
-        <input className="inp" style={{ maxWidth: 240 }} placeholder="고객명 또는 회원권명" value={q} onChange={(e) => setQ(e.target.value)} />
-        <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <BranchOne value={branch} onChange={setBranch} />
-          {canSee(me, "export.excel") && (
-            <button className="btn sm" disabled={!rows.length} onClick={() => downloadCsv(`보유회원권_${branch}_${todayKST()}.csv`,
-              ["고객명", "담당", "회원권", "종류", "구매일", "만료일", "전체", "사용", "남은 회차", "남은 금액", "미수", "상태"],
-              rows.map((r) => [r.customer, r.manager, r.name, r.kind, r.sold_on, r.end_on, r.total, r.used, r.remain, r.remain_amt, r.unpaid, ST[r.st].t]))}>엑셀 내려받기</button>
-          )}
-        </span>
+      {err && <p className="mb-err">{err}</p>}
+      <div className="mb-kpis">
+        <MbKpi label="보유 고객" value={k ? n(k.customers) : "-"} unit="명" sub="끝나지 않은 회원권 1개 이상" />
+        <MbKpi label="남은 회차 합" value={k ? n(k.remain_cnt) : "-"} unit="회" />
+        <MbKpi label="남은 금액 합" value={k ? won(k.remain_amt) : "-"} unit="원" sub="판매가 ÷ 전체 회차 × 남은 회차" em />
+        <MbKpi label="만료 임박" value={k ? n(k.soon) : "-"} unit="건" sub="7일 안 만료 · 2회 이하 남음" />
       </div>
 
-      {err && <p style={{ color: "var(--red)" }}>{err}</p>}
-      {k && (
-        <Kpis items={[
-          { label: "보유 고객", value: `${k.customers.toLocaleString()}명` },
-          { label: "남은 회차 합", value: `${k.remain_cnt.toLocaleString()}회` },
-          { label: "남은 금액 합", value: `${won(k.remain_amt)}원`, strong: true },
-          { label: "만료 임박 (7일·2회 이하)", value: `${k.soon.toLocaleString()}건` },
-        ]} />
-      )}
-
-      {data && data.by_product.length > 0 && (
-        <div className="card" style={{ padding: 0, overflowX: "auto", marginBottom: 16 }}>
-          <div style={{ padding: "12px 16px", fontWeight: 700 }}>회원권별 요약</div>
-          <table className="t">
-            <thead><tr><th>회원권</th><th>종류</th><th style={{ textAlign: "right" }}>건수</th><th style={{ textAlign: "right" }}>남은 회차</th><th style={{ textAlign: "right" }}>남은 금액</th></tr></thead>
+      <div className="mb-card">
+        <div className="mb-hd">
+          <h2>회원권별 요약</h2><span className="meta">{byProd.length}종</span>
+          <div className="act">
+            <div className="seg">
+              {FILTERS.map((f) => <button key={f.v} className={filter === f.v ? "on" : ""} onClick={() => setFilter(f.v)}>{f.label}</button>)}
+            </div>
+            <button className="mb-link" onClick={() => show(null)}>고객별 목록 열기</button>
+          </div>
+        </div>
+        <div className="mb-scroll">
+          <table className="mb-t">
+            <thead>
+              <tr>
+                <th>회원권</th><th className="r">보유 고객</th><th className="r">남은 회차</th><th className="r">1회 단가</th>
+                <th className="r">남은 금액</th><th style={{ width: 120 }} />
+              </tr>
+            </thead>
             <tbody>
-              {data.by_product.map((p) => (
+              {byProd.map((p) => (
                 <tr key={p.name + p.kind}>
-                  <td style={{ fontWeight: 600 }}>{p.name}</td><td>{p.kind}</td>
-                  <td className="num" style={{ textAlign: "right" }}>{p.n}</td>
-                  <td className="num" style={{ textAlign: "right" }}>{p.remain_cnt}</td>
-                  <td className="num" style={{ textAlign: "right" }}>{won(p.remain_amt)}</td>
+                  <td>{p.name}{p.kind !== "회차" && <span className="mute"> · {p.kind}</span>}</td>
+                  <td className="r">{n(p.custs)}</td>
+                  <td className="r">{p.kind === "회차" ? n(p.remain_cnt) : "-"}</td>
+                  <td className="r">{p.unit != null ? won(p.unit) : "-"}</td>
+                  <td className="r">{won(p.remain_amt)}</td>
+                  <td><button className="btn sm" onClick={() => show(p.name)}>고객 보기</button></td>
                 </tr>
               ))}
-              <tr style={{ fontWeight: 700 }}>
-                <td>합계</td><td></td>
-                <td className="num" style={{ textAlign: "right" }}>{data.by_product.reduce((a, p) => a + p.n, 0)}</td>
-                <td className="num" style={{ textAlign: "right" }}>{data.by_product.reduce((a, p) => a + Number(p.remain_cnt), 0)}</td>
-                <td className="num" style={{ textAlign: "right" }}>{won(data.by_product.reduce((a, p) => a + Number(p.remain_amt), 0))}</td>
+              {!loading && byProd.length === 0 && !err && <tr><td colSpan={6} className="mb-empty">조건에 맞는 회원권이 없어요</td></tr>}
+              {loading && !data && <tr><td colSpan={6} className="mb-empty">불러오는 중</td></tr>}
+            </tbody>
+            {byProd.length > 0 && (
+              <tfoot>
+                <tr>
+                  <td>합계</td>
+                  <td className="r">{n(sumCusts)}</td>
+                  <td className="r">{n(byProd.reduce((a, p) => a + (p.kind === "회차" ? Number(p.remain_cnt) : 0), 0))}</td>
+                  <td />
+                  <td className="r">{won(byProd.reduce((a, p) => a + Number(p.remain_amt), 0))}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+
+      <div className="mb-card" ref={listRef} style={{ scrollMarginTop: 16 }}>
+        <div className="mb-hd">
+          <h2>고객별 보유 회원권</h2>
+          <span className="meta">{groups.length.toLocaleString()}명{prod ? ` · ${prod}` : ""}</span>
+          {prod && <button className="btn t sm" onClick={() => setProd(null)}>회원권 필터 풀기</button>}
+          <div className="act">
+            {canSee(me, "export.excel") && (
+              <button className="btn sm" disabled={!rows.length} onClick={() => downloadCsv(`보유회원권_${branch}_${todayKST()}.csv`,
+                ["고객명", "담당", "회원권", "종류", "구매일", "만료일", "전체", "사용", "남은 회차", "남은 금액", "미수", "상태"],
+                rows.map((r) => [r.customer, r.manager, r.name, r.kind, r.sold_on, r.end_on, r.total, r.used, r.remain, r.remain_amt, r.unpaid, ST[r.st].t]))}>엑셀 다운</button>
+            )}
+          </div>
+        </div>
+        <div className="mb-scroll">
+          <table className="mb-t">
+            <thead>
+              <tr>
+                <th>고객</th><th>담당</th><th>가진 회원권 (남은 회차 · 만료일)</th>
+                <th className="r">남은 회차</th><th className="r">남은 금액</th><th className="r">미수</th><th>상태</th>
               </tr>
+            </thead>
+            <tbody>
+              {groups.map((g) => (
+                <tr key={g.key} className={`go ${g.st === "expired" ? "off" : ""}`} style={{ verticalAlign: g.items.length > 1 ? "top" : "middle" }}
+                  onClick={() => router.push(`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(g.key)}`)}>
+                  <td className="nm" style={{ paddingTop: g.items.length > 1 ? 14 : undefined }}>{g.customer ?? "-"}{g.items.length > 1 && <span className="mute" style={{ fontWeight: 400 }}> · {g.items.length}개</span>}</td>
+                  <td style={{ paddingTop: g.items.length > 1 ? 14 : undefined }}>{g.manager || "-"}</td>
+                  <td className="items">
+                    {g.items.map((r) => (
+                      <div key={r.id}>
+                        <span>{r.name}</span>
+                        <span className="mute">{r.kind === "회차" ? `${r.remain}회 남음` : r.kind}{r.end_on ? ` · ${md(r.end_on)}` : ""}</span>
+                        {r.st !== "active" && <span className={`badge ${ST[r.st].c}`}>{ST[r.st].t}</span>}
+                      </div>
+                    ))}
+                  </td>
+                  <td className="r" style={{ paddingTop: g.items.length > 1 ? 14 : undefined }}><b>{g.remain}</b></td>
+                  <td className="r" style={{ paddingTop: g.items.length > 1 ? 14 : undefined }}>{won(g.remain_amt)}</td>
+                  <td className="r" style={{ paddingTop: g.items.length > 1 ? 14 : undefined, color: g.unpaid > 0 ? "var(--red)" : undefined }}>{won(g.unpaid)}</td>
+                  <td style={{ paddingTop: g.items.length > 1 ? 10 : undefined }}><span className={`badge ${ST[g.st].c}`}>{ST[g.st].t}</span></td>
+                </tr>
+              ))}
+              {!loading && groups.length === 0 && !err && <tr><td colSpan={7} className="mb-empty">조건에 맞는 회원권이 없어요</td></tr>}
+              {loading && <tr><td colSpan={7} className="mb-empty">불러오는 중</td></tr>}
             </tbody>
           </table>
         </div>
-      )}
-
-      <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>고객</th><th>담당</th><th>가진 회원권 (남은 회차 · 만료일)</th>
-              <th style={{ textAlign: "right" }}>남은 회차</th><th style={{ textAlign: "right" }}>남은 금액</th>
-              <th style={{ textAlign: "right" }}>미수</th><th>상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map((g) => (
-              <tr key={g.key} style={{ cursor: "pointer", color: g.st === "expired" ? "var(--ink-3)" : undefined, verticalAlign: "top" }}
-                onClick={() => router.push(`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(g.key)}`)}>
-                <td style={{ fontWeight: 600 }}>{g.customer ?? "-"}{g.items.length > 1 && <span style={{ color: "var(--ink-3)", fontWeight: 400 }}> · {g.items.length}개</span>}</td>
-                <td>{g.manager || "-"}</td>
-                <td style={{ fontSize: "var(--fs-sm)" }}>
-                  {g.items.map((r) => (
-                    <div key={r.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "2px 0", color: r.st === "expired" ? "var(--ink-3)" : undefined }}>
-                      <span>{r.name}</span>
-                      <span className="num" style={{ color: "var(--ink-3)" }}>{r.kind === "회차" ? `${r.remain}회 남음` : r.kind}{r.end_on ? ` · ${r.end_on}` : ""}</span>
-                      {r.st !== "active" && <span className={`badge ${ST[r.st].c}`}>{ST[r.st].t}</span>}
-                    </div>
-                  ))}
-                </td>
-                <td className="num" style={{ textAlign: "right" }}><b>{g.remain}</b></td>
-                <td className="num" style={{ textAlign: "right" }}>{won(g.remain_amt)}</td>
-                <td className="num" style={{ textAlign: "right", color: g.unpaid > 0 ? "var(--red)" : undefined }}>{won(g.unpaid)}</td>
-                <td><span className={`badge ${ST[g.st].c}`}>{ST[g.st].t}</span></td>
-              </tr>
-            ))}
-            {!loading && groups.length === 0 && !err && (
-              <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ink-3)" }}>조건에 맞는 회원권이 없어요</td></tr>
-            )}
-            {loading && <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ink-3)" }}>불러오는 중</td></tr>}
-          </tbody>
-        </table>
       </div>
-      <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>남은 금액은 판매가 ÷ 전체 회차 × 남은 회차로 계산해요. 고객당 한 줄이고, 누르면 고객 차트가 열려요.</p>
+      <p className="mb-note">고객을 누르면 고객 차트가 열려요.</p>
     </>
   );
 }

@@ -3,17 +3,20 @@ import { useCallback, useEffect, useState } from "react";
 import { sb } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { canSee, won } from "@/lib/sales";
-import { BranchOne, friendly, useBranchPick } from "../../membership/ui";
+import { friendly } from "../../membership/ui";
+import { Head, Ico, IconBtn, Msg, Switch, periodLabel, useSetBranch } from "../ui";
 
 type It = { program_id: string; program?: string; count: number; unit_price?: number };
 type P = { id: string; branch: string; name: string; kind: string; valid_days: number | null; price: number | null; face_amount: number | null; share_ok: boolean; app_visible: boolean; on_sale: boolean; items: It[]; sort: number; sold?: number };
 type G = { id: string; name: string; active: boolean };
+const KINDS = ["회차", "기간", "금액"];
 
 export default function ProductSettings() {
   const me = useMe();
   const owner = me.tier === "owner";
   const editable = canSee(me, "settings.edit");
-  const [branch, setBranch] = useState(useBranchPick());
+  const branch = useSetBranch();
+  const [kind, setKind] = useState("회차");
   const [rows, setRows] = useState<P[]>([]);
   const [progs, setProgs] = useState<G[]>([]);
   const [edit, setEdit] = useState<P | null>(null);
@@ -24,7 +27,7 @@ export default function ProductSettings() {
     if (a.error) return setMsg(friendly(a.error.message));
     setRows((a.data ?? []) as P[]); setProgs(((b.data ?? []) as G[]).filter((g) => g.active));
   }, [branch]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setMsg(""); load(); }, [load]);
 
   const mayEdit = (p: P) => editable && (p.branch !== "" || owner);
   async function save() {
@@ -34,72 +37,100 @@ export default function ProductSettings() {
     if (error) return setMsg(friendly(error.message));
     setEdit(null); setMsg("저장했어요"); load();
   }
-  const NEW: P = { id: "", branch, name: "", kind: "회차", valid_days: 180, price: 0, face_amount: 0, share_ok: true, app_visible: false, on_sale: true, items: [], sort: 0 };
+  const NEW: P = { id: "", branch, name: "", kind, valid_days: 180, price: 0, face_amount: 0, share_ok: true, app_visible: false, on_sale: true, items: [], sort: 0 };
+  const shown = rows.filter((p) => p.kind === kind);
+  const count = (k: string) => rows.filter((p) => p.kind === k).length;
+  const progNames = (p: P) => (p.kind === "금액" ? `충전 ${won(p.face_amount)}` : p.items.map((i) => i.program).filter(Boolean).join(", ") || "-");
+  const counts = (p: P) => (p.kind === "회차" && p.items.length ? p.items.map((i) => i.count).join(" · ") : "-");
 
   return (
     <>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <BranchOne value={branch} onChange={setBranch} />
-        {!editable && <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>보기만 할 수 있어요 (설정 변경 권한 필요)</span>}
-        {msg && <span style={{ fontSize: "var(--fs-sm)", color: msg === "저장했어요" ? "var(--grn)" : "var(--red)" }}>{msg}</span>}
-        {editable && <button className="btn p sm" style={{ marginLeft: "auto" }} onClick={() => setEdit({ ...NEW })}>상품 추가</button>}
+      <Head title="회원권 상품"><Msg text={msg} />{!editable && <span className="st-ro">보기만 할 수 있어요</span>}</Head>
+      <div className="st-bar">
+        <div className="seg">{KINDS.map((k) => <button key={k} className={kind === k ? "on" : ""} onClick={() => setKind(k)}>{k}권 <span className="num" style={{ marginLeft: 4, color: "var(--ink-4)" }}>{count(k)}</span></button>)}</div>
+        {editable && <div className="st-right"><button className="btn p" onClick={() => setEdit({ ...NEW })}><Ico n="plus" />회원권 상품 추가</button></div>}
       </div>
-      <div className="card" style={{ padding: 0, overflowX: "auto", marginTop: 16 }}>
+
+      <div className="st-tbl st-pc">
         <table className="t">
-          <thead><tr><th>회원권명</th><th>종류</th><th>포함 관리</th><th style={{ textAlign: "right" }}>금액</th><th style={{ textAlign: "right" }}>유효기간</th><th>적용</th><th>상태</th><th></th></tr></thead>
+          <thead><tr><th>회원권명</th><th>관리명</th><th className="r">관리 회차</th><th className="r">금액</th><th>유효기간</th><th>적용</th><th>상태</th><th style={{ width: 64 }}>관리</th></tr></thead>
           <tbody>
-            {rows.map((p) => (
-              <tr key={p.id} style={{ color: p.on_sale ? undefined : "var(--ink-3)" }}>
-                <td style={{ fontWeight: 600 }}>{p.name}</td><td>{p.kind}</td>
-                <td style={{ fontSize: "var(--fs-sm)" }}>{p.items.length ? p.items.map((i) => `${i.program}${i.count ? ` ${i.count}회` : ""}`).join(", ") : "-"}</td>
-                <td className="num" style={{ textAlign: "right" }}>{won(p.price)}</td>
-                <td className="num" style={{ textAlign: "right" }}>{p.valid_days ? `${p.valid_days}일` : "-"}</td>
+            {shown.map((p) => (
+              <tr key={p.id} className={p.on_sale ? "" : "mute"}>
+                <td className="nm">{p.name}</td>
+                <td>{progNames(p)}</td>
+                <td className="r num">{counts(p)}</td>
+                <td className="r num">{won(p.price)}</td>
+                <td className="num">{periodLabel(p.valid_days)}</td>
                 <td>{p.branch || "전 지점"}</td>
                 <td><span className={`badge ${p.on_sale ? "ok" : ""}`}>{p.on_sale ? "판매 중" : "판매 끝"}</span></td>
-                <td style={{ textAlign: "right" }}>{mayEdit(p) && <button className="btn sm" onClick={() => setEdit({ ...p, items: p.items.map((i) => ({ ...i })) })}>수정</button>}</td>
+                <td>{mayEdit(p) && <IconBtn n="edit" label="고치기" onClick={() => setEdit({ ...p, items: p.items.map((i) => ({ ...i })) })} />}</td>
               </tr>
             ))}
+            {shown.length === 0 && <tr><td colSpan={8} className="none">{kind}권 상품이 없어요</td></tr>}
           </tbody>
         </table>
       </div>
+
+      <div className="st-m">
+        <div className="st-list">
+          {shown.map((p) => (
+            <button key={p.id} disabled={!mayEdit(p)} onClick={() => setEdit({ ...p, items: p.items.map((i) => ({ ...i })) })} style={{ opacity: p.on_sale ? 1 : 0.5 }}>
+              <span className="tx"><b>{p.name}{!p.on_sale && <span className="badge">판매 끝</span>}</b>
+                <span className="num">{progNames(p)}{p.kind === "회차" && p.items.length ? ` · ${counts(p)}회` : ""} · {won(p.price)}원 · {periodLabel(p.valid_days)}</span></span>
+              {mayEdit(p) && <span className="ch"><Ico n="chev" /></span>}
+            </button>
+          ))}
+          {shown.length === 0 && <p className="st-foot">{kind}권 상품이 없어요</p>}
+        </div>
+      </div>
+
       {edit && (
         <>
           <div className="dim" onClick={() => setEdit(null)} />
-          <div className="drawer lg">
-            <div className="hd">{edit.id ? "회원권 상품 수정" : "회원권 상품 추가"}</div>
-            <div className="bd" style={{ display: "grid", gap: 12, alignContent: "start", fontSize: "var(--fs-sm)" }}>
-              <label>회원권명<input className="inp" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></label>
-              <div className="seg">{["회차", "기간", "금액"].map((k) => <button key={k} className={edit.kind === k ? "on" : ""} onClick={() => setEdit({ ...edit, kind: k })}>{k}권</button>)}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                <label>판매가<input className="inp" type="number" min={0} step={1000} value={edit.price ?? 0} onChange={(e) => setEdit({ ...edit, price: +e.target.value })} /></label>
-                <label>유효기간(일)<input className="inp" type="number" min={1} max={3650} value={edit.valid_days ?? 180} onChange={(e) => setEdit({ ...edit, valid_days: +e.target.value })} /></label>
-                {edit.kind === "금액" && <label>충전 금액<input className="inp" type="number" min={0} step={1000} value={edit.face_amount ?? 0} onChange={(e) => setEdit({ ...edit, face_amount: +e.target.value })} /></label>}
+          <div className="drawer lg" role="dialog" aria-label="회원권 상품">
+            <div className="hd">{edit.id ? "회원권 상품 고치기" : "회원권 상품 추가"}</div>
+            <div className="bd st-form">
+              <div className="field"><label>회원권명</label><input className="inp" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></div>
+              <div className="field"><label>종류</label>
+                <div className="seg">{KINDS.map((k) => <button key={k} type="button" className={edit.kind === k ? "on" : ""} onClick={() => setEdit({ ...edit, kind: k })}>{k}권</button>)}</div>
+              </div>
+              <div className="three">
+                <div className="field"><label>판매가</label><input className="inp num" type="number" min={0} step={1000} value={edit.price ?? 0} onChange={(e) => setEdit({ ...edit, price: +e.target.value })} /></div>
+                <div className="field"><label>유효기간(일)</label><input className="inp num" type="number" min={1} max={3650} value={edit.valid_days ?? 180} onChange={(e) => setEdit({ ...edit, valid_days: +e.target.value })} /></div>
+                {edit.kind === "금액" && <div className="field"><label>충전 금액</label><input className="inp num" type="number" min={0} step={1000} value={edit.face_amount ?? 0} onChange={(e) => setEdit({ ...edit, face_amount: +e.target.value })} /></div>}
               </div>
               {owner && (
-                <label>적용 지점<select className="sel" value={edit.branch} onChange={(e) => setEdit({ ...edit, branch: e.target.value })}>
-                  <option value="">전 지점</option><option>의정부점</option><option>양주점</option></select></label>
-              )}
-              {edit.kind !== "금액" && (
-                <div>
-                  <b>포함 관리</b>
-                  {edit.items.map((it, i) => (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px auto", gap: 8, marginTop: 6 }}>
-                      <select className="sel" value={it.program_id} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, j) => (j === i ? { ...x, program_id: e.target.value } : x)) })}>
-                        <option value="">관리 고르기</option>{progs.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                      </select>
-                      <input className="inp" type="number" min={0} value={it.count} placeholder="회차" onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, j) => (j === i ? { ...x, count: +e.target.value } : x)) })} />
-                      <button className="btn t sm" onClick={() => setEdit({ ...edit, items: edit.items.filter((_, j) => j !== i) })}>빼기</button>
-                    </div>
-                  ))}
-                  <button className="btn sm" style={{ marginTop: 6 }} onClick={() => setEdit({ ...edit, items: [...edit.items, { program_id: "", count: 10 }] })}>관리 더하기</button>
+                <div className="field"><label>적용 지점</label>
+                  <select className="sel" value={edit.branch} onChange={(e) => setEdit({ ...edit, branch: e.target.value })}>
+                    <option value="">전 지점</option><option>의정부점</option><option>양주점</option>
+                  </select>
                 </div>
               )}
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button className={`chip ${edit.share_ok ? "on" : ""}`} onClick={() => setEdit({ ...edit, share_ok: !edit.share_ok })}>가족 나눠쓰기 가능</button>
-                <button className={`chip ${edit.app_visible ? "on" : ""}`} onClick={() => setEdit({ ...edit, app_visible: !edit.app_visible })}>고객앱에 보이기</button>
-                <button className={`chip ${edit.on_sale ? "on" : ""}`} onClick={() => setEdit({ ...edit, on_sale: !edit.on_sale })}>판매 중</button>
+              {edit.kind !== "금액" && (
+                <div className="field"><label>포함 관리</label>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {edit.items.map((it, i) => (
+                      <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 96px 32px", gap: 8, alignItems: "center" }}>
+                        <select className="sel" value={it.program_id} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, j) => (j === i ? { ...x, program_id: e.target.value } : x)) })}>
+                          <option value="">관리 고르기</option>{progs.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                        <input className="inp num" type="number" min={0} value={it.count} placeholder="회차" aria-label="회차" onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, j) => (j === i ? { ...x, count: +e.target.value } : x)) })} />
+                        <IconBtn n="trash" label="빼기" onClick={() => setEdit({ ...edit, items: edit.items.filter((_, j) => j !== i) })} />
+                      </div>
+                    ))}
+                    <div><button type="button" className="btn sm" onClick={() => setEdit({ ...edit, items: [...edit.items, { program_id: "", count: 10 }] })}><Ico n="plus" s={14} />관리 더하기</button></div>
+                  </div>
+                </div>
+              )}
+              <div className="field"><label>옵션</label>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {([["share_ok", "가족 나눠쓰기 가능"], ["app_visible", "고객앱에 보이기"], ["on_sale", "판매 중"]] as const).map(([k, l]) => (
+                    <div key={k} className="row"><Switch on={edit[k]} label={l} onChange={(v) => setEdit({ ...edit, [k]: v })} /><span>{l}</span></div>
+                  ))}
+                </div>
               </div>
-              <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>이미 판매한 회원권은 바뀌지 않아요. 새로 파는 것부터 적용돼요.</p>
+              <p className="help">이미 판매한 회원권은 바뀌지 않아요. 새로 파는 것부터 적용돼요.</p>
             </div>
             <div className="ft"><button className="btn" onClick={() => setEdit(null)}>닫기</button><button className="btn p" onClick={save}>저장</button></div>
           </div>

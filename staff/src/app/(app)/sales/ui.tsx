@@ -1,118 +1,238 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import {
   canSee, won, dur, when, todayKST, downloadCsv, SALES_CSV_HEAD, salesCsvRow, type Sale,
 } from "@/lib/sales";
 
-/* ── 조회기간: 월별 · 날짜별 · 기간별 ─────────────────────────── */
+/* ── 조회기간 ─────────────────────────────────────────────── */
 export type Range = { from: string; to: string };
+export type Mode = "month" | "day" | "range";
 const lastDay = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 const pad = (n: number) => String(n).padStart(2, "0");
 export const monthRange = (y: number, m: number): Range => ({ from: `${y}-${pad(m)}-01`, to: `${y}-${pad(m)}-${pad(lastDay(y, m))}` });
+export const md = (d: string | null | undefined) => (d ? `${+d.slice(5, 7)}.${d.slice(8, 10)}` : "-");
+/* 올해면 11.16, 다른 해면 25.11.16 */
+export const mdy = (d: string | null | undefined) => (!d ? "-" : d.slice(0, 4) === todayKST().slice(0, 4) ? md(d) : `${d.slice(2, 4)}.${md(d)}`);
 
-export function PeriodPicker({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
+/* ── 매출 화면 공용 상태 (지점 · 조회기간 · 엑셀) : layout 이 갖고 있어요 ── */
+type Exporter = (() => void | Promise<void>) | null;
+type Ctx = {
+  branch: string | null; setBranch: (b: string | null) => void;
+  range: Range; setRange: (r: Range) => void;
+  mode: Mode; setMode: (m: Mode) => void;
+  setExport: (f: Exporter) => void;
+};
+export const SalesCtx = createContext<Ctx | null>(null);
+export const useSales = () => useContext(SalesCtx)!;
+
+export function useSalesState() {
+  const me = useMe();
   const t = todayKST();
-  const [mode, setMode] = useState<"month" | "day" | "range">("month");
-  const [y, setY] = useState(+t.slice(0, 4));
-  const [m, setM] = useState(+t.slice(5, 7));
-  const years = useMemo(() => Array.from({ length: 6 }, (_, i) => +t.slice(0, 4) - i), [t]);
+  const [branch, setBranch] = useState<string | null>(me.tier === "owner" ? null : me.branch);
+  const [range, setRange] = useState<Range>(monthRange(+t.slice(0, 4), +t.slice(5, 7)));
+  const [mode, setMode] = useState<Mode>("month");
+  const [exporter, setExporter] = useState<Exporter>(null);
+  const ctx: Ctx = useMemo(() => ({
+    branch, setBranch, range, setRange, mode, setMode,
+    setExport: (f: Exporter) => setExporter(() => f),
+  }), [branch, range, mode]);
+  return { ctx, exporter };
+}
 
+/* 화면이 헤더의 엑셀 다운 버튼에 내려받기 함수를 걸어요 */
+export function useExport(fn: Exporter) {
+  const { setExport } = useSales();
+  const ref = useRef(fn);
+  ref.current = fn;
+  const has = !!fn;
+  useEffect(() => {
+    setExport(has ? () => ref.current?.() : null);
+    return () => setExport(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [has]);
+}
+
+export function periodLabel(range: Range, mode: Mode) {
+  if (mode === "month") return `${+range.from.slice(5, 7)}월 · 월별`;
+  if (mode === "day") return `${md(range.from)} · 날짜별`;
+  return `${md(range.from)} ~ ${md(range.to)} · 기간별`;
+}
+
+export function PeriodPicker() {
+  const { range, setRange, mode, setMode } = useSales();
+  const t = todayKST();
+  const y = +range.from.slice(0, 4), m = +range.from.slice(5, 7);
+  const years = useMemo(() => Array.from({ length: 6 }, (_, i) => +t.slice(0, 4) - i), [t]);
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="sl-row">
       <div className="seg">
         {([["month", "월별"], ["day", "날짜별"], ["range", "기간별"]] as const).map(([k, l]) => (
           <button key={k} className={mode === k ? "on" : ""} onClick={() => {
             setMode(k);
-            if (k === "month") onChange(monthRange(y, m));
-            if (k === "day") onChange({ from: t, to: t });
+            if (k === "month") setRange(monthRange(y, m));
+            if (k === "day") setRange({ from: t, to: t });
           }}>{l}</button>
         ))}
       </div>
       {mode === "month" && (
         <>
-          <select className="sel" style={{ width: 110 }} value={y} onChange={(e) => { setY(+e.target.value); onChange(monthRange(+e.target.value, m)); }}>
+          <select className="sel" style={{ width: 110 }} value={y} onChange={(e) => setRange(monthRange(+e.target.value, m))}>
             {years.map((v) => <option key={v} value={v}>{v}년</option>)}
           </select>
-          <select className="sel" style={{ width: 90 }} value={m} onChange={(e) => { setM(+e.target.value); onChange(monthRange(y, +e.target.value)); }}>
+          <select className="sel" style={{ width: 90 }} value={m} onChange={(e) => setRange(monthRange(y, +e.target.value))}>
             {Array.from({ length: 12 }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}월</option>)}
           </select>
         </>
       )}
       {mode === "day" && (
-        <input type="date" className="inp" style={{ width: 160 }} value={value.from} onChange={(e) => e.target.value && onChange({ from: e.target.value, to: e.target.value })} />
+        <input type="date" className="inp" style={{ width: 160 }} value={range.from} onChange={(e) => e.target.value && setRange({ from: e.target.value, to: e.target.value })} />
       )}
       {mode === "range" && (
         <>
-          <input type="date" className="inp" style={{ width: 160 }} value={value.from} onChange={(e) => e.target.value && onChange({ ...value, from: e.target.value })} />
+          <input type="date" className="inp" style={{ width: 160 }} value={range.from} onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })} />
           <span style={{ color: "var(--ink-3)" }}>~</span>
-          <input type="date" className="inp" style={{ width: 160 }} value={value.to} onChange={(e) => e.target.value && onChange({ ...value, to: e.target.value })} />
+          <input type="date" className="inp" style={{ width: 160 }} value={range.to} onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })} />
         </>
       )}
     </div>
   );
 }
 
-export function BranchSeg({ value, onChange }: { value: string | null; onChange: (b: string | null) => void }) {
+/* 헤더의 지점 고르기: 대표관리자만 바꿀 수 있어요 */
+export function BranchSelect() {
   const me = useMe();
-  if (me.tier !== "owner") return null;
+  const { branch, setBranch } = useSales();
+  if (me.tier !== "owner") {
+    return <select className="sel sl-sel-b" disabled value={me.branch}><option>{me.branch}</option></select>;
+  }
   return (
-    <div className="seg">
-      {[null, ...BRANCHES].map((b) => (
-        <button key={b ?? "all"} className={value === b ? "on" : ""} onClick={() => onChange(b)}>{b ?? "전 지점"}</button>
-      ))}
-    </div>
+    <select className="sel sl-sel-b" aria-label="지점" value={branch ?? ""} onChange={(e) => setBranch(e.target.value || null)}>
+      <option value="">전 지점</option>
+      {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
+    </select>
   );
 }
 
-/* 검색 조건 한 줄 (뷰티사랑넷 조회 조건 표 구조) */
+/* 헤더의 월 고르기 (조건 바꾸기에서 날짜별·기간별도 가능) */
+export function MonthSelect({ disabled }: { disabled?: boolean }) {
+  const { range, setRange, mode, setMode } = useSales();
+  const t = todayKST();
+  const months = useMemo(() => {
+    const out: string[] = [];
+    let y = +t.slice(0, 4), m = +t.slice(5, 7);
+    for (let i = 0; i < 24; i++) { out.push(`${y}-${pad(m)}`); m--; if (!m) { m = 12; y--; } }
+    return out;
+  }, [t]);
+  const cur = mode === "month" ? range.from.slice(0, 7) : "custom";
+  return (
+    <select className="sel sl-sel-m" aria-label="조회 월" disabled={disabled} value={cur} onChange={(e) => {
+      const v = e.target.value;
+      if (v === "custom") return;
+      setMode("month");
+      setRange(monthRange(+v.slice(0, 4), +v.slice(5, 7)));
+    }}>
+      {mode !== "month" && <option value="custom">기간 지정</option>}
+      {!months.includes(cur) && mode === "month" && <option value={cur}>{cur.slice(0, 4)}년 {+cur.slice(5, 7)}월</option>}
+      {months.map((v) => <option key={v} value={v}>{v.slice(0, 4)}년 {+v.slice(5, 7)}월</option>)}
+    </select>
+  );
+}
+
+/* 조회 조건 한 줄 + 펼치면 상세 조건 */
+export function CondBar({ summary, extra, children }: { summary: string; extra?: React.ReactNode; children?: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="sl-cond">
+      <div className="sl-cond-bar">
+        <b>조회</b>
+        <span className="sl-cond-sum">{summary}</span>
+        <span className="sl-cond-act">
+          {extra}
+          {children && <button className="btn sm" onClick={() => setOpen(!open)}>{open ? "접기" : "조건 바꾸기"}</button>}
+        </span>
+      </div>
+      {open && <div className="sl-cond-panel">{children}</div>}
+    </div>
+  );
+}
 export function Cond({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="frow" style={{ alignItems: "center", padding: "12px 0" }}>
-      <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-2)" }}>{label}</div>
+    <div className="frow" style={{ alignItems: "center" }}>
+      <div className="sl-cond-label">{label}</div>
       <div>{children}</div>
     </div>
   );
 }
 
-/* ── 매출 원장 표 (탭 공용) ─────────────────────────────────── */
-export type Col = "when" | "customer" | "staff" | "kind" | "content" | "memo" | "time" | "amount" | "card" | "cash" | "account"
-  | "npay" | "unpaid" | "settled" | "discount" | "point" | "sessions" | "branch";
-const COL: Record<Col, { h: string; n?: boolean; v: (s: Sale) => React.ReactNode; sum?: (s: Sale) => React.ReactNode }> = {
-  when: { h: "매출일시", v: (s) => <span className="num">{when(s)}</span> },
-  branch: { h: "지점", v: (s) => s.branch },
-  customer: { h: "고객명", v: (s) => <span style={{ fontWeight: 600 }}>{s.customer_name}</span> },
-  staff: { h: "담당자", v: (s) => s.staff_name || "-" },
-  kind: { h: "구분", v: (s) => <KindBadge s={s} /> },
-  content: { h: "내용", v: (s) => <Clip w={240}>{s.content || "-"}</Clip> },
-  memo: { h: "메모", v: (s) => <Clip w={200} muted>{s.memo || "-"}</Clip> },
-  time: { h: "시간", v: (s) => dur(s.duration_min), sum: (s) => dur(s.sum_minutes) },
-  amount: { h: "결제금액", n: true, v: (s) => <b>{won(s.amount)}</b>, sum: (s) => <b>{won(s.sum_amount)}</b> },
-  card: { h: "카드", n: true, v: (s) => won(s.card), sum: (s) => won(s.sum_card) },
-  cash: { h: "현금", n: true, v: (s) => won(s.cash), sum: (s) => won(s.sum_cash) },
-  account: { h: "계좌", n: true, v: (s) => won(s.account), sum: (s) => won(s.sum_account) },
-  npay: { h: "NPay", n: true, v: (s) => won(s.npay), sum: (s) => won(s.sum_npay) },
-  unpaid: { h: "미수발생", n: true, v: (s) => won(s.unpaid), sum: (s) => won(s.sum_unpaid) },
-  settled: { h: "미수정산", n: true, v: (s) => won(s.unpaid_settled), sum: (s) => won(s.sum_settled) },
-  discount: { h: "할인", n: true, v: (s) => won(s.discount), sum: (s) => won(s.sum_discount) },
-  point: { h: "포인트", n: true, v: (s) => won(s.point), sum: (s) => won(s.sum_point) },
-  sessions: { h: "회차 차감", v: (s) => <Clip w={180}>{s.sessions || "-"}</Clip> },
-};
-
-function KindBadge({ s }: { s: Sale }) {
-  const k = s.kind || "-";
-  const cls = s.is_refund ? "em" : k === "노쇼" ? "warn" : k.includes("회원권") ? "ok" : "";
-  return <span className={`badge ${cls}`}>{s.is_refund ? `${k} 환불` : k}</span>;
-}
-function Clip({ children, w, muted }: { children: React.ReactNode; w: number; muted?: boolean }) {
+/* KPI 카드 */
+export function Kpi({ label, value, unit, sub, em }: { label: string; value: React.ReactNode; unit?: string; sub?: string; em?: boolean }) {
   return (
-    <div title={typeof children === "string" ? children : undefined}
-      style={{ maxWidth: w, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: muted ? "var(--ink-3)" : undefined }}>
-      {children}
+    <div className="sl-kpi">
+      <div className="l">{label}</div>
+      <div className={`v ${em ? "em" : ""}`}>{value}{unit && <small>{unit}</small>}</div>
+      {sub && <div className="s">{sub}</div>}
     </div>
   );
 }
+
+/* 0 은 흐리게 */
+export const Z = ({ n }: { n: number | null | undefined }) => (n ? <>{won(n)}</> : <span className="sl-z">0</span>);
+
+/* ── 매출 원장 표 (탭 공용) ─────────────────────────────────── */
+export type Col = "when" | "day" | "customer" | "staff" | "kind" | "mkind" | "acct" | "content" | "prog" | "use" | "method" | "memo" | "time"
+  | "amount" | "card" | "cash" | "account" | "npay" | "unpaid" | "settled" | "discount" | "point" | "sessions" | "branch";
+type Ext = { colors: Record<string, string> };
+const KIND_SHORT: Record<string, string> = {
+  회차회원권: "회차권", 기간회원권: "기간권", 제품판매: "제품", 기타수입: "기타 수입", "미수금 정산": "미수 정산",
+};
+const kindLabel = (k: string | null) => (k ? KIND_SHORT[k] ?? k : "-");
+const sessionsN = (s: string | null) => (s ? (s.match(/\d+/g) ?? []).reduce((a, x) => a + Number(x), 0) : 0);
+const methodOf = (s: Sale) => [s.card && "카드", s.cash && "현금", s.account && "계좌이체", s.npay && "NPay"].filter(Boolean).join(" · ") || "-";
+const hm = (s: Sale) => { const w = when(s); return w.length > 10 ? `${md(w.slice(0, 10))} ${w.slice(11)}` : md(w); };
+
+function KindBadge({ s }: { s: Sale }) {
+  const k = s.kind || "-";
+  if (s.is_refund) return <span className="badge em">{kindLabel(k)} 환불</span>;
+  return <span className={`badge ${k === "노쇼" ? "warn" : ""}`}>{kindLabel(k)}</span>;
+}
+function ProgTag({ name, colors }: { name: string | null; colors: Record<string, string> }) {
+  const n = name || "-";
+  const key = Object.keys(colors).sort((a, b) => b.length - a.length).find((p) => n.startsWith(p));
+  const c = key ? colors[key] : "#8A8A8A";
+  return <span className="sl-prog" style={{ borderLeftColor: c, color: c, background: `${c}1F` }}>{n}</span>;
+}
+function Clip({ children, w, muted }: { children: React.ReactNode; w: number; muted?: boolean }) {
+  return <span className={`sl-clip ${muted ? "mute" : ""}`} style={{ maxWidth: w }} title={typeof children === "string" ? children : undefined}>{children}</span>;
+}
+
+const COL: Record<Col, { h: string; n?: boolean; v: (s: Sale, x: Ext) => React.ReactNode; sum?: (s: Sale) => number | null; nm?: boolean }> = {
+  when: { h: "매출 일시", v: (s) => hm(s) },
+  day: { h: "판매일", v: (s) => md(s.day) },
+  branch: { h: "지점", v: (s) => s.branch },
+  customer: { h: "고객", nm: true, v: (s) => s.customer_name },
+  staff: { h: "담당자", v: (s) => s.staff_name || "-" },
+  kind: { h: "구분", v: (s) => <KindBadge s={s} /> },
+  mkind: { h: "종류", v: (s) => <KindBadge s={s} /> },
+  acct: { h: "계정", v: (s) => <KindBadge s={s} /> },
+  content: { h: "내용", v: (s) => <Clip w={180}>{s.content || "-"}</Clip> },
+  prog: { h: "관리", v: (s, x) => s.kind === "노쇼" ? <span className="badge warn">노쇼 · {s.content || "-"}</span> : <ProgTag name={s.content} colors={x.colors} /> },
+  use: { h: "사용 방법", v: (s) => (s.sessions ? "회원권" : "단건") },
+  method: { h: "수단", v: (s) => methodOf(s) },
+  memo: { h: "메모", v: (s) => <Clip w={120} muted>{s.memo || ""}</Clip> },
+  time: { h: "시간", v: (s) => dur(s.duration_min) },
+  amount: { h: "결제 금액", n: true, v: (s) => <Z n={s.amount} />, sum: (s) => s.sum_amount },
+  card: { h: "카드", n: true, v: (s) => <Z n={s.card} />, sum: (s) => s.sum_card },
+  cash: { h: "현금", n: true, v: (s) => <Z n={s.cash} />, sum: (s) => s.sum_cash },
+  account: { h: "계좌이체", n: true, v: (s) => <Z n={s.account} />, sum: (s) => s.sum_account },
+  npay: { h: "NPay", n: true, v: (s) => <Z n={s.npay} />, sum: (s) => s.sum_npay },
+  unpaid: { h: "미수 발생", n: true, v: (s) => <Z n={s.unpaid} />, sum: (s) => s.sum_unpaid },
+  settled: { h: "미수 정산", n: true, v: (s) => <Z n={s.unpaid_settled} />, sum: (s) => s.sum_settled },
+  discount: { h: "할인", n: true, v: (s) => <Z n={s.discount} />, sum: (s) => s.sum_discount },
+  point: { h: "포인트", n: true, v: (s) => <Z n={s.point} />, sum: (s) => s.sum_point },
+  sessions: { h: "회차 차감", v: (s) => s.sessions || <span className="sl-z">0</span> },
+};
 
 export type Query = {
   tab: "all" | "customer" | "membership" | "service" | "product" | "other" | "receivable";
@@ -120,13 +240,47 @@ export type Query = {
   customer_key?: string | null; kinds?: string[] | null;
 };
 const PAGE = 100;
-const args = (q: Query, limit: number, offset: number) => ({
+export const salesArgs = (q: Query, limit: number, offset: number) => ({
   p_tab: q.tab, p_from: q.range.from, p_to: q.range.to, p_branch: q.branch ?? null, p_staff: q.staff ?? null,
   p_q: q.q || null, p_customer_key: q.customer_key ?? null, p_kinds: q.kinds?.length ? q.kinds : null,
   p_limit: limit, p_offset: offset,
 });
+/* 조건에 맞는 매출 전부 (엑셀·고객별 묶기용, 500건씩) */
+export async function fetchAllSales(query: Query, cap = 20000): Promise<{ rows: Sale[]; err: string }> {
+  const all: Sale[] = [];
+  for (let off = 0; off < cap; off += 500) {
+    const { data, error } = await sb.rpc("sales_list", salesArgs(query, 500, off));
+    if (error) return { rows: all, err: friendly(error.message) };
+    all.push(...((data ?? []) as Sale[]));
+    if (!data || data.length < 500) break;
+  }
+  return { rows: all, err: "" };
+}
 
-export function SalesTable({ query, cols, csvName }: { query: Query; cols: Col[]; csvName: string }) {
+/* 프로그램 색 (관리 탭 태그) */
+function useProgColors(branch: string | null, on: boolean) {
+  const me = useMe();
+  const [colors, setColors] = useState<Record<string, string>>({});
+  const b = branch ?? me.branch;
+  useEffect(() => {
+    if (!on) return;
+    sb.rpc("rsv_program_list", { p_branch: b }).then(({ data }) => {
+      const m: Record<string, string> = {};
+      for (const p of (data ?? []) as { name: string; short?: string; color: string | null }[]) {
+        if (!p.color) continue;
+        m[p.name] = p.color;
+        if (p.short) m[p.short] = p.color;
+      }
+      setColors(m);
+    });
+  }, [b, on]);
+  return colors;
+}
+
+export type ColSpec = Col | [Col, string];
+export function SalesTable({ query, cols, opt = [], csvName, inline }: {
+  query: Query; cols: ColSpec[]; opt?: Col[]; csvName: string; inline?: boolean;
+}) {
   const me = useMe();
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState<Sale[]>([]);
@@ -134,12 +288,14 @@ export function SalesTable({ query, cols, csvName }: { query: Query; cols: Col[]
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const key = JSON.stringify(query);
+  const plain = cols.map((c) => (Array.isArray(c) ? c[0] : c));
+  const colors = useProgColors(query.branch ?? null, plain.includes("prog"));
 
   useEffect(() => setPage(0), [key]);
   useEffect(() => {
     let on = true;
     setLoading(true);
-    sb.rpc("sales_list", args(query, PAGE, page * PAGE)).then(({ data, error }) => {
+    sb.rpc("sales_list", salesArgs(query, PAGE, page * PAGE)).then(({ data, error }) => {
       if (!on) return;
       setErr(error ? friendly(error.message) : "");
       setRows((data ?? []) as Sale[]);
@@ -151,71 +307,84 @@ export function SalesTable({ query, cols, csvName }: { query: Query; cols: Col[]
 
   const head = rows[0];
   const total = head?.total ?? 0;
-  const cs = me.tier === "owner" ? (["branch", ...cols] as Col[]) : cols;
 
   async function exportCsv() {
     setBusy(true);
-    const all: Sale[] = [];
-    for (let off = 0; ; off += 500) {
-      const { data, error } = await sb.rpc("sales_list", args(query, 500, off));
-      if (error) { setErr(friendly(error.message)); break; }
-      all.push(...((data ?? []) as Sale[]));
-      if (!data || data.length < 500) break;
-    }
+    const { rows: all, err } = await fetchAllSales(query);
+    if (err) setErr(err);
     downloadCsv(`${csvName}_${query.range.from}_${query.range.to}.csv`, SALES_CSV_HEAD, all.map(salesCsvRow));
     setBusy(false);
   }
+  useExport(!inline && total ? exportCsv : null);
+
+  // 전 지점 보기면 지점 칸, 금액이 하나도 없는 선택 칸(NPay 등)은 숨김
+  const specs = (me.tier === "owner" && !query.branch && !query.customer_key ? (["branch", ...cols] as ColSpec[]) : cols)
+    .filter((c) => { const k = Array.isArray(c) ? c[0] : c; return !opt.includes(k) || (head && Number(COL[k].sum?.(head) ?? 0) !== 0); });
+  const cs = specs.map((c) => (Array.isArray(c) ? { k: c[0], h: c[1] } : { k: c, h: COL[c].h }));
+  const pages = Math.max(1, Math.ceil(total / PAGE));
+  const sessSum = total <= PAGE ? rows.reduce((a, s) => a + sessionsN(s.sessions), 0) : null;
+  const ext: Ext = { colors };
+
+  const sumRow = head && (
+    <tr className="sum">
+      {cs.map(({ k }, i) => {
+        const c = COL[k];
+        const v = i === 0 ? "합계" : c.sum ? won(c.sum(head)) : k === "sessions" && sessSum != null ? `${sessSum}회` : "";
+        return <td key={k} className={c.n ? "r" : undefined}>{v}</td>;
+      })}
+    </tr>
+  );
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "16px 0 8px" }}>
-        <span className="num" style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{loading ? "불러오는 중" : `${total.toLocaleString()}건`}</span>
-        {canSee(me, "export.excel") && (
-          <button className="btn sm" style={{ marginLeft: "auto" }} disabled={busy || !total} onClick={exportCsv}>
-            {busy ? "준비 중" : "엑셀 내려받기"}
-          </button>
-        )}
-      </div>
-      {err && <p style={{ color: "var(--red)" }}>{err}</p>}
-      <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-        <table className="t">
-          <thead>
-            <tr>{cs.map((c) => <th key={c} style={COL[c].n ? { textAlign: "right" } : undefined}>{COL[c].h}</th>)}</tr>
-          </thead>
-          <tbody>
-            {head && (
-              <tr>
-                {cs.map((c, i) => (
-                  <td key={c} className={COL[c].n ? "num" : undefined}
-                    style={{ background: "var(--bg-soft)", fontWeight: 600, textAlign: COL[c].n ? "right" : undefined }}>
-                    {i === 0 ? "합계" : COL[c].sum ? COL[c].sum!(head) : ""}
-                  </td>
-                ))}
-              </tr>
-            )}
-            {rows.map((s) => (
-              <tr key={s.dedup_key}>
-                {cs.map((c) => (
-                  <td key={c} className={COL[c].n ? "num" : undefined} style={COL[c].n ? { textAlign: "right" } : { whiteSpace: "nowrap" }}>
-                    {COL[c].v(s)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-            {!loading && rows.length === 0 && !err && (
-              <tr><td colSpan={cs.length} style={{ textAlign: "center", color: "var(--ink-3)" }}>이 기간에 매출 기록이 없어요</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {total > PAGE && (
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16, alignItems: "center" }}>
-          <button className="btn sm" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</button>
-          <span className="num" style={{ fontSize: 13, color: "var(--ink-3)" }}>{page + 1} / {Math.ceil(total / PAGE)}</span>
-          <button className="btn sm" disabled={(page + 1) * PAGE >= total} onClick={() => setPage(page + 1)}>다음</button>
+      {inline && (
+        <div className="sl-row" style={{ marginTop: 16 }}>
+          <span className="num" style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{loading ? "불러오는 중" : `${total.toLocaleString()}건`}</span>
+          {canSee(me, "export.excel") && (
+            <button className="btn sm" style={{ marginLeft: "auto" }} disabled={busy || !total} onClick={exportCsv}>{busy ? "준비 중" : "엑셀 다운"}</button>
+          )}
         </div>
       )}
+      {err && <p className="sl-err">{err}</p>}
+      <div className="sl-card">
+        <div className="sl-scroll">
+          <table className="sl-t">
+            <thead>
+              <tr>{cs.map(({ k, h }) => <th key={k} className={COL[k].n ? "r" : undefined}>{h}</th>)}</tr>
+              {sumRow}
+            </thead>
+            <tbody>
+              {rows.map((s) => (
+                <tr key={s.dedup_key}>
+                  {cs.map(({ k }) => {
+                    const c = COL[k];
+                    return <td key={k} className={c.n ? "r" : c.nm ? "nm" : undefined}>{c.v(s, ext)}</td>;
+                  })}
+                </tr>
+              ))}
+              {!loading && rows.length === 0 && !err && (
+                <tr><td colSpan={cs.length} className="sl-empty">이 기간에 매출 기록이 없어요</td></tr>
+              )}
+              {loading && rows.length === 0 && <tr><td colSpan={cs.length} className="sl-empty">불러오는 중</td></tr>}
+            </tbody>
+            {rows.length > 0 && <tfoot>{sumRow}</tfoot>}
+          </table>
+        </div>
+      </div>
+      {total > PAGE && <Pager page={page} pages={pages} onChange={setPage} />}
     </>
+  );
+}
+
+export function Pager({ page, pages, onChange }: { page: number; pages: number; onChange: (p: number) => void }) {
+  const from = Math.max(0, Math.min(page - 3, pages - 7));
+  const list = Array.from({ length: Math.min(7, pages) }, (_, i) => from + i);
+  return (
+    <div className="sl-pager num">
+      <button disabled={page === 0} onClick={() => onChange(page - 1)} aria-label="이전">‹</button>
+      {list.map((p) => <button key={p} className={p === page ? "on" : ""} onClick={() => onChange(p)}>{p + 1}</button>)}
+      <button disabled={page + 1 >= pages} onClick={() => onChange(page + 1)} aria-label="다음">›</button>
+    </div>
   );
 }
 
@@ -235,57 +404,74 @@ export function useStaffNames() {
   return names;
 }
 
-/* ── 전체·회원권·관리·제품·기타 탭 공용 화면 ─────────────────── */
-export function LedgerScreen({ tab, cols, kinds, csvName }: {
-  tab: Query["tab"]; cols: Col[]; kinds?: { k: string; l: string; ks?: string[] }[]; csvName: string;
-}) {
+/* ── 검색 조건 (조건 바꾸기 안쪽) ─────────────────────────── */
+export type Filters = { staff: string | null; kind: string[]; q: string };
+export function useFilters() {
+  const [f, setF] = useState<Filters>({ staff: null, kind: [], q: "" });
+  return [f, setF] as const;
+}
+export function FilterRows({ f, setF, kinds }: { f: Filters; setF: (f: Filters) => void; kinds?: { k: string; l: string; ks?: string[] }[] }) {
   const me = useMe();
-  const t = todayKST();
-  const [range, setRange] = useState<Range>(monthRange(+t.slice(0, 4), +t.slice(5, 7)));
-  const [branch, setBranch] = useState<string | null>(null);
-  const [staff, setStaff] = useState<string | null>(null);
-  const [kind, setKind] = useState<string[]>([]);
-  const [q, setQ] = useState("");
-  const [query, setQuery] = useState("");
   const names = useStaffNames();
+  const [q, setQ] = useState(f.q);
   const seeOthers = canSee(me, "sales.others");
-
   return (
     <>
-      <div className="card" style={{ padding: "4px 20px" }}>
-        <Cond label="조회기간"><PeriodPicker value={range} onChange={setRange} /></Cond>
-        <Cond label="고객검색">
-          <form style={{ display: "flex", gap: 8 }} onSubmit={(e) => { e.preventDefault(); setQuery(q.trim()); }}>
-            <input className="inp" style={{ maxWidth: 280 }} placeholder="이름 또는 연락처 뒤 4자리 (비우면 전체)" value={q} onChange={(e) => setQ(e.target.value)} />
-            <button className="btn">검색</button>
-            {query && <button type="button" className="btn t" onClick={() => { setQ(""); setQuery(""); }}>지우기</button>}
-          </form>
-        </Cond>
-        <Cond label="구분 상세">
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {seeOthers ? (
-              <select className="sel" style={{ width: 150 }} value={staff ?? ""} onChange={(e) => setStaff(e.target.value || null)}>
-                <option value="">전체 직원</option>
-                {names.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            ) : (
-              <span className="badge">본인 매출만 보여요</span>
-            )}
-            {kinds && (
-              <>
-                <button className={`chip ${kind.length === 0 ? "on" : ""}`} onClick={() => setKind([])}>전체</button>
-                {kinds.map((o) => (
-                  <button key={o.k} className={`chip ${kind.includes(o.k) ? "on" : ""}`}
-                    onClick={() => setKind(kind.includes(o.k) ? kind.filter((x) => x !== o.k) : [...kind, o.k])}>{o.l}</button>
-                ))}
-              </>
-            )}
-            <span style={{ marginLeft: "auto" }}><BranchSeg value={branch} onChange={setBranch} /></span>
+      <Cond label="조회기간"><PeriodPicker /></Cond>
+      <Cond label="고객 검색">
+        <form className="sl-row" onSubmit={(e) => { e.preventDefault(); setF({ ...f, q: q.trim() }); }}>
+          <input className="inp" style={{ maxWidth: 280 }} placeholder="이름 또는 연락처 뒤 4자리" value={q} onChange={(e) => setQ(e.target.value)} />
+          <button className="btn sm">검색</button>
+          {f.q && <button type="button" className="btn t sm" onClick={() => { setQ(""); setF({ ...f, q: "" }); }}>지우기</button>}
+        </form>
+      </Cond>
+      <Cond label="담당자">
+        {seeOthers ? (
+          <select className="sel" style={{ width: 160 }} value={f.staff ?? ""} onChange={(e) => setF({ ...f, staff: e.target.value || null })}>
+            <option value="">전체 직원</option>
+            {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        ) : <span className="badge">본인 매출만 보여요</span>}
+      </Cond>
+      {kinds && (
+        <Cond label="구분">
+          <div className="sl-row">
+            <button className={`chip ${f.kind.length === 0 ? "on" : ""}`} onClick={() => setF({ ...f, kind: [] })}>전체</button>
+            {kinds.map((o) => (
+              <button key={o.k} className={`chip ${f.kind.includes(o.k) ? "on" : ""}`}
+                onClick={() => setF({ ...f, kind: f.kind.includes(o.k) ? f.kind.filter((x) => x !== o.k) : [...f.kind, o.k] })}>{o.l}</button>
+            ))}
           </div>
         </Cond>
-      </div>
-      <SalesTable csvName={csvName} cols={cols}
-        query={{ tab, range, branch, staff, q: query, kinds: kind.length ? kind.flatMap((x) => kinds?.find((o) => o.k === x)?.ks ?? [x]) : null }} />
+      )}
     </>
   );
 }
+export function filterSummary(range: Range, mode: Mode, f: Filters, kinds?: { k: string; l: string }[]) {
+  const k = f.kind.length ? f.kind.map((x) => kinds?.find((o) => o.k === x)?.l ?? x).join("·") : "전체";
+  return [periodLabel(range, mode), kinds ? `구분 ${k}` : null, f.staff ? `담당 ${f.staff}` : null, `고객 ${f.q || "전체"}`].filter(Boolean).join(" · ");
+}
+
+/* ── 전체·회원권·관리·제품·기타 탭 공용 화면 ─────────────────── */
+export function LedgerScreen({ tab, cols, opt, kinds, csvName, top }: {
+  tab: Query["tab"]; cols: ColSpec[]; opt?: Col[]; kinds?: { k: string; l: string; ks?: string[] }[]; csvName: string;
+  top?: (q: Query) => React.ReactNode;
+}) {
+  const { range, mode, branch } = useSales();
+  const [f, setF] = useFilters();
+  const query: Query = {
+    tab, range, branch, staff: f.staff, q: f.q,
+    kinds: f.kind.length ? f.kind.flatMap((x) => kinds?.find((o) => o.k === x)?.ks ?? [x]) : null,
+  };
+  return (
+    <>
+      <CondBar summary={filterSummary(range, mode, f, kinds)}>
+        <FilterRows f={f} setF={setF} kinds={kinds} />
+      </CondBar>
+      {top?.(query)}
+      <SalesTable csvName={csvName} cols={cols} opt={opt} query={query} />
+    </>
+  );
+}
+
+export { BRANCHES };

@@ -1,0 +1,102 @@
+/* 오늘 할 일 (메라 시안 02-01 ~ 02-05m) · 접두어 w- · 값은 tokens.css 토큰만 씀 */
+.w-top .w-pick{display:flex;gap:var(--sp-2);margin-left:auto}
+.w-top .sel{width:120px;padding-right:32px;appearance:none;-webkit-appearance:none;cursor:pointer;
+ background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5L6 8l3.5-3.5' fill='none' stroke='%235F5F5F' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center}
+.w-top .sel.w-date{width:140px}
+
+.w-tabs{display:flex;gap:var(--sp-6);height:var(--tab-h);padding:0 var(--page-x);border-bottom:1px solid var(--line)}
+.w-tabs button{all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;position:relative;font-size:var(--fs-md);font-weight:var(--fw-m);color:var(--ink-3);white-space:nowrap}
+.w-tabs button i{font-style:normal;font-size:var(--fs-xs);color:var(--ink-4);font-variant-numeric:tabular-nums}
+.w-tabs button.on{color:var(--ink);font-weight:var(--fw-b)}
+.w-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--red)}
+
+.w-body{display:grid;gap:var(--gap)}
+.w-err{color:var(--red);margin:0;font-size:var(--fs-sm)}
+
+.w-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--gap)}
+.w-kpi{min-height:var(--kpi-h);padding:14px var(--card-pad);display:flex;flex-direction:column;justify-content:center;gap:2px;text-align:left;font:inherit;color:inherit}
+button.w-kpi{cursor:pointer}
+button.w-kpi.on{border-color:var(--red);background:var(--red-50)}
+.w-kpi .k{font-size:var(--fs-sm);font-weight:var(--fw-m);color:var(--ink-2)}
+.w-kpi .v{font-size:var(--fs-2xl);line-height:var(--lh-2xl);font-weight:var(--fw-b);font-variant-numeric:tabular-nums}
+.w-kpi .v small{font-size:var(--fs-sm);font-weight:var(--fw-sb);margin-left:3px}
+.w-kpi .v.em{color:var(--red)}
+.w-kpi .s{font-size:var(--fs-xs);color:var(--ink-3)}
+
+.w-chips{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap}
+.w-chips .chip i{font-style:normal;font-variant-numeric:tabular-nums;font-weight:var(--fw-sb)}
+.w-chips .w-q{margin-left:auto;width:220px;height:var(--chip-h);font-size:var(--fs-sm)}
+
+/* 표 카드 */
+.w-tcard{padding:0;overflow:hidden}
+.w-tcard .hd{padding:var(--sp-4) var(--card-pad) var(--sp-3);margin:0}
+.w-tcard .w-x{overflow-x:auto}
+.w-tcard table.t td{white-space:nowrap}
+.w-tcard table.t th:first-child,.w-tcard table.t td:first-child{padding-left:var(--sp-4)}
+.w-tcard table.t tr:last-child td{border-bottom:0}
+.w-tcard td.w-act{padding-right:var(--sp-4)}
+.w-acts{display:flex;gap:var(--sp-2);justify-content:flex-end}
+.w-nm{font-weight:var(--fw-b)}
+.w-sub{font-size:var(--fs-xs);color:var(--ink-3);font-weight:var(--fw-r)}
+.w-late{color:var(--red);font-weight:var(--fw-sb)}
+.w-wrap{white-space:normal!important;min-width:200px}
+.w-empty{text-align:center;color:var(--ink-3);padding:var(--sp-8) var(--sp-4)!important;height:auto!important}
+.w-foot{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border-top:1px solid var(--line);font-size:var(--fs-sm);color:var(--ink-3)}
+
+/* 해피콜: 목록 + 오른쪽 카드 */
+.w-hc{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:var(--gap);align-items:start}
+.w-side{display:grid;gap:var(--gap)}
+.w-side .card .hd h2 small{font-size:var(--fs-xs);font-weight:var(--fw-r);color:var(--ink-3);margin-left:6px}
+.w-rate{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+.w-rate th{height:var(--th-h);background:var(--bg-sub);font-size:var(--fs-xs);font-weight:var(--fw-sb);color:var(--ink-3);text-align:left;padding:0 12px}
+.w-rate td{height:var(--tr-h);border-bottom:1px solid var(--line);padding:0 12px;font-variant-numeric:tabular-nums}
+.w-rate tr:last-child td{border-bottom:0}
+.w-rate .n{text-align:right}
+.w-bar{display:flex;align-items:center;gap:var(--sp-2)}
+.w-bar span{flex:1;height:6px;border-radius:var(--r-pill);background:var(--bg-sub);overflow:hidden;min-width:48px}
+.w-bar span b{display:block;height:100%;background:var(--red);border-radius:var(--r-pill)}
+.w-bar em{font-style:normal;font-size:var(--fs-xs);color:var(--ink-3);width:34px;text-align:right}
+.w-rules{display:grid;gap:10px;font-size:var(--fs-sm)}
+.w-rules div{display:flex;justify-content:space-between;gap:var(--sp-3)}
+.w-rules span{color:var(--ink-3);text-align:right}
+
+/* 해피콜 모바일 카드 */
+.w-mlist{display:none}
+.w-mcard{padding:var(--sp-4)}
+.w-mcard .h{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-2)}
+.w-mcard .h b{font-size:var(--fs-lg);line-height:var(--lh-lg)}
+.w-mcard .d{font-size:var(--fs-sm);color:var(--ink-3);margin-top:4px}
+.w-mcard .a{display:flex;gap:var(--sp-2);margin-top:var(--sp-3)}
+.w-mcard .a .btn{height:var(--btn-h-sm);padding:0 14px}
+
+/* 남은 업무 */
+.w-two{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:var(--gap);align-items:start}
+.w-check{display:flex;align-items:center;gap:var(--sp-3);min-height:var(--tr-h);border-bottom:1px solid var(--line);cursor:pointer}
+.w-check:last-child{border-bottom:0}
+.w-check input{width:18px;height:18px;margin:0;accent-color:var(--red);flex:none}
+.w-check .t{flex:1;min-width:0}
+.w-check.done .t{text-decoration:line-through;color:var(--ink-4)}
+.w-check .who{font-size:var(--fs-sm);color:var(--ink-3)}
+.w-req{padding:var(--sp-3) 0;border-bottom:1px solid var(--line);display:flex;gap:var(--sp-3);align-items:center}
+.w-req:last-child{border-bottom:0}
+.w-req .t{flex:1;min-width:0}
+.w-req .t b{display:block;font-size:var(--fs-md)}
+.w-none{color:var(--ink-3);margin:0;font-size:var(--fs-sm);padding:var(--sp-2) 0}
+
+@media (max-width:1100px){
+ .w-hc,.w-two{grid-template-columns:1fr}
+}
+@media (max-width:767px){
+ .w-top .sel.w-date{display:none}
+ .w-top .sel{width:112px;height:40px}
+ .w-tabs{padding:0 16px;gap:var(--sp-6);overflow-x:auto}
+ .w-tabs button i{display:none}
+ .w-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--gap)}
+ .w-chips{flex-wrap:nowrap;overflow-x:auto;margin:0 calc(-1 * var(--page-x));padding:0 var(--page-x)}
+ .w-chips .chip{flex:none}
+ .w-chips .w-q{display:none}
+ .w-hc .w-tcard{display:none}
+ .w-mlist{display:grid;gap:var(--gap)}
+ .w-side{display:none}
+ .w-hc-more{display:flex;justify-content:center}
+}

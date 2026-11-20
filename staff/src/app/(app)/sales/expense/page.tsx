@@ -2,18 +2,17 @@
 import { useEffect, useState } from "react";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
-import { canSee, won, todayKST, downloadCsv } from "@/lib/sales";
-import { PeriodPicker, BranchSeg, Cond, monthRange, friendly, type Range } from "../ui";
+import { won, todayKST, downloadCsv } from "@/lib/sales";
+import { CondBar, Cond, PeriodPicker, Kpi, Z, periodLabel, useSales, useExport, md, friendly } from "../ui";
 
 type Exp = { id: string; branch: string; day: string; category_id: string | null; category_name: string; amount: number; method: string; memo: string | null; created_by: string | null; total: number; sum_amount: number };
 type Cat = { id: string; name: string; kind: string; hidden: boolean };
 const METHODS = ["카드", "현금", "계좌"];
+const METHOD_LABEL: Record<string, string> = { 계좌: "계좌이체" };
 
 export default function Expenses() {
   const me = useMe();
-  const t = todayKST();
-  const [range, setRange] = useState<Range>(monthRange(+t.slice(0, 4), +t.slice(5, 7)));
-  const [branch, setBranch] = useState<string | null>(null);
+  const { range, mode, branch } = useSales();
   const [rows, setRows] = useState<Exp[]>([]);
   const [cats, setCats] = useState<Cat[]>([]);
   const [err, setErr] = useState("");
@@ -37,7 +36,12 @@ export default function Expenses() {
   }, []);
 
   const sum = (m: string) => rows.filter((r) => r.method === m).reduce((a, r) => a + r.amount, 0);
-  const total = rows[0]?.sum_amount ?? 0;
+  const cnt = (m: string) => rows.filter((r) => r.method === m).length;
+  const total = rows.reduce((a, r) => a + r.amount, 0);
+
+  useExport(rows.length ? () => downloadCsv(`경비지출_${range.from}_${range.to}.csv`,
+    ["날짜", "지점", "계정", "결제금액", "결제수단", "메모", "등록자"],
+    rows.map((r) => [r.day, r.branch, r.category_name, r.amount, r.method, r.memo, r.created_by])) : null);
 
   async function del(r: Exp) {
     if (!window.confirm(`${r.day} ${r.category_name} ${won(r.amount)}원 지출을 지울까요?`)) return;
@@ -45,63 +49,52 @@ export default function Expenses() {
     if (error) setErr(friendly(error.message)); else setTick(tick + 1);
   }
 
+  const showBranch = me.tier === "owner" && !branch;
+  const sumRow = (
+    <tr className="sum">
+      <td>합계</td>{showBranch && <td />}<td /><td /><td /><td className="r">{won(total)}</td><td /><td />
+    </tr>
+  );
+
   return (
     <>
-      <div className="card" style={{ padding: "4px 20px" }}>
-        <Cond label="조회기간">
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <PeriodPicker value={range} onChange={setRange} />
-            <span style={{ marginLeft: "auto" }}><BranchSeg value={branch} onChange={setBranch} /></span>
-          </div>
-        </Cond>
+      <CondBar summary={`${periodLabel(range, mode)} · 계정 전체`}
+        extra={<button className="btn p sm" onClick={() => setOpen(true)}>+ 지출 등록</button>}>
+        <Cond label="조회기간"><PeriodPicker /></Cond>
+      </CondBar>
+      <div className="sl-kpis">
+        <Kpi label={mode === "month" ? `${+range.from.slice(5, 7)}월 지출` : "기간 지출"} value={won(total)} unit="원" sub={`${rows.length.toLocaleString()}건`} em />
+        {METHODS.map((m) => <Kpi key={m} label={METHOD_LABEL[m] ?? m} value={won(sum(m))} unit="원" sub={`${cnt(m)}건`} />)}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "16px 0 8px" }}>
-        <span className="num" style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{loading ? "불러오는 중" : `${rows.length.toLocaleString()}건`}</span>
-        <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {canSee(me, "export.excel") && (
-            <button className="btn sm" disabled={!rows.length} onClick={() => downloadCsv(`경비지출_${range.from}_${range.to}.csv`,
-              ["날짜", "지점", "계정", "결제금액", "결제수단", "메모", "등록자"],
-              rows.map((r) => [r.day, r.branch, r.category_name, r.amount, r.method, r.memo, r.created_by]))}>엑셀 내려받기</button>
-          )}
-          <button className="btn p sm" onClick={() => setOpen(true)}>지출 등록</button>
-        </span>
-      </div>
-      {err && <p style={{ color: "var(--red)" }}>{err}</p>}
-      <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>날짜</th>{me.tier === "owner" && <th>지점</th>}<th>계정</th><th>메모</th><th>등록자</th>
-              <th style={{ textAlign: "right" }}>결제금액</th><th style={{ textAlign: "right" }}>카드</th>
-              <th style={{ textAlign: "right" }}>현금</th><th style={{ textAlign: "right" }}>계좌</th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length > 0 && (
-              <tr style={{ fontWeight: 600 }}>
-                <td style={{ background: "var(--bg-soft)" }} colSpan={me.tier === "owner" ? 5 : 4}>합계</td>
-                {[total, sum("카드"), sum("현금"), sum("계좌")].map((v, i) => (
-                  <td key={i} className="num" style={{ background: "var(--bg-soft)", textAlign: "right" }}>{won(v)}</td>
-                ))}
-                <td style={{ background: "var(--bg-soft)" }}></td>
+      {err && <p className="sl-err">{err}</p>}
+      <div className="sl-card">
+        <div className="sl-scroll">
+          <table className="sl-t">
+            <thead>
+              <tr>
+                <th>지출일</th>{showBranch && <th>지점</th>}<th>계정</th><th>내용</th><th>담당자</th>
+                <th className="r">금액</th><th>수단</th><th />
               </tr>
-            )}
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td className="num">{r.day}</td>{me.tier === "owner" && <td>{r.branch}</td>}
-                <td style={{ fontWeight: 600 }}>{r.category_name}</td>
-                <td style={{ color: "var(--ink-3)" }}>{r.memo || "-"}</td>
-                <td>{r.created_by || "-"}</td>
-                <td className="num" style={{ textAlign: "right" }}><b>{won(r.amount)}</b></td>
-                {METHODS.map((m) => <td key={m} className="num" style={{ textAlign: "right" }}>{r.method === m ? won(r.amount) : "0"}</td>)}
-                <td style={{ textAlign: "right" }}><button className="btn t sm" onClick={() => del(r)}>삭제</button></td>
-              </tr>
-            ))}
-            {!loading && rows.length === 0 && !err && (
-              <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--ink-3)" }}>이 기간에 지출 기록이 없어요</td></tr>
-            )}
-          </tbody>
-        </table>
+              {rows.length > 0 && sumRow}
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{md(r.day)}</td>{showBranch && <td>{r.branch}</td>}
+                  <td><span className="badge">{r.category_name}</span></td>
+                  <td>{r.memo || <span className="sl-z">-</span>}</td>
+                  <td>{r.created_by || "-"}</td>
+                  <td className="r"><Z n={r.amount} /></td>
+                  <td>{METHOD_LABEL[r.method] ?? r.method}</td>
+                  <td className="r"><button className="btn t sm" onClick={() => del(r)}>삭제</button></td>
+                </tr>
+              ))}
+              {!loading && rows.length === 0 && !err && <tr><td colSpan={8} className="sl-empty">이 기간에 지출 기록이 없어요</td></tr>}
+              {loading && rows.length === 0 && <tr><td colSpan={8} className="sl-empty">불러오는 중</td></tr>}
+            </tbody>
+            {rows.length > 0 && <tfoot>{sumRow}</tfoot>}
+          </table>
+        </div>
       </div>
       {open && <AddExpense cats={cats} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); setTick(tick + 1); }} />}
     </>
@@ -146,15 +139,15 @@ function AddExpense({ cats, onClose, onSaved }: { cats: Cat[]; onClose: () => vo
               <option value="">골라 주세요</option>
               {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            {cats.length === 0 && <div className="help" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 4 }}>등록된 계정이 없어요. 수입지출 계정 탭에서 먼저 만들어 주세요.</div>}
+            {cats.length === 0 && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 4 }}>등록된 계정이 없어요. 위쪽 &lsquo;수입 · 지출 계정&rsquo;에서 먼저 만들어 주세요.</div>}
           </div>
           <div className="field"><label>금액</label>
             <input className="inp num" inputMode="numeric" placeholder="0" value={amt ? amt.toLocaleString() : ""} onChange={(e) => setAmount(e.target.value)} />
           </div>
           <div className="field"><label>결제수단</label>
-            <div className="seg">{METHODS.map((m) => <button key={m} className={method === m ? "on" : ""} onClick={() => setMethod(m)}>{m}</button>)}</div>
+            <div className="seg">{METHODS.map((m) => <button key={m} className={method === m ? "on" : ""} onClick={() => setMethod(m)}>{METHOD_LABEL[m] ?? m}</button>)}</div>
           </div>
-          <div className="field"><label>메모</label><input className="inp" value={memo} onChange={(e) => setMemo(e.target.value)} /></div>
+          <div className="field"><label>내용</label><input className="inp" placeholder="예: 석션 소모품" value={memo} onChange={(e) => setMemo(e.target.value)} /></div>
           {err && <p style={{ color: "var(--red)" }}>{err}</p>}
         </div>
         <div className="ft">

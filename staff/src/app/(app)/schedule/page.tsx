@@ -45,6 +45,12 @@ export default function SchedulePage() {
   const [fStaff, setFStaff] = useState("all");
   const [fProg, setFProg] = useState("all");
   const [now, setNow] = useState(nowMin());
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const f = () => { setMobile(mq.matches); if (mq.matches) setView((v) => (v === "day" || v === "list" ? "week" : v)); };
+    f(); mq.addEventListener("change", f); return () => mq.removeEventListener("change", f);
+  }, []);
 
   const canWrite = me.tier !== "staff" || !!me.perms?.["schedule.reserve"];
   const today = todayKST();
@@ -92,7 +98,8 @@ export default function SchedulePage() {
   const holidayOf = (d: string) => holidays.find((h) => h.day === d);
   const dayRows = useMemo(() => rows.filter((r) => r.day === day), [rows, day]);
   const shown = useMemo(() => rows.filter((r) => (fSt === "all" || r.status === fSt)
-    && (fStaff === "all" || (r.staff_id || NO_STAFF) === fStaff) && (fProg === "all" || r.program_id === fProg)), [rows, fSt, fStaff, fProg]);
+    && (fStaff === "all" || (r.staff_id || NO_STAFF) === fStaff) && (fProg === "all" || r.program_id === fProg))
+    .sort((a, b) => a.day.localeCompare(b.day) || a.start_time.localeCompare(b.start_time)), [rows, fSt, fStaff, fProg]);
 
   // 영업시간: 설정 › 업무시간 (없으면 09~21시)
   const [dStart, dEnd] = useMemo(() => {
@@ -147,9 +154,9 @@ export default function SchedulePage() {
         title={`${r.start_time} ${name} · ${p?.name ?? ""}${r.staff_name ? ` · 담당 ${r.staff_name}` : ""}${r.memo ? `\n${r.memo}` : ""}`}
         style={{
           top: top + 2, height: h, left: `calc(${(lane / n) * 100}% + 4px)`, width: `calc(${100 / n}% - 8px)`,
-          background: cancel ? "#fff" : tint(c, 13), borderLeft: `3px solid ${cancel ? "var(--st-cancel-line)" : c}`,
-          border: sel ? "2px solid var(--ink)" : cancel ? "1px dashed var(--st-cancel-line)" : undefined,
-          borderLeftWidth: 3, opacity: done ? "var(--st-done-opacity)" as unknown as number : undefined,
+          background: cancel ? "#fff" : tint(c, 13),
+          border: cancel ? "1px dashed var(--st-cancel-line)" : "0", borderLeft: `3px solid ${cancel ? "var(--st-cancel-line)" : c}`,
+          outline: sel ? "2px solid var(--ink)" : undefined, outlineOffset: -2, opacity: done ? "var(--st-done-opacity)" as unknown as number : undefined,
         }}>
         <div className="l1 num" style={{ paddingRight: noshow || cancel ? 40 : 0 }}><b>{r.start_time.slice(0, 5)} {name}</b>{done && <span> · 결제 완료</span>}{h < 40 && <span> {p?.short || p?.name}</span>}</div>
         {h >= 40 && <div className="l2">{p?.short || p?.name || r.kind} {r.minutes}분{showStaff && r.staff_name ? ` · ${r.staff_name}` : ""}</div>}
@@ -164,7 +171,7 @@ export default function SchedulePage() {
     const cols = view === "day"
       ? staffCols.map((c) => ({ key: c.id, day, head: c.name, sub: c.sub, staffId: c.id }))
       : Array.from({ length: 7 }, (_, i) => addDays(from, i)).map((d) => ({
-        key: d, day: d, head: `${Number(d.slice(8))}일 (${DOW[dow(d)]})`, sub: `${rows.filter((r) => r.day === d && (r.status === "예약" || r.status === "완료")).length}건`, staffId: undefined as string | undefined,
+        key: d, day: d, head: `${Number(d.slice(8))} ${DOW[dow(d)]}`, sub: `예약 ${rows.filter((r) => r.day === d && (r.status === "예약" || r.status === "완료")).length}`, staffId: undefined as string | undefined,
       }));
     const gridH = slots.length * ROW_H;
     return (
@@ -278,6 +285,80 @@ export default function SchedulePage() {
     </table>
   );
 
+  // 모바일 (시안 M11 7차 후): 주간 칸 목록
+  const wkNo = (d: string) => { const f = `${d.slice(0, 8)}01`; return Math.ceil((Number(d.slice(8)) + ((dow(f) + 6) % 7)) / 7); };
+  const mweek = () => {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(from, i));
+    return (
+      <div className="mw">
+        {days.map((d) => {
+          const hol = holidayOf(d);
+          const list = shown.filter((r) => r.day === d);
+          return (
+            <div key={d} className={`mw-col ${d === today ? "td" : ""}`} onClick={() => canWrite && !hol && openNew(d, Math.max(dStart, 10 * 60))}>
+              <div className="mw-h"><span>{DOW[dow(d)]}</span><b className="num">{Number(d.slice(8))}</b><span>{hol ? "휴무" : `${list.filter((r) => r.status === "예약" || r.status === "완료").length}건`}</span></div>
+              {hol && <div className="mw-off">휴무</div>}
+              {list.map((r) => {
+                const p = progMap.get(r.program_id ?? "");
+                const off = r.status === "취소" || r.status === "노쇼";
+                const past = r.status === "완료" || d < today;
+                return (
+                  <button key={r.id} className={`mw-it num ${off ? "off" : ""}`} onClick={(e) => { e.stopPropagation(); setDraft({ ...r }); }}
+                    style={off ? undefined : { background: tint(p?.color ?? "#8A8A8A", past ? 22 : 100), color: past ? "var(--ink)" : "#fff" }}>
+                    {off && <span className={`tag ${r.status === "노쇼" ? "ns" : "cc"}`}>{r.status}</span>}
+                    <span>{r.start_time.slice(0, 5)}</span>
+                    <span>{r.kind === "고객" ? r.customer_name : r.title || p?.short}</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+  if (mobile) {
+    return (
+      <div className="rsv-m">
+        <header className="top">
+          <h1>예약</h1>
+          <div style={{ flex: 1 }} />
+          <select className="sel" style={{ width: 112 }} value={branch} disabled={me.tier !== "owner"} onChange={(e) => setBranch(e.target.value)}>
+            {(me.tier === "owner" ? BRANCHES : [me.branch]).map((b) => <option key={b}>{b}</option>)}
+          </select>
+          {canWrite && <button className="btn p sm" onClick={() => openNew(today, Math.max(dStart, Math.ceil(now / 30) * 30))}>+ 예약</button>}
+        </header>
+        <div className="rm-bar">
+          <button className="btn t sm" onClick={() => move(-1)} aria-label="이전">‹</button>
+          <b className="num">{view === "week" ? `${Number(from.slice(5, 7))}월 ${wkNo(from)}주` : `${Number(day.slice(5, 7))}월`}</b>
+          <button className="btn t sm" onClick={() => move(1)} aria-label="다음">›</button>
+          <div style={{ flex: 1 }} />
+          <button className="btn t sm" onClick={() => setDay(today)}>오늘</button>
+        </div>
+        <div className="rm-bar">
+          <div className="seg">
+            <button className={view === "week" ? "on" : ""} onClick={() => setView("week")}>주간</button>
+            <button className={view === "mbrief" ? "on" : ""} onClick={() => setView("mbrief")}>월(간략)</button>
+          </div>
+          <select className="sel fsel" value={fStaff} onChange={(e) => setFStaff(e.target.value)}>
+            <option value="all">직원 전체</option>
+            {staff.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </select>
+        </div>
+        {err && <p style={{ color: "var(--red)", padding: "0 16px" }}>{err}</p>}
+        {view === "week" ? mweek() : month(true)}
+        <div className="rm-legend">
+          {legend.map((p) => <span key={p.id}><i style={{ background: p.color! }} />{p.short || p.name}</span>)}
+          <span className="rd-dim">연한 색 = 지난 예약 · 회색 + 태그 = 취소·노쇼</span>
+        </div>
+        {draft && (
+          <RsvDrawer branch={branch} draft={draft} programs={programs} rows={rows} canWrite={canWrite}
+            onClose={() => setDraft(null)} onSaved={() => { setDraft(null); load(); }} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="rsv">
       <header className="top">
@@ -304,6 +385,16 @@ export default function SchedulePage() {
               {VIEWS.map((v) => <button key={v.k} className={view === v.k ? "on" : ""} onClick={() => setView(v.k)}>{v.l}</button>)}
             </div>
           </div>
+          {(view === "day" || view === "week") && (
+            <div className="rsv-strip num">
+              {Array.from({ length: Number(monthEnd(day).slice(8)) }, (_, i) => `${day.slice(0, 8)}${String(i + 1).padStart(2, "0")}`).map((d) => (
+                <button key={d} onClick={() => setDay(d)}
+                  className={`${d === day ? "on" : ""} ${dow(d) === 0 || holidayOf(d) ? "red" : ""} ${view === "week" && d >= from && d <= to && d !== day ? "wk" : ""}`}>
+                  {Number(d.slice(8))}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="rsv-filters">
             <select className="sel fsel" value={fSt} onChange={(e) => setFSt(e.target.value)}>
               <option value="all">예약 상태 전체</option>

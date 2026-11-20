@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { sb } from "@/lib/sb";
-import { won } from "@/lib/sales";
-import { BranchOne, friendly, useBranchPick } from "../ui";
+import { useMe } from "@/lib/me";
+import { canSee, won } from "@/lib/sales";
+import { friendly, useMb, SearchIcon } from "../ui";
 
 type P = {
   id: string; branch: string; name: string; kind: string; valid_days: number | null; price: number | null;
@@ -10,14 +12,18 @@ type P = {
   items: { program_id: string; program: string; count: number; unit_price: number }[]; sold: number;
 };
 const KINDS = [null, "회차", "기간", "금액"] as const;
+const period = (d: number | null) => (!d ? "-" : d % 365 === 0 ? `${(d / 365) * 12}개월` : d % 30 === 0 ? `${d / 30}개월` : `${d}일`);
 
 export default function Products() {
-  const [branch, setBranch] = useState(useBranchPick());
-  const [kind, setKind] = useState<string | null>(null);
+  const me = useMe();
+  const { branch } = useMb();
+  const [kind, setKind] = useState<string | null>("회차");
   const [sale, setSale] = useState(true);
+  const [q, setQ] = useState("");
   const [rows, setRows] = useState<P[]>([]);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
+  const editable = canSee(me, "settings.edit");
 
   useEffect(() => {
     let on = true;
@@ -31,51 +37,60 @@ export default function Products() {
     return () => { on = false; };
   }, [branch, kind]);
 
-  const list = rows.filter((r) => !sale || r.on_sale);
+  const s = q.trim();
+  const list = rows.filter((r) => (!sale || r.on_sale) && (!s || r.name.includes(s) || r.items.some((i) => i.program.includes(s))));
   return (
     <>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="mb-bar">
         <div className="seg">
           {KINDS.map((k) => <button key={k ?? "all"} className={kind === k ? "on" : ""} onClick={() => setKind(k)}>{k ? `${k}권` : "전체"}</button>)}
         </div>
-        <div className="seg">
-          <button className={sale ? "on" : ""} onClick={() => setSale(true)}>판매 중</button>
-          <button className={!sale ? "on" : ""} onClick={() => setSale(false)}>판매 끝난 것 포함</button>
-        </div>
-        <span style={{ marginLeft: "auto" }}><BranchOne value={branch} onChange={setBranch} /></span>
+        <label className="mb-check"><input type="checkbox" checked={!sale} onChange={(e) => setSale(!e.target.checked)} />판매 끝난 것도 보기</label>
+        <label className="mb-search" style={{ marginLeft: "auto" }}>
+          <SearchIcon />
+          <input className="inp" placeholder="상품 이름" value={q} onChange={(e) => setQ(e.target.value)} />
+        </label>
       </div>
-      {err && <p style={{ color: "var(--red)" }}>{err}</p>}
-      <div className="card" style={{ padding: 0, overflowX: "auto", marginTop: 16 }}>
-        <table className="t">
-          <thead>
-            <tr>
-              <th>회원권명</th><th>종류</th><th>포함 관리</th><th style={{ textAlign: "right" }}>금액</th>
-              <th style={{ textAlign: "right" }}>유효기간</th><th>나눠쓰기</th><th>고객앱 노출</th><th>적용</th>
-              <th style={{ textAlign: "right" }}>판매 건수</th><th>상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((p) => (
-              <tr key={p.id} style={{ color: p.on_sale ? undefined : "var(--ink-3)" }}>
-                <td style={{ fontWeight: 600 }}>{p.name}</td>
-                <td>{p.kind}</td>
-                <td style={{ fontSize: "var(--fs-sm)" }}>{p.items.length ? p.items.map((i) => `${i.program}${i.count ? ` ${i.count}회` : ""}`).join(", ") : "-"}</td>
-                <td className="num" style={{ textAlign: "right" }}>{p.price ? `${won(p.price)}원` : "-"}</td>
-                <td className="num" style={{ textAlign: "right" }}>{p.valid_days ? `${p.valid_days}일` : "-"}</td>
-                <td>{p.share_ok ? "가능" : "-"}</td>
-                <td>{p.app_visible ? "보임" : "-"}</td>
-                <td>{p.branch ? p.branch : "전 지점"}</td>
-                <td className="num" style={{ textAlign: "right" }}>{p.sold}</td>
-                <td><span className={`badge ${p.on_sale ? "ok" : ""}`}>{p.on_sale ? "판매 중" : "판매 끝"}</span></td>
+      {err && <p className="mb-err">{err}</p>}
+      <div className="mb-card first">
+        <div className="mb-scroll">
+          <table className="mb-t">
+            <thead>
+              <tr>
+                <th>회원권명</th><th>관리명</th><th className="r">관리 회차</th><th className="r">금액</th>
+                <th>유효기간</th><th>나눠쓰기 · 고객앱</th><th>적용</th><th className="r">판매 건수</th><th>관리</th>
               </tr>
-            ))}
-            {!loading && list.length === 0 && !err && (
-              <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--ink-3)" }}>상품이 없어요</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {list.map((p) => {
+                const cnt = p.items.reduce((a, i) => a + (i.count || 0), 0);
+                return (
+                  <tr key={p.id} className={p.on_sale ? "" : "off"}>
+                    <td className="nm">{p.name}{!p.on_sale && <span className="badge" style={{ marginLeft: 8 }}>판매 끝</span>}</td>
+                    <td>{p.items.length ? p.items.map((i) => i.program).join(" · ") : "-"}</td>
+                    <td className="r">{cnt || "-"}</td>
+                    <td className="r">{p.price ? won(p.price) : p.face_amount ? won(p.face_amount) : "-"}</td>
+                    <td>{period(p.valid_days)}</td>
+                    <td className="mute">{[p.share_ok && "나눠쓰기", p.app_visible && "고객앱"].filter(Boolean).join(" · ") || "-"}</td>
+                    <td>{p.branch ? p.branch : "전 지점"}</td>
+                    <td className="r">{p.sold}</td>
+                    <td>
+                      {editable ? (
+                        <Link href="/settings/products" className="mb-ic" title="설정에서 고치기" aria-label={`${p.name} 고치기`}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 20h4L19 9l-4-4L4 16v4z" /><path d="m13.5 6.5 4 4" /></svg>
+                        </Link>
+                      ) : <span className="mute">-</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!loading && list.length === 0 && !err && <tr><td colSpan={9} className="mb-empty">상품이 없어요</td></tr>}
+              {loading && rows.length === 0 && <tr><td colSpan={9} className="mb-empty">불러오는 중</td></tr>}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>상품 추가·수정은 설정 › 회원권 상품에서 해요.</p>
+      <p className="mb-note">상품 추가·수정은 설정 › 회원권 상품에서 해요.</p>
     </>
   );
 }

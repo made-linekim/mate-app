@@ -1,0 +1,65 @@
+/* 회원권 화면 (메라 시안 04-01, 04-02). 접두어 mb- */
+.mb-top{height:auto;min-height:var(--top-h);flex-wrap:wrap;row-gap:8px;padding-top:12px;padding-bottom:12px}
+.mb-tools{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mb-tools .sel{width:auto;min-width:120px}
+.mb-tabs{display:flex;gap:24px;padding:0 var(--page-x);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.mb-tabs::-webkit-scrollbar{display:none}
+.mb-tabs a{height:var(--tab-h);display:flex;align-items:center;white-space:nowrap;font-size:var(--fs-md);font-weight:500;color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.mb-tabs a.on{font-weight:700;color:var(--ink);border-bottom-color:var(--red)}
+.mb-search{position:relative;width:240px;max-width:100%}
+.mb-search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-4)}
+.mb-search .inp{padding-left:34px}
+.mb-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+.mb-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.mb-kpi{border:1px solid var(--line);border-radius:var(--r-card);padding:12px 20px;min-height:var(--kpi-h);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.mb-kpi .l{font-size:var(--fs-sm);color:var(--ink-2)}
+.mb-kpi .v{font-size:var(--fs-2xl);line-height:var(--lh-2xl);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mb-kpi .v small{font-size:var(--fs-xs);font-weight:700;margin-left:2px}
+.mb-kpi .v.em{color:var(--red)}
+.mb-kpi .s{font-size:var(--fs-xs);color:var(--ink-3)}
+
+.mb-card{border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;margin-top:24px;background:var(--bg)}
+.mb-card.first{margin-top:0}
+.mb-hd{display:flex;align-items:center;gap:8px;min-height:60px;padding:8px 20px;flex-wrap:wrap}
+.mb-hd h2{font-size:var(--fs-lg);font-weight:700;margin:0}
+.mb-hd .meta{font-size:var(--fs-sm);color:var(--ink-3)}
+.mb-hd .act{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mb-link{border:0;background:none;font-size:var(--fs-sm);font-weight:600;color:var(--ink-2);padding:6px 8px;border-radius:var(--r-ctl)}
+.mb-link:hover{background:var(--bg-soft)}
+.mb-scroll{overflow-x:auto}
+.mb-t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.mb-t th{height:var(--th-h);background:var(--bg-sub);font-size:var(--fs-xs);font-weight:500;color:var(--ink-3);text-align:left;padding:0 12px;white-space:nowrap}
+.mb-t td{height:var(--tr-h);border-bottom:1px solid var(--line);font-size:var(--fs-md);padding:0 12px;white-space:nowrap}
+.mb-t th:first-child,.mb-t td:first-child{padding-left:16px}
+.mb-t th:last-child,.mb-t td:last-child{padding-right:16px}
+.mb-t tbody tr:last-child td{border-bottom:0}
+.mb-t .r{text-align:right}
+.mb-t .nm{font-weight:700}
+.mb-t tbody tr:hover td{background:var(--bg-soft)}
+.mb-t tr.go{cursor:pointer}
+.mb-t tr.off td{color:var(--ink-4)}
+.mb-t tfoot td{background:var(--bg-sub);font-weight:700;height:var(--th-h);border-bottom:0}
+.mb-t .items{white-space:nowrap;min-width:220px;font-size:var(--fs-sm);padding-top:6px;padding-bottom:6px}
+.mb-t .items div{display:flex;gap:8px;align-items:center;padding:2px 0}
+.mb-t .mute{color:var(--ink-3)}
+.mb-empty{text-align:center;color:var(--ink-3);height:80px!important}
+.mb-ic{width:32px;height:32px;padding:0;border-radius:var(--r-ctl);border:1px solid var(--line-strong);background:var(--bg);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.mb-ic+.mb-ic{margin-left:8px}
+.mb-check{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--ink-2);cursor:pointer;white-space:nowrap}
+.mb-check input{width:18px;height:18px;accent-color:var(--red);margin:0}
+.mb-note{font-size:var(--fs-xs);color:var(--ink-3);margin-top:12px}
+.mb-err{color:var(--red);font-size:var(--fs-sm)}
+.mb-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+
+@media (max-width:767px){
+ .mb-tools{margin-left:0;width:100%}
+ .mb-tools .sel{flex:none;min-width:0;width:110px}
+ .mb-tools .mb-search{flex:1;width:auto}
+ .mb-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ .mb-kpi{padding:12px 16px}
+ .mb-kpi .v{font-size:var(--fs-xl);line-height:var(--lh-xl)}
+ .mb-card{margin-top:16px}
+ .mb-hd{padding:8px 16px}
+ .mb-bar .mb-search{flex:1 1 100%;width:100%}
+}

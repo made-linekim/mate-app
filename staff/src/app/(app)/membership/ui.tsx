@@ -1,5 +1,6 @@
 "use client";
 import { BRANCHES } from "@/lib/sb";
+import { createContext, useContext } from "react";
 import { useMe } from "@/lib/me";
 
 /* 지점 고르기: 대표관리자만 보임, 나머지는 자기 지점 고정 */
@@ -36,3 +37,22 @@ export function Kpis({ items }: { items: { label: string; value: string; strong?
 
 export const friendly = (m: string) =>
   /permission|denied|권한/i.test(m) ? "이 화면을 볼 권한이 없어요" : "불러오지 못했어요. 잠시 뒤 다시 시도해 주세요";
+
+/* ── 회원권 화면 공용 상태 (헤더의 지점 · 고객 검색) ── */
+export type MbState = { branch: string; setBranch: (b: string) => void; q: string; setQ: (q: string) => void };
+export const MbCtx = createContext<MbState | null>(null);
+export const useMb = () => useContext(MbCtx)!;
+
+export function MbKpi({ label, value, unit, sub, em }: { label: string; value: string; unit?: string; sub?: string; em?: boolean }) {
+  return (
+    <div className="mb-kpi">
+      <div className="l">{label}</div>
+      <div className={`v ${em ? "em" : ""}`}>{value}{unit && <small>{unit}</small>}</div>
+      {sub && <div className="s">{sub}</div>}
+    </div>
+  );
+}
+
+export const SearchIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+);

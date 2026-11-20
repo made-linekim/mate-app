@@ -12,7 +12,6 @@ const NAV: { group: string; items: Item[] }[] = [
     { href: "/schedule", label: "예약", icon: "cal" },
     { href: "/work", label: "오늘 할 일", icon: "check" },
     { href: "/customers", label: "고객", icon: "user" },
-    { href: "/happycall", label: "해피콜", icon: "phone" },
     { href: "/membership", label: "회원권", icon: "card" },
     { label: "운동일지", icon: "note" },
   ] },
@@ -23,7 +22,6 @@ const NAV: { group: string; items: Item[] }[] = [
     { label: "마케팅", icon: "mega" },
   ] },
   { group: "관리", items: [
-    { href: "/staff", label: "직원 관리", icon: "team" },
     { href: "/settings", label: "설정", icon: "gear" },
   ] },
 ];
@@ -44,10 +42,21 @@ const ICONS = {
   gear: <><circle cx="12" cy="12" r="3" {...P} /><path d="M12 3.5v2.3M12 18.2v2.3M3.5 12h2.3M18.2 12h2.3M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6" {...P} /></>,
 };
 
+// 해피콜은 '오늘 할 일' 안, 직원·권한은 '설정' 안에 있어요 (메라 시안)
+const isOn = (path: string, href: string) => path.startsWith(href)
+  || (href === "/work" && path.startsWith("/happycall")) || (href === "/settings" && path.startsWith("/staff"));
+// 모바일 하단 탭 (시안 02-05m): 예약 · 오늘 할 일 · 고객 · 운동일지 · 더보기
+const TABS: Item[] = [
+  { href: "/schedule", label: "예약", icon: "cal" }, { href: "/work", label: "오늘 할 일", icon: "check" },
+  { href: "/customers", label: "고객", icon: "user" }, { label: "운동일지", icon: "note" },
+];
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = usePathname();
   const [me, setMe] = useState<Staff | null | undefined>(undefined);
+  const [more, setMore] = useState(false);
+  useEffect(() => setMore(false), [path]);
 
   useEffect(() => {
     (async () => {
@@ -74,7 +83,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {g.items.map((n) => {
                   const icon = <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>{ICONS[n.icon]}</svg>;
                   return n.href ? (
-                    <Link key={n.label} href={n.href} className={path.startsWith(n.href) ? "on" : ""}>{icon}{n.label}</Link>
+                    <Link key={n.label} href={n.href} className={isOn(path, n.href) ? "on" : ""}>{icon}{n.label}</Link>
                   ) : (
                     <span key={n.label} className="off" title="준비 중이에요">{icon}{n.label}<em>준비 중</em></span>
                   );
@@ -93,7 +102,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </aside>
-        <div style={{ minWidth: 0 }}>{children}</div>
+        <div className="main">{children}</div>
+        <nav className="mtab">
+          {TABS.map((t) => {
+            const icon = <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden>{ICONS[t.icon]}</svg>;
+            return t.href
+              ? <Link key={t.label} href={t.href} className={isOn(path, t.href) ? "on" : ""}>{icon}<span>{t.label}</span></Link>
+              : <span key={t.label} className="off">{icon}<span>{t.label}</span></span>;
+          })}
+          <button className={more ? "on" : ""} onClick={() => setMore(!more)}>
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden><circle cx="6" cy="12" r="1.6" fill="currentColor" /><circle cx="12" cy="12" r="1.6" fill="currentColor" /><circle cx="18" cy="12" r="1.6" fill="currentColor" /></svg>
+            <span>더보기</span>
+          </button>
+        </nav>
+        {more && (
+          <>
+            <div className="dim mmore-dim" onClick={() => setMore(false)} />
+            <div className="mmore">
+              {NAV.flatMap((g) => g.items).filter((n) => !TABS.some((t) => t.label === n.label)).map((n) => (
+                n.href
+                  ? <Link key={n.label} href={n.href}><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS[n.icon]}</svg>{n.label}</Link>
+                  : <span key={n.label} className="off"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS[n.icon]}</svg>{n.label}<em>준비 중</em></span>
+              ))}
+              <button onClick={() => sb.auth.signOut()}>{me.name} · {me.branch} · 로그아웃</button>
+            </div>
+          </>
+        )}
       </div>
     </MeCtx.Provider>
   );

@@ -1,13 +1,24 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { sb, type Staff } from "@/lib/sb";
-import { type Program, type Rsv, SLOTS, toMin, slotLabel, usedAt, fmtDay } from "@/lib/schedule";
+import Link from "next/link";
+import { type Program, type Rsv, SLOTS, toMin, usedAt, fmtDay, todayKST, DOW, dow } from "@/lib/schedule";
 
 // 새 예약은 day/start_time/program_id 만, 기존 예약은 Rsv 전체
 export type Draft = Partial<Rsv> & { day: string; start_time: string; program_id?: string | null };
 type Cust = { key: string; branch: string; name: string; phone: string | null; membership: string | null; min_remaining: number | null; ends_on: string | null };
 
 const isWork = (p?: Program) => !!p && (p.grp === "업무" || p.grp === "행사");
+type Summary = {
+  customer: { name: string; phone: string | null; last_visit_on: string | null; tags: string | null };
+  memberships: { id: string; name: string; kind: string; status: string; end_on: string | null; amount_left: number | null; items: { total: number; used: number; service: number | null }[] }[];
+  visits: { day: string; status: string }[];
+  counts: { done: number; noshow: number; cancel: number } | null;
+  memos: { body: string }[];
+};
+const md = (d: string) => `${Number(d.slice(5, 7))}.${d.slice(8)}`;
+const daysTo = (d: string, from: string) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 864e5);
+const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onClose, onSaved }: {
   branch: string; draft: Draft; programs: Program[]; rows: Rsv[]; canWrite: boolean;
@@ -30,6 +41,14 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const [err, setErr] = useState("");
   const [askReason, setAskReason] = useState<"취소" | "노쇼" | null>(null);
   const [reason, setReason] = useState("");
+
+  // 고객 요약 (시안 8차 P03: 이력 · 보유 회원권 · 비고)
+  const [sum, setSum] = useState<Summary | null>(null);
+  useEffect(() => {
+    setSum(null);
+    if (!cust) return;
+    sb.rpc("customer_chart", { p_branch: branch, p_key: cust.key }).then(({ data }) => setSum((data as Summary) ?? null));
+  }, [cust, branch]);
 
   useEffect(() => {
     sb.from("staff_accounts").select("*").eq("branch", branch).eq("status", "active").order("name")
@@ -78,122 +97,161 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   };
 
   const ro = !canWrite || locked;
+  const today = todayKST();
+  const endTime = prog ? hm(toMin(time) + prog.minutes) : "";
+  const last = (st: string) => sum?.visits.find((v) => v.status === st)?.day;
+  const lastVisit = sum?.customer.last_visit_on ?? sum?.visits.find((v) => v.status === "완료" || v.status === "방문")?.day;
+  const active = (sum?.memberships ?? []).filter((m) => m.status === "사용중");
+  const staffName = staff.find((s) => s.id === staffId)?.name;
 
   return (
     <>
       <div className="dim" style={{ zIndex: 20 }} onClick={onClose} />
-      <aside className="drawer" style={{ zIndex: 21 }} role="dialog" aria-label={editing ? "예약 상세" : "예약 등록"}>
+      <aside className="drawer rd" style={{ zIndex: 21 }} role="dialog" aria-label={editing ? "예약 수정" : "새 예약"}>
         <div className="hd">
-          {editing ? "예약 상세" : "예약 등록"}
+          {editing ? "예약 수정" : "새 예약"}
+          <span className="rd-sub num">{md(day)} ({DOW[dow(day)]}) {time}</span>
           {editing && draft.status !== "예약" && (
             <span className={`badge ${draft.status === "완료" ? "ok" : draft.status === "노쇼" ? "warn" : "em"}`} style={{ marginLeft: 8 }}>
-              {draft.status === "완료" ? "결제완료" : draft.status}
+              {draft.status === "완료" ? "결제 완료" : draft.status}
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <button className="btn t sm" onClick={onClose} aria-label="닫기">닫기</button>
+          <button className="rd-x" onClick={onClose} aria-label="닫기">×</button>
         </div>
         <div className="bd">
           {/* 고객 */}
-          {!work && (
+          {!work && (cust ? (
+            <>
+              <div className="rd-box rd-cust">
+                <b>{cust.name}</b>
+                <span className="num">{sum?.customer.phone ?? ""}</span>
+                <div style={{ flex: 1 }} />
+                <Link className="btn sm" href={`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(cust.key)}`}>고객 차트</Link>
+                <button className="btn sm" disabled title="문자 보내기는 준비 중이에요">문자</button>
+                {!ro && !editing && <button className="btn sm t" onClick={() => { setCust(null); setFound(null); }}>변경</button>}
+              </div>
+              <div className="rd-box rd-row">
+                <span className="rd-k">이력</span>
+                <span className="num">
+                  취소 <em>{sum?.counts?.cancel ?? 0}회</em>{last("취소") ? ` ${md(last("취소")!)}` : ""} · 노쇼 <em>{sum?.counts?.noshow ?? 0}회</em>{last("노쇼") ? ` ${md(last("노쇼")!)}` : ""}
+                  {lastVisit ? ` · 최근 방문 ${md(lastVisit)} (${Math.max(0, -daysTo(lastVisit, today))}일 전)` : " · 방문 기록 없음"}
+                </span>
+              </div>
+              {active.length > 0 && (
+                <div className="rd-box rd-ms">
+                  {active.slice(0, 4).map((m) => {
+                    const left = m.items.reduce((a, i) => a + Math.max(i.total - i.used, 0) + (i.service ?? 0), 0);
+                    const dd = m.end_on ? daysTo(m.end_on, today) : null;
+                    return (
+                      <div key={m.id} className="num">
+                        <b>{m.name}</b>
+                        <span>{m.kind === "금액" ? `잔액 ${Math.round((m.amount_left ?? 0) / 10000)}만` : `잔여 ${left}회`}{dd !== null ? ` · ${dd}일` : ""}</span>
+                        {m.end_on && (dd !== null && dd <= 14
+                          ? <span className="tag cc">D-{dd} · {md(m.end_on)} 만료</span>
+                          : <span className="rd-dim">· {m.end_on.slice(2).replace(/-/g, ".")} 만료</span>)}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {sum?.memos?.[0] && (
+                <div className="rd-box rd-row"><span className="rd-k">비고</span><span className="rd-ell">{sum.memos[0].body}</span></div>
+              )}
+            </>
+          ) : (
             <div className="field">
               <label>고객</label>
-              {cust ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontWeight: 600 }}>{cust.name}</span>
-                  {!ro && !editing && <button className="btn sm t" onClick={() => { setCust(null); setFound(null); }}>다른 고객</button>}
+              <form style={{ display: "flex", gap: 8 }} onSubmit={(e) => { e.preventDefault(); search(); }}>
+                <input className="inp" placeholder="고객 이름 · 뒤 4자리" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+                <button className="btn">검색</button>
+              </form>
+              {found && (
+                <div className="card" style={{ padding: 0, marginTop: 8, maxHeight: 240, overflow: "auto" }}>
+                  {found.length === 0 && <div style={{ padding: 12, color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>찾는 고객이 없어요</div>}
+                  {found.map((c) => (
+                    <button key={c.key} onClick={() => { setCust({ key: c.key, name: c.name }); setFound(null); }}
+                      style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 12px", border: 0, borderBottom: "1px solid var(--line)", background: "var(--bg)" }}>
+                      <div style={{ fontWeight: 600 }}>{c.name} <span className="num" style={{ color: "var(--ink-3)", fontWeight: 400 }}>{c.phone ?? ""}</span></div>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+                        {c.membership ? `${c.membership}${c.min_remaining != null ? ` · 잔여 ${c.min_remaining}회` : ""}${c.ends_on ? ` · ~${c.ends_on}` : ""}` : "회원권 없음"}
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <>
-                  <form style={{ display: "flex", gap: 8 }} onSubmit={(e) => { e.preventDefault(); search(); }}>
-                    <input className="inp" placeholder="이름 또는 연락처 뒤 4자리" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
-                    <button className="btn">검색</button>
-                  </form>
-                  {found && (
-                    <div className="card" style={{ padding: 0, marginTop: 8, maxHeight: 240, overflow: "auto" }}>
-                      {found.length === 0 && <div style={{ padding: 12, color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>찾는 고객이 없어요</div>}
-                      {found.map((c) => (
-                        <button key={c.key} onClick={() => { setCust({ key: c.key, name: c.name }); setFound(null); }}
-                          style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 12px", border: 0, borderBottom: "1px solid var(--line)", background: "var(--bg)" }}>
-                          <div style={{ fontWeight: 600 }}>{c.name} <span className="num" style={{ color: "var(--ink-3)", fontWeight: 400 }}>{c.phone ?? ""}</span></div>
-                          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-                            {c.membership ? `${c.membership}${c.min_remaining != null ? ` · 잔여 ${c.min_remaining}회` : ""}${c.ends_on ? ` · ~${c.ends_on}` : ""}` : "회원권 없음"}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
               )}
             </div>
-          )}
-
-          {/* 프로그램 */}
-          <div className="field">
-            <label>프로그램</label>
-            <select className="sel" value={programId} disabled={ro} onChange={(e) => setProgramId(e.target.value)}>
-              <option value="">선택해 주세요</option>
-              {groups.map(([g, list]) => (
-                <optgroup key={g} label={g === "업무" ? "업무·행사" : g}>
-                  {list.map((p) => <option key={p.id} value={p.id}>{p.parent_id ? "└ " : ""}{p.name}</option>)}
-                </optgroup>
-              ))}
-            </select>
-            {prog && (
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 4 }} className="num">
-                {prog.minutes}분 · 정원 {prog.capacity}명
-                {left !== null && !ro && (
-                  <span style={{ marginLeft: 6, color: left <= 0 ? "var(--red)" : "var(--grn)", fontWeight: 600 }}>
-                    {left <= 0 ? "이 시간 정원 마감" : `이 시간 ${left}자리 남음`}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
+          ))}
 
           {work && (
-            <div className="field">
-              <label>내용</label>
+            <div className="rd-grid">
+              <span className="rd-k">내용</span>
               <input className="inp" value={title} disabled={ro} onChange={(e) => setTitle(e.target.value)} placeholder="예: 주간 회의" />
             </div>
           )}
 
-          {/* 날짜·시간 */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: "var(--sp-4)" }}>
-            <div className="field">
-              <label>날짜</label>
-              <input type="date" className="inp" value={day} disabled={ro} onChange={(e) => e.target.value && setDay(e.target.value)} />
-            </div>
-            <div className="field" style={{ marginTop: 0 }}>
-              <label>시간</label>
-              <select className="sel" value={time} disabled={ro} onChange={(e) => setTime(e.target.value)}>
+          {/* 예약 정보 */}
+          <div className="rd-sec">
+            <b>예약 정보</b>
+            {prog && left !== null && !ro && (left > 0
+              ? <span className="rd-ok">✓ {staffName ? `${staffName} · ` : ""}이 시간 {left}자리 비어 있음</span>
+              : <span className="rd-no">이 시간 정원이 다 찼어요</span>)}
+          </div>
+          <div className="rd-grid">
+            <span className="rd-k">날짜 · 시간</span>
+            <div className="rd-line">
+              <input type="date" className="inp" style={{ width: 160 }} value={day} disabled={ro} onChange={(e) => e.target.value && setDay(e.target.value)} />
+              <select className="sel" style={{ width: 112 }} value={time} disabled={ro} onChange={(e) => setTime(e.target.value)}>
                 {SLOTS.map((m) => {
-                  const v = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+                  const v = hm(m);
                   const full = prog ? usedAt(rows, day, prog.id, m, prog.minutes, draft.id) >= prog.capacity : false;
-                  return <option key={m} value={v} disabled={full && v !== draft.start_time}>{slotLabel(m)}{full ? " (마감)" : ""}</option>;
+                  return <option key={m} value={v} disabled={full && v !== draft.start_time}>{v}{full && v !== draft.start_time ? " 마감" : ""}</option>;
                 })}
               </select>
+              <span className="rd-dim">~</span>
+              <span className="inp rd-ro num">{endTime || "--:--"}</span>
+              <span className="rd-dim">자동</span>
             </div>
           </div>
-          {day !== draft.day && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 4 }}>{fmtDay(day)} 정원은 저장할 때 다시 확인해요.</div>}
-
-          {/* 담당 */}
-          <div className="field" style={{ marginTop: "var(--sp-4)" }}>
-            <label>담당 직원</label>
-            <select className="sel" value={staffId} disabled={ro} onChange={(e) => setStaffId(e.target.value)}>
-              <option value="">미지정</option>
+          {day !== draft.day && <div className="rd-help">{fmtDay(day)} 정원은 저장할 때 다시 확인해요.</div>}
+          <div className="rd-grid">
+            <span className="rd-k">담당</span>
+            <select className="sel" style={{ maxWidth: 220 }} value={staffId} disabled={ro} onChange={(e) => setStaffId(e.target.value)}>
+              <option value="">담당 미정</option>
               {staff.map((s) => <option key={s.id} value={s.id}>{s.name}{s.title ? ` · ${s.title}` : ""}</option>)}
             </select>
           </div>
+          {prog && (
+            <div className="rd-grid">
+              <span className="rd-k">같은 시간</span>
+              <span className="num">{prog.short || prog.name} {prog.capacity - Math.max(left ?? 0, 0)}/{prog.capacity} <span className="rd-dim">정원은 설정 › 관리 항목</span></span>
+            </div>
+          )}
 
-          <div className="field">
-            <label>관리 메모</label>
-            <textarea className="inp" style={{ height: 88, padding: 12, resize: "vertical" }} value={memo} disabled={ro} onChange={(e) => setMemo(e.target.value)} />
+          {/* 관리 선택 */}
+          <div className="rd-box rd-pick">
+            <div className="rd-sec" style={{ margin: 0 }}><b>관리 선택</b><span className="rd-dim">{prog ? `${prog.minutes}분` : ""}</span></div>
+            <div className="rd-item">
+              {prog && <span className="rd-chip" style={{ background: `color-mix(in srgb, ${prog.color ?? "#8A8A8A"} 16%, #fff)` }}>{prog.short || prog.name}</span>}
+              <select className="sel" value={programId} disabled={ro} onChange={(e) => setProgramId(e.target.value)}>
+                <option value="">관리를 골라 주세요</option>
+                {groups.map(([g, list]) => (
+                  <optgroup key={g} label={g === "업무" ? "업무·행사" : g}>
+                    {list.map((p) => <option key={p.id} value={p.id}>{p.parent_id ? "└ " : ""}{p.name} · {p.minutes}분</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="rd-grid">
+            <span className="rd-k">관리 메모</span>
+            <input className="inp" value={memo} disabled={ro} onChange={(e) => setMemo(e.target.value)} placeholder="예: 왼쪽 어깨 위주 · 압 약하게" />
           </div>
 
           {editing && (
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 16 }}>
-              접수 {draft.receiver_name ?? "-"} · {draft.created_at ? new Date(draft.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : ""}
+            <div className="rd-help">
+              최초 등록 {draft.created_at ? new Date(draft.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "short", timeStyle: "short" }) : ""} · 접수 {draft.receiver_name ?? "-"}
               {draft.cancel_reason ? ` · 사유: ${draft.cancel_reason}` : ""}
             </div>
           )}
@@ -208,25 +266,22 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
               </div>
             </div>
           )}
-
           {err && <p style={{ color: "var(--red)", marginTop: 12 }}>{err}</p>}
-          <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 16 }}>
-            소요 시간은 프로그램 기본값으로 잡혀요. 예약 문자·알림톡은 설정에서 켜고 끌 수 있어요.
-          </p>
         </div>
         {canWrite && (
           <div className="ft">
             {editing && draft.status === "예약" && !askReason && (
               <>
-                <button className="btn sm danger" onClick={() => setAskReason("취소")}>예약 취소</button>
-                <button className="btn sm" onClick={() => setAskReason("노쇼")}>노쇼</button>
-                <div style={{ flex: 1 }} />
+                <button className="btn" onClick={() => setAskReason("노쇼")}>노쇼</button>
+                <button className="btn" onClick={() => setAskReason("취소")}>예약 취소</button>
               </>
             )}
             {editing && (draft.status === "취소" || draft.status === "노쇼") && (
               <button className="btn" disabled={busy} onClick={() => setStatus("예약")}>예약으로 되돌리기</button>
             )}
-            {!locked && <button className="btn p" disabled={busy} onClick={save}>{editing ? "저장" : "예약 등록"}</button>}
+            <div style={{ flex: 1 }} />
+            {!locked && <button className="btn" disabled={busy} onClick={save}>{editing ? "저장" : "예약 등록"}</button>}
+            {editing && !work && <button className="btn p" disabled title="결제 화면은 준비 중이에요">결제</button>}
           </div>
         )}
       </aside>
