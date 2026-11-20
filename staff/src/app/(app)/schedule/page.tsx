@@ -386,16 +386,6 @@ export default function SchedulePage() {
 
   return (
     <div className="rsv">
-      <header className="top">
-        <h1>예약</h1>
-        <span className="sub num">{ymd(today)}</span>
-        <div style={{ flex: 1 }} />
-        <select className="sel" style={{ width: 128 }} value={branch} disabled={me.tier !== "owner"} onChange={(e) => setBranch(e.target.value)}>
-          {(me.tier === "owner" ? BRANCHES : [me.branch]).map((b) => <option key={b}>{b}</option>)}
-        </select>
-        <input className="inp" style={{ width: 240 }} placeholder="고객 이름 · 뒤 4자리" value={q}
-          onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} />
-      </header>
 
       <div className={`rsv-body ${draft ? "dock" : ""} ${panel ? "" : "nopanel"}`}>
         {panel && <Panel branch={branch} dayRows={dayRows} staffName={staffName} onClose={togglePanel} />}
@@ -409,7 +399,15 @@ export default function SchedulePage() {
             <button className="btn sm" onClick={() => move(1)} aria-label="다음">›</button>
             <button className="btn sm" onClick={() => setDay(today)}>오늘</button>
             <div className="rsv-date num">{title}</div>
-            <div className="seg" style={{ marginLeft: "auto" }}>
+            <div style={{ flex: 1 }} />
+            {me.tier === "owner" && (
+              <select className="sel rsv-br" value={branch} onChange={(e) => setBranch(e.target.value)} aria-label="지점">
+                {BRANCHES.map((b) => <option key={b}>{b}</option>)}
+              </select>
+            )}
+            <input className="inp rsv-q" placeholder="고객 이름 · 뒤 4자리" value={q}
+              onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} />
+            <div className="seg">
               {VIEWS.map((v) => <button key={v.k} className={view === v.k ? "on" : ""} onClick={() => setView(v.k)}>{v.l}</button>)}
             </div>
           </div>

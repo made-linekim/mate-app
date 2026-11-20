@@ -418,3 +418,20 @@ table.t tr:hover td{background:var(--bg-soft)}
 .side .nav a.on{background:var(--red);color:#fff;font-weight:700;border-bottom:0}
 .side{--nav-h:64px}
 .app{--nav-h:64px}
+
+/* 예약 툴바 = 시안 1120 ltool: 40px 컨트롤, 큰 날짜, 페이지 머리줄 없음 (지점·새 예약은 상단 메뉴) */
+.rsv{height:calc(100vh - var(--nav-h))}
+.rsv-bar{padding:12px 24px;gap:8px}
+.rsv-bar .btn.sm{height:40px;min-width:40px;font-size:14px}
+.rsv-bar .rsv-date{font-size:20px;font-weight:700;background:none;padding:0 6px}
+.rsv-bar .rsv-br{width:120px;height:40px}
+.rsv-bar .rsv-q{width:200px;height:40px}
+.rsv-bar .seg button{height:34px;font-size:14px;padding:0 14px}
+@media (max-width:1280px){.rsv-bar .rsv-q{width:150px}}
+/* 모바일 월: 칸 너비 고정 (휴무 표시가 칸을 밀지 않게) */
+@media (max-width:767px){
+ .rsv-m .mg{grid-template-columns:repeat(7,minmax(0,1fr))}
+ .rsv-m .mg-c{min-width:0;overflow:hidden}
+ .rsv-m .mg-d{flex-direction:column;align-items:flex-start;gap:2px}
+ .rsv-m .mg-hol{font-size:10px;padding:0 3px}
+}
