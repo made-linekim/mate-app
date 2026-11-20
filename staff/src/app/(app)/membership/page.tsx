@@ -52,6 +52,20 @@ export default function Holdings() {
     return (data?.rows ?? []).filter((r) => !s || (r.customer ?? "").includes(s) || r.name.includes(s));
   }, [data, q]);
 
+  // 고객당 한 줄로 묶기 (회원권 여러 장은 한 칸 안에)
+  const groups = useMemo(() => {
+    const m = new Map<string, { key: string; customer: string | null; manager: string | null; items: Row[]; remain: number; remain_amt: number; unpaid: number; st: Row["st"] }>();
+    for (const r of rows) {
+      let g = m.get(r.customer_key);
+      if (!g) { g = { key: r.customer_key, customer: r.customer, manager: r.manager, items: [], remain: 0, remain_amt: 0, unpaid: 0, st: "expired" }; m.set(r.customer_key, g); }
+      g.items.push(r);
+      if (r.st !== "expired") { g.remain += Number(r.remain); g.remain_amt += Number(r.remain_amt); }
+      g.unpaid += Number(r.unpaid);
+      if (r.st === "soon" || (r.st === "active" && g.st === "expired")) g.st = r.st;
+    }
+    return [...m.values()];
+  }, [rows]);
+
   const k = data?.kpi;
   return (
     <>
@@ -109,34 +123,40 @@ export default function Holdings() {
         <table className="t">
           <thead>
             <tr>
-              <th>고객</th><th>담당</th><th>회원권</th><th>구매일</th><th>만료일</th>
-              <th style={{ textAlign: "right" }}>전체 / 사용 / 남음</th><th style={{ textAlign: "right" }}>남은 금액</th>
+              <th>고객</th><th>담당</th><th>가진 회원권 (남은 회차 · 만료일)</th>
+              <th style={{ textAlign: "right" }}>남은 회차</th><th style={{ textAlign: "right" }}>남은 금액</th>
               <th style={{ textAlign: "right" }}>미수</th><th>상태</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} style={{ cursor: "pointer", color: r.st === "expired" ? "var(--ink-3)" : undefined }}
-                onClick={() => router.push(`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(r.customer_key)}`)}>
-                <td style={{ fontWeight: 600 }}>{r.customer ?? "-"}</td>
-                <td>{r.manager || "-"}</td>
-                <td>{r.name} <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{r.kind}</span></td>
-                <td className="num">{r.sold_on ?? "-"}</td>
-                <td className="num">{r.end_on ?? "-"}</td>
-                <td className="num" style={{ textAlign: "right" }}>{r.total} / {r.used} / <b>{r.remain}</b></td>
-                <td className="num" style={{ textAlign: "right" }}>{won(r.remain_amt)}</td>
-                <td className="num" style={{ textAlign: "right", color: r.unpaid > 0 ? "var(--red)" : undefined }}>{won(r.unpaid)}</td>
-                <td><span className={`badge ${ST[r.st].c}`}>{ST[r.st].t}</span></td>
+            {groups.map((g) => (
+              <tr key={g.key} style={{ cursor: "pointer", color: g.st === "expired" ? "var(--ink-3)" : undefined, verticalAlign: "top" }}
+                onClick={() => router.push(`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(g.key)}`)}>
+                <td style={{ fontWeight: 600 }}>{g.customer ?? "-"}{g.items.length > 1 && <span style={{ color: "var(--ink-3)", fontWeight: 400 }}> · {g.items.length}개</span>}</td>
+                <td>{g.manager || "-"}</td>
+                <td style={{ fontSize: "var(--fs-sm)" }}>
+                  {g.items.map((r) => (
+                    <div key={r.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "2px 0", color: r.st === "expired" ? "var(--ink-3)" : undefined }}>
+                      <span>{r.name}</span>
+                      <span className="num" style={{ color: "var(--ink-3)" }}>{r.kind === "회차" ? `${r.remain}회 남음` : r.kind}{r.end_on ? ` · ${r.end_on}` : ""}</span>
+                      {r.st !== "active" && <span className={`badge ${ST[r.st].c}`}>{ST[r.st].t}</span>}
+                    </div>
+                  ))}
+                </td>
+                <td className="num" style={{ textAlign: "right" }}><b>{g.remain}</b></td>
+                <td className="num" style={{ textAlign: "right" }}>{won(g.remain_amt)}</td>
+                <td className="num" style={{ textAlign: "right", color: g.unpaid > 0 ? "var(--red)" : undefined }}>{won(g.unpaid)}</td>
+                <td><span className={`badge ${ST[g.st].c}`}>{ST[g.st].t}</span></td>
               </tr>
             ))}
-            {!loading && rows.length === 0 && !err && (
-              <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--ink-3)" }}>조건에 맞는 회원권이 없어요</td></tr>
+            {!loading && groups.length === 0 && !err && (
+              <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ink-3)" }}>조건에 맞는 회원권이 없어요</td></tr>
             )}
-            {loading && <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--ink-3)" }}>불러오는 중</td></tr>}
+            {loading && <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ink-3)" }}>불러오는 중</td></tr>}
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>남은 금액은 판매가 ÷ 전체 회차 × 남은 회차로 계산해요. 줄을 누르면 고객 차트가 열려요.</p>
+      <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>남은 금액은 판매가 ÷ 전체 회차 × 남은 회차로 계산해요. 고객당 한 줄이고, 누르면 고객 차트가 열려요.</p>
     </>
   );
 }
