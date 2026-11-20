@@ -1,10 +1,12 @@
 "use client";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import "./work.css";
 import { HcRow, LogDrawer, kst } from "./log-drawer";
+import HappyBoard from "./HappyBoard";
+import { MemoTab } from "../schedule/Panel";
 
 // 오늘 할 일 (메라 시안 02-01~02-05m): 해피콜 · 지난 마감 · 승인 대기 · 남은 업무 를 탭 하나로.
 // 데이터: work_today(업무·체크리스트) + happycall_list(해피콜 대상). 기록은 happycall_log · work_item_done · task_check_set.
@@ -22,9 +24,9 @@ type Today = {
   remaining: Item[];
   checklist: Check[];
 };
-type Tab = "happycall" | "overdue" | "approval" | "remaining";
+type Tab = "happycall" | "overdue" | "approval" | "remaining" | "memo";
 const TAB_LIST: { k: Tab; l: string }[] = [
-  { k: "happycall", l: "해피콜" }, { k: "overdue", l: "지난 마감" }, { k: "approval", l: "승인 대기" }, { k: "remaining", l: "남은 업무" },
+  { k: "happycall", l: "해피콜" }, { k: "remaining", l: "남은 업무" }, { k: "overdue", l: "지난 마감" }, { k: "approval", l: "승인 대기" }, { k: "memo", l: "업무 메모" },
 ];
 
 // 해피콜 구분 (시안 칩: 만료 임박 · 첫 방문 후 · 미방문). todo = 뷰티사랑넷 예약표에서 가져온 할 일
@@ -32,8 +34,6 @@ type Kind = HcRow["kind"];
 const KIND: Record<Kind, { l: string; badge: string }> = {
   expiring: { l: "만료 임박", badge: "em" }, new: { l: "첫 방문 후", badge: "" }, lapsed: { l: "미방문", badge: "" }, todo: { l: "예약표 할 일", badge: "" },
 };
-const KIND_ORDER: Kind[] = ["expiring", "new", "lapsed", "todo"];
-const PAGE = 20;
 
 const md = (s: string | null) => (s ? `${Number(s.slice(5, 7))}.${Number(s.slice(8, 10))}` : "-");
 const dt = (s: string | null) => {
@@ -48,12 +48,6 @@ const errText = (m: string) =>
   : /FORBIDDEN|NO_PERMISSION/.test(m) ? "권한이 없어요."
   : "불러오지 못했어요. 잠시 뒤 다시 해 주세요.";
 const hcLate = (r: HcRow, day: string) => r.status === "기한지남" || (!!r.due_day && r.due_day < day);
-const hcWhat = (r: HcRow) =>
-  r.kind === "expiring" ? (r.membership ? `${r.membership}${r.min_remaining != null ? ` 잔여 ${r.min_remaining}회` : ""}` : r.reason)
-  : r.kind === "new" ? `${r.membership || "등록"} ${md(r.registered_on)}`
-  : r.kind === "lapsed" ? `최근 방문 ${md(r.last_visit_on)}`
-  : [r.membership, r.last_visit_on ? `최근 방문 ${md(r.last_visit_on)}` : ""].filter(Boolean).join(" · ") || r.reason;
-
 export default function WorkPage() {
   return <Suspense fallback={null}><Work /></Suspense>;
 }
@@ -69,9 +63,11 @@ function Work() {
   const [data, setData] = useState<Today | null>(null);
   const [hc, setHc] = useState<HcRow[] | null>(null);
   const [err, setErr] = useState("");
-  const [hcErr, setHcErr] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [open, setOpen] = useState<{ row: HcRow; preset: string } | null>(null);
+  const [prog, setProg] = useState<{ left: number; done: number; total: number } | null>(null);
+  const onCount = useCallback((left: number, done: number, total: number) => setProg({ left, done, total }), []);
+  useEffect(() => setProg(null), [branch]);
 
   const load = useCallback(async () => {
     const [w, h] = await Promise.all([
@@ -79,10 +75,7 @@ function Work() {
       sb.rpc("happycall_list", { p_branch: branch }),
     ]);
     if (w.error) { setErr(errText(w.error.message)); setData(null); } else { setErr(""); setData(w.data as Today); }
-    if (h.error || !Array.isArray(h.data)) {
-      setHcErr(h.error?.message.includes("happycall_list") ? "해피콜 기능을 준비하고 있어요." : h.error ? errText(h.error.message) : "");
-      setHc([]);
-    } else { setHcErr(""); setHc(h.data as HcRow[]); }
+    setHc(h.error || !Array.isArray(h.data) ? [] : (h.data as HcRow[]));
   }, [branch]);
   useEffect(() => { load(); }, [load]);
 
@@ -95,11 +88,13 @@ function Work() {
   const remaining = data?.remaining ?? [];
   const checks = data?.checklist ?? [];
   const checksLeft = checks.filter((c) => !c.checked).length;
+  const work = tab === "overdue" || tab === "approval" || tab === "remaining";
   const counts: Record<Tab, number | null> = {
     happycall: hc ? hcRows.length : null,
     overdue: data ? overdue.length + hcOver.length : null,
     approval: data ? (data.approvals.can ? approvals.length + certN : null) : null,
     remaining: data ? remaining.length + checksLeft : null,
+    memo: null,
   };
 
   const done = async (it: Item) => {
@@ -120,31 +115,34 @@ function Work() {
 
   return (
     <>
-      <header className="top w-top">
-        <h1>오늘 할 일</h1>
-        <span className="sub">해피콜 · 지난 마감 · 승인 대기 · 남은 업무</span>
-        <div className="w-pick">
-          <select className="sel" aria-label="지점" value={branch} onChange={(e) => setBranch(e.target.value)}>
-            {(me.tier === "owner" ? BRANCHES : [me.branch]).map((b) => <option key={b} value={b}>{b}</option>)}
-          </select>
-          <select className="sel w-date" aria-label="날짜" value="today" onChange={() => load()}>
-            <option value="today">오늘 · {md(day)}</option>
-          </select>
-        </div>
-      </header>
-      <nav className="w-tabs" role="tablist">
-        {TAB_LIST.map((t) => (
-          <button key={t.k} role="tab" aria-selected={tab === t.k} className={tab === t.k ? "on" : ""} onClick={() => go(t.k)}>
-            {t.l}{counts[t.k] != null && <i>{counts[t.k]}</i>}
-          </button>
-        ))}
-      </nav>
-      <div className="page w-body">
-        {err && <p className="w-err">{err}</p>}
-        {tab === "happycall" && (
-          <HappyTab rows={hcRows} loaded={!!hc} err={hcErr} day={day} meName={me.name} doneToday={data?.happycall.today_done ?? null}
-            onLog={(row, preset) => setOpen({ row, preset })} />
+      <div className="w-subbar">
+        <button className={`pill${work ? " on" : ""}`} onClick={() => go("remaining")}>업무</button>
+        <button className={`pill${tab === "happycall" ? " on" : ""}`} onClick={() => go("happycall")}>해피콜{prog && prog.left > 0 && <i className="c num">{prog.left}</i>}</button>
+        <button className={`pill${tab === "memo" ? " on" : ""}`} onClick={() => go("memo")}>업무 메모</button>
+        {tab === "happycall" && prog && (
+          <div className="prog">오늘 완료 <em className="num">{prog.done} / {prog.total}</em>
+            <div className="bar"><i style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
+          </div>
         )}
+        {me.tier === "owner" && (
+          <select className="w-br" aria-label="지점" value={branch} onChange={(e) => setBranch(e.target.value)} style={tab === "happycall" && prog ? undefined : { marginLeft: "auto" }}>
+            {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+        )}
+      </div>
+      {work && (
+        <nav className="w-tabs" role="tablist">
+          {TAB_LIST.filter((t) => t.k !== "happycall" && t.k !== "memo").map((t) => (
+            <button key={t.k} role="tab" aria-selected={tab === t.k} className={tab === t.k ? "on" : ""} onClick={() => go(t.k)}>
+              {t.l}{counts[t.k] != null && <i>{counts[t.k]}</i>}
+            </button>
+          ))}
+        </nav>
+      )}
+      <div className={`page w-body${tab === "happycall" ? " hc-bg" : ""}`}>
+        {err && <p className="w-err">{err}</p>}
+        {tab === "happycall" && <HappyBoard branch={branch} today={day} onCount={onCount} />}
+        {tab === "memo" && <section className="card w-memo"><MemoTab branch={branch} /></section>}
         {tab === "overdue" && (
           <OverdueTab items={overdue} hc={hcOver} loaded={!!data} busy={busy} onDone={done}
             onHc={(row) => setOpen({ row, preset: "" })} />
@@ -179,171 +177,6 @@ function Kpis({ items }: { items: { k: string; v: string | number; u: string; s?
     </div>
   );
 }
-
-/* ───────── 해피콜 ───────── */
-function HappyTab({ rows, loaded, err, day, meName, doneToday, onLog }: {
-  rows: HcRow[]; loaded: boolean; err: string; day: string; meName: string; doneToday: number | null;
-  onLog: (r: HcRow, preset: string) => void;
-}) {
-  const [kind, setKind] = useState<Kind | "all">("all");
-  const [mine, setMine] = useState(false);
-  const [q, setQ] = useState("");
-  const [n, setN] = useState(PAGE);
-  useEffect(() => setN(PAGE), [kind, mine, q]);
-
-  const isMine = useCallback((r: HcRow) => r.assignee === meName || r.manager === meName, [meName]);
-  const base = useMemo(() => {
-    const d = q.replace(/\D/g, "");
-    return rows.filter((r) => !q || (r.name ?? "").includes(q) || (d.length >= 4 && (r.phone ?? "").replace(/\D/g, "").endsWith(d)));
-  }, [rows, q]);
-  const scoped = mine ? base.filter(isMine) : base;
-  const cnt = (k: Kind) => scoped.filter((r) => r.kind === k).length;
-  const list = useMemo(() => {
-    const order: Record<string, number> = { 기한지남: 0, 진행: 1, 대기: 2 };
-    return scoped.filter((r) => kind === "all" || r.kind === kind).sort((a, b) =>
-      (hcLate(b, day) ? 1 : 0) - (hcLate(a, day) ? 1 : 0) || (order[a.status] ?? 3) - (order[b.status] ?? 3) ||
-      KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || (a.last_visit_on ?? "").localeCompare(b.last_visit_on ?? ""));
-  }, [scoped, kind, day]);
-  const shown = list.slice(0, n);
-
-  const late = rows.filter((r) => hcLate(r, day)).length;
-  const away = rows.filter((r) => r.last_result === "부재").length;
-  const total = rows.length;
-  const rate = doneToday != null && doneToday + total > 0 ? Math.round((doneToday / (doneToday + total)) * 100) : null;
-
-  // 직원별: 지금 남은 연락과 기한 지남 (완료 수는 서버에서 직원별로 주지 않아 비중으로 보여 줘요)
-  const byStaff = useMemo(() => {
-    const m = new Map<string, { left: number; late: number }>();
-    for (const r of rows) {
-      const who = r.assignee || r.manager || "미배정";
-      const v = m.get(who) ?? { left: 0, late: 0 };
-      v.left++; if (hcLate(r, day)) v.late++;
-      m.set(who, v);
-    }
-    return [...m.entries()].sort((a, b) => b[1].left - a[1].left).slice(0, 6);
-  }, [rows, day]);
-
-  const res = (r: HcRow) =>
-    hcLate(r, day) ? <span className="badge em">지난 마감</span>
-    : r.last_result === "부재" ? <span className="badge warn">부재</span>
-    : r.status === "진행" ? <span className="badge warn">재통화</span>
-    : <span className="badge">대기</span>;
-  const phone = (r: HcRow) => r.phone && !r.phone.includes("*") ? r.phone.replace(/[^\d]/g, "") : null;
-
-  return (
-    <>
-      <Kpis items={[
-        { k: "오늘 연락", v: loaded ? total : "-", u: "명", s: `지난 마감 ${late}명 포함`, em: total > 0 },
-        { k: "완료", v: doneToday ?? "-", u: "명", s: rate != null ? `처리율 ${rate}%` : "오늘" },
-        { k: "부재", v: loaded ? away : "-", u: "명", s: "다시 연락 예정" },
-        { k: "예약 연결", v: "-", u: "건", s: "집계 준비 중" },
-      ]} />
-      <div className="w-chips">
-        <button className={`chip ${kind === "all" && !mine ? "on" : ""}`} onClick={() => { setKind("all"); setMine(false); }}>전체 <i>{base.length}</i></button>
-        {KIND_ORDER.map((k) => (
-          <button key={k} className={`chip ${kind === k ? "on" : ""}`} onClick={() => setKind(kind === k ? "all" : k)}>{KIND[k].l} <i>{cnt(k)}</i></button>
-        ))}
-        <button className={`chip ${mine ? "on" : ""}`} onClick={() => setMine((v) => !v)}>내 담당 <i>{base.filter(isMine).length}</i></button>
-        <input className="inp w-q" placeholder="이름, 연락처 뒤 4자리" value={q} onChange={(e) => setQ(e.target.value.trim())} />
-      </div>
-      {err && <p className="w-err">{err}</p>}
-      <div className="w-hc">
-        <section className="card w-tcard">
-          <div className="w-x">
-            <table className="t">
-              <thead><tr><th>고객</th><th>연락처</th><th>연락 이유</th><th>내용</th><th>담당</th><th>결과</th><th></th></tr></thead>
-              <tbody>
-                {shown.map((r) => (
-                  <tr key={`${r.kind}:${r.item_id ?? r.branch + r.customer_key}`}>
-                    <td><button className="btn t sm w-nm" style={{ padding: 0, height: "auto" }} onClick={() => onLog(r, "")}>{r.name ?? "-"}</button></td>
-                    <td className="num">{r.phone || "-"}</td>
-                    <td><span className={`badge ${KIND[r.kind].badge}`}>{r.kind === "todo" ? r.reason || KIND.todo.l : KIND[r.kind].l}</span></td>
-                    <td>{hcWhat(r)}</td>
-                    <td>{r.assignee || r.manager || "-"}</td>
-                    <td>{res(r)}</td>
-                    <td className="w-act">
-                      <div className="w-acts">
-                        <button className="btn sm" onClick={() => onLog(r, "통화완료")}>통화됨</button>
-                        <button className="btn sm" onClick={() => onLog(r, "부재")}>부재</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {loaded && list.length === 0 && <tr><td colSpan={7} className="w-empty">오늘 연락할 고객이 없어요.</td></tr>}
-                {!loaded && <tr><td colSpan={7} className="w-empty">불러오는 중이에요.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-          {list.length > 0 && (
-            <div className="w-foot num">
-              <span>{PAGE}명씩 보기 · {list.length}명 중 {shown.length}명</span>
-              {shown.length < list.length && <button className="btn sm" onClick={() => setN((v) => v + PAGE)}>더보기</button>}
-            </div>
-          )}
-        </section>
-
-        <div className="w-mlist">
-          {shown.map((r) => (
-            <article key={`m:${r.kind}:${r.item_id ?? r.branch + r.customer_key}`} className="card w-mcard">
-              <div className="h">
-                <b onClick={() => onLog(r, "")}>{r.name ?? "-"}</b>
-                <span className={`badge ${KIND[r.kind].badge}`}>{r.kind === "todo" ? r.reason || KIND.todo.l : KIND[r.kind].l}</span>
-              </div>
-              <div className="d">{hcWhat(r)} · {r.assignee || r.manager || "미배정"}{hcLate(r, day) ? " · 지난 마감" : r.last_result === "부재" ? " · 부재" : ""}</div>
-              <div className="a">
-                {phone(r)
-                  ? <a className="btn sm" href={`tel:${phone(r)}`}><PhoneIcon />전화</a>
-                  : <button className="btn sm" disabled title="번호가 가려져 있어요"><PhoneIcon />전화</button>}
-                <button className="btn sm" onClick={() => onLog(r, "통화완료")}>통화됨</button>
-                <button className="btn sm" onClick={() => onLog(r, "부재")}>부재</button>
-              </div>
-            </article>
-          ))}
-          {loaded && list.length === 0 && <p className="w-none">오늘 연락할 고객이 없어요.</p>}
-          {shown.length < list.length && <div className="w-hc-more"><button className="btn" onClick={() => setN((v) => v + PAGE)}>더보기 ({list.length - shown.length})</button></div>}
-        </div>
-
-        <aside className="w-side">
-          <section className="card">
-            <div className="hd"><h2>직원별 남은 연락<small>오늘</small></h2></div>
-            {byStaff.length === 0 ? <p className="w-none">남은 연락이 없어요.</p> : (
-              <table className="w-rate">
-                <thead><tr><th>직원</th><th>비중</th><th className="n">남음</th><th className="n">지남</th></tr></thead>
-                <tbody>
-                  {byStaff.map(([who, v]) => {
-                    const p = total ? Math.round((v.left / total) * 100) : 0;
-                    return (
-                      <tr key={who}>
-                        <td>{who}</td>
-                        <td><div className="w-bar"><span><b style={{ width: `${p}%` }} /></span><em>{p}%</em></div></td>
-                        <td className="n">{v.left}</td>
-                        <td className="n" style={{ color: v.late ? "var(--red)" : "var(--ink-4)" }}>{v.late}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </section>
-          <section className="card">
-            <div className="hd"><h2>연락 이유 규칙</h2></div>
-            <div className="w-rules">
-              <div>만료 임박<span>잔여 2회 이하 · 14일 이내</span></div>
-              <div>첫 방문 후<span>등록 14일 안 · 방문 다음 날</span></div>
-              <div>미방문<span>22~120일</span></div>
-              <div>예약표 할 일<span>뷰티사랑넷에서 매일</span></div>
-              <div>부재<span>다음 연락일에 다시</span></div>
-            </div>
-          </section>
-        </aside>
-      </div>
-    </>
-  );
-}
-
-const PhoneIcon = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden><path d="M6.6 3.8l2.6.3 1.3 3.6-1.8 1.4a11 11 0 005.7 5.7l1.4-1.8 3.6 1.3.3 2.6c-.2 1.4-1.4 2.4-2.8 2.3C10.5 18.7 5.3 13.5 4.8 6.6c-.1-1.4.9-2.6 1.8-2.8z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
-);
 
 /* ───────── 지난 마감 ───────── */
 function OverdueTab({ items, hc, loaded, busy, onDone, onHc }: {

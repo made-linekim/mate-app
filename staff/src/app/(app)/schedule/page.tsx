@@ -138,7 +138,16 @@ export default function SchedulePage() {
   const newRef = useRef(openNew); newRef.current = () => openNew(today, Math.max(dStart, Math.ceil(now / 30) * 30));
   useEffect(() => {
     const go = () => (newRef.current as () => void)();
-    if (new URLSearchParams(window.location.search).get("new") === "1") { setTimeout(go, 0); window.history.replaceState(null, "", "/schedule"); }
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
+      // 해피콜 '예약 잡음'에서 오면 고객을 미리 골라 둬요
+      let pre: { customer_key?: string; customer_name?: string } | null = null;
+      try { pre = JSON.parse(sessionStorage.getItem("rsv:prefill") || "null"); sessionStorage.removeItem("rsv:prefill"); } catch { pre = null; }
+      setTimeout(() => {
+        go();
+        if (pre?.customer_key) setDraft((d) => d && { ...d, customer_key: pre!.customer_key, customer_name: pre!.customer_name ?? "" });
+      }, 0);
+      window.history.replaceState(null, "", "/schedule");
+    }
     window.addEventListener("rsv:new", go);
     return () => window.removeEventListener("rsv:new", go);
   }, []);

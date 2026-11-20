@@ -207,7 +207,7 @@ function ByStaffRow({ rows, staffName }: { rows: Rsv[]; staffName: (id: string) 
 
 // 업무 메모 (시안 1120 U-PC-RSV-1): 날짜별로 남기는 지점 메모. 일간 / 월간
 type Memo = { id: string; day: string; body: string; author: string; created_at: string };
-function MemoTab({ branch }: { branch: string }) {
+export function MemoTab({ branch }: { branch: string }) {
   const [day, setDay] = useState(todayKST());
   const [mode, setMode] = useState<"d" | "m">("d");
   const [list, setList] = useState<Memo[] | null>(null);
