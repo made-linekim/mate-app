@@ -410,3 +410,11 @@ table.t tr:hover td{background:var(--bg-soft)}
 .memo-write textarea{height:auto;padding:8px 10px;resize:vertical}
 .memo-write .btn{align-self:flex-start}
 .memo-err{color:var(--red);font-size:var(--fs-sm);margin:0}
+
+/* 상단 메뉴 더 눈에 띄게 (대표님 11/20: 탭이 눈에 안 띔) */
+.side .nav a,.side .nav .off{font-size:16px;font-weight:600;color:var(--ink);height:40px;margin:0 2px;padding:0 14px;border-radius:var(--r-ctl);border-bottom:0}
+.side .nav .off{color:var(--ink-4);font-weight:500}
+.side .nav a:hover{background:var(--bg-sub);color:var(--ink)}
+.side .nav a.on{background:var(--red);color:#fff;font-weight:700;border-bottom:0}
+.side{--nav-h:64px}
+.app{--nav-h:64px}
