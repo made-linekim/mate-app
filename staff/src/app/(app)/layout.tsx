@@ -10,6 +10,7 @@ const NAV = [
   { href: "/schedule", label: "예약표" },
   { href: "/customers", label: "고객" },
   { href: "/happycall", label: "해피콜" },
+  { href: "/membership", label: "회원권" },
   { href: "/sales", label: "매출" },
   { href: "/staff", label: "직원 관리" },
 ];
