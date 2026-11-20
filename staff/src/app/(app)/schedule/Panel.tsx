@@ -17,7 +17,7 @@ function range(p: Period): [string, string] {
 }
 const man = (n: number) => (n >= 10000 ? `${Math.round(n / 10000).toLocaleString()}만` : n.toLocaleString());
 
-export default function Panel({ branch, dayRows, staffName }: { branch: string; dayRows: Rsv[]; staffName: (id: string) => string }) {
+export default function Panel({ branch, dayRows, staffName, onClose }: { branch: string; dayRows: Rsv[]; staffName: (id: string) => string; onClose?: () => void }) {
   const [tab, setTab] = useState("현황");
   return (
     <aside className="sb-panel">
@@ -28,7 +28,7 @@ export default function Panel({ branch, dayRows, staffName }: { branch: string; 
       </div>
       {tab === "현황" ? (
         <>
-          <div className="sb-title">현황보드</div>
+          <div className="sb-title">현황보드{onClose && <button className="sb-close" onClick={onClose} title="현황보드 닫기" aria-label="현황보드 닫기">«</button>}</div>
           <RsvCard branch={branch} />
           <SalesCard branch={branch} />
           <BlockedCard branch={branch} />

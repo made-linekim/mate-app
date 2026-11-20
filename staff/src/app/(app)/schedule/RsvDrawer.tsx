@@ -40,6 +40,11 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [askReason, setAskReason] = useState<"취소" | "노쇼" | null>(null);
+  // 새 예약 팝업: 일반 예약 / 일정 등록, 고객은 기존 검색 / 신규 입력
+  const [mode, setMode] = useState<"rsv" | "work">(isWork(programs.find((p) => p.id === draft.program_id)) ? "work" : "rsv");
+  const [custMode, setCustMode] = useState<"old" | "new">("old");
+  const [nName, setNName] = useState("");
+  const [nPhone, setNPhone] = useState("");
   const [reason, setReason] = useState("");
 
   // 고객 요약 (시안 8차 P03: 이력 · 보유 회원권 · 비고)
@@ -56,16 +61,22 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   }, [branch]);
 
   const prog = programs.find((p) => p.id === programId);
-  const work = isWork(prog);
+  const work = editing ? isWork(prog) : mode === "work";
   const left = prog ? prog.capacity - usedAt(rows, day, prog.id, toMin(time), prog.minutes, draft.id) : null;
 
   // 프로그램 선택 목록: 그룹별 (하위 프로그램은 부모 밑에)
   const groups = useMemo(() => {
     const m = new Map<string, Program[]>();
-    programs.forEach((p) => { const g = p.grp === "행사" ? "업무" : p.grp; m.set(g, [...(m.get(g) ?? []), p]); });
+    programs.filter((p) => editing || isWork(p) === (mode === "work")).forEach((p) => { const g = p.grp === "행사" ? "업무" : p.grp; m.set(g, [...(m.get(g) ?? []), p]); });
     return [...m.entries()];
-  }, [programs]);
+  }, [programs, editing, mode]);
 
+  useEffect(() => {
+    if (cust || custMode !== "old" || q.trim().length < 1) { setFound(null); return; }
+    const t = setTimeout(() => { search(); }, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, cust, custMode]);
   const search = async () => {
     if (!q.trim()) return;
     const { data, error } = await sb.rpc("customer_list", { p_q: q.trim(), p_branch: branch, p_filter: "all", p_limit: 20, p_offset: 0 });
@@ -76,10 +87,20 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const save = async () => {
     setErr("");
     if (!prog) return setErr("프로그램을 골라 주세요.");
-    if (!work && !cust) return setErr("고객을 골라 주세요.");
+    let c = cust;
+    if (!work && !c && custMode === "new") {
+      if (!nName.trim() || nPhone.replace(/\D/g, "").length < 10) return setErr("신규 고객 이름과 연락처를 넣어 주세요.");
+      setBusy(true);
+      const { data, error } = await sb.rpc("customer_create", { p_branch: branch, p_name: nName.trim(), p_phone: nPhone.replace(/\D/g, "") });
+      setBusy(false);
+      if (error) return setErr(/customer_create|function/i.test(error.message) ? "신규 고객 등록은 서버 준비 중이에요. 지금은 고객 메뉴에 있는 고객만 예약할 수 있어요." : error.message);
+      c = { key: data as string, name: nName.trim() };
+      setCust(c);
+    }
+    if (!work && !c) return setErr("고객을 골라 주세요.");
     if (left !== null && left <= 0) return setErr(`이 시간 ${prog.name} 정원(${prog.capacity}명)이 다 찼어요.`);
     setBusy(true);
-    const body = { branch, day, start_time: time, program_id: prog.id, customer_key: work ? null : cust!.key, title: work ? title : "", staff_id: staffId, memo };
+    const body = { branch, day, start_time: time, program_id: prog.id, customer_key: work ? null : c!.key, title: work ? title : "", staff_id: staffId, memo };
     const { error } = editing
       ? await sb.rpc("rsv_update", { p_id: draft.id, p: body })
       : await sb.rpc("rsv_create", { p: body });
@@ -107,7 +128,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   return (
     <>
       <div className="dim" style={{ zIndex: 20 }} onClick={onClose} />
-      <aside className="drawer rd" style={{ zIndex: 21 }} role="dialog" aria-label={editing ? "예약 수정" : "새 예약"}>
+      <aside className={editing ? "drawer rd" : "drawer rd rd-modal"} style={{ zIndex: 21 }} role="dialog" aria-label={editing ? "예약 수정" : "새 예약"}>
         <div className="hd">
           {editing ? "예약 수정" : "새 예약"}
           <span className="rd-sub num">{md(day)} ({DOW[dow(day)]}) {time}</span>
@@ -119,6 +140,12 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
           <div style={{ flex: 1 }} />
           <button className="rd-x" onClick={onClose} aria-label="닫기">×</button>
         </div>
+        {!editing && (
+          <div className="rd-tabs">
+            <button className={mode === "rsv" ? "on" : ""} onClick={() => { setMode("rsv"); setProgramId(""); }}>일반 예약</button>
+            <button className={mode === "work" ? "on" : ""} onClick={() => { setMode("work"); setProgramId(""); }}>일정 등록</button>
+          </div>
+        )}
         <div className="bd">
           {/* 고객 */}
           {!work && (cust ? (
@@ -160,13 +187,26 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
               )}
             </>
           ) : (
-            <div className="field">
-              <label>고객</label>
-              <form style={{ display: "flex", gap: 8 }} onSubmit={(e) => { e.preventDefault(); search(); }}>
-                <input className="inp" placeholder="고객 이름 · 뒤 4자리" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+            <div className="rd-custpick">
+              <div className="rd-sec" style={{ margin: 0 }}>
+                <b>고객</b>
+                <div className="seg sm" style={{ marginLeft: "auto" }}>
+                  <button className={custMode === "old" ? "on" : ""} onClick={() => setCustMode("old")}>기존 고객</button>
+                  <button className={custMode === "new" ? "on" : ""} onClick={() => setCustMode("new")}>신규 고객</button>
+                </div>
+              </div>
+              {custMode === "new" ? (
+                <div className="rd-line" style={{ marginTop: 8 }}>
+                  <input className="inp" style={{ flex: 1 }} placeholder="이름" value={nName} onChange={(e) => setNName(e.target.value)} autoFocus />
+                  <input className="inp num" style={{ flex: 1.3 }} placeholder="연락처 010-0000-0000" inputMode="tel" value={nPhone} onChange={(e) => setNPhone(e.target.value)} />
+                </div>
+              ) : (
+              <form style={{ display: "flex", gap: 8, marginTop: 8 }} onSubmit={(e) => { e.preventDefault(); search(); }}>
+                <input className="inp" placeholder="고객 이름 · 전화번호 뒤 4자리로 찾기" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
                 <button className="btn">검색</button>
               </form>
-              {found && (
+              )}
+              {custMode === "old" && found && (
                 <div className="card" style={{ padding: 0, marginTop: 8, maxHeight: 240, overflow: "auto" }}>
                   {found.length === 0 && <div style={{ padding: 12, color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>찾는 고객이 없어요</div>}
                   {found.map((c) => (
@@ -280,7 +320,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
               <button className="btn" disabled={busy} onClick={() => setStatus("예약")}>예약으로 되돌리기</button>
             )}
             <div style={{ flex: 1 }} />
-            {!locked && <button className="btn" disabled={busy} onClick={save}>{editing ? "저장" : "예약 등록"}</button>}
+            {!locked && <button className={editing ? "btn" : "btn p"} disabled={busy} onClick={save}>{editing ? "저장" : "예약 등록"}</button>}
             {editing && !work && <button className="btn p" disabled title="결제 화면은 준비 중이에요">결제</button>}
           </div>
         )}

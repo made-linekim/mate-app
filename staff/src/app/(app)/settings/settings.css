@@ -6,7 +6,7 @@
 .st-top .st-mt{display:none}
 
 .st-wrap{display:grid;grid-template-columns:var(--set-nav-w) minmax(0,1fr);gap:var(--sp-8);padding:var(--page-y) var(--page-x) 40px}
-.st-nav{display:flex;flex-direction:column;align-self:start;position:sticky;top:var(--page-y)}
+.st-nav{display:flex;flex-direction:column;align-self:start;position:sticky;top:calc(var(--nav-h,0px) + var(--page-y))}
 .st-nav .g{font-size:var(--fs-xs);color:var(--ink-4);font-weight:var(--fw-m);padding:0 12px;margin:20px 0 6px}
 .st-nav>div:first-child>.g{margin-top:4px}
 .st-nav a,.st-nav .off{display:flex;align-items:center;gap:var(--sp-2);height:36px;padding:0 12px;border-radius:var(--r-ctl);font-size:var(--fs-md);color:var(--ink-2)}

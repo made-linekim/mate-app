@@ -10,6 +10,7 @@ import {
 } from "@/lib/schedule";
 import RsvDrawer, { type Draft } from "./RsvDrawer";
 import Panel from "./Panel";
+import Filter from "./Filter";
 
 type View = "day" | "week" | "mbrief" | "month" | "list";
 const VIEWS: { k: View; l: string }[] = [
@@ -41,9 +42,13 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [q, setQ] = useState("");
-  const [fSt, setFSt] = useState("all");
-  const [fStaff, setFStaff] = useState("all");
-  const [fProg, setFProg] = useState("all");
+  const [fSt, setFSt] = useState<string[]>([]);
+  const [fStaff, setFStaff] = useState<string[]>([]);
+  const [fProg, setFProg] = useState<string[]>([]);
+  // 현황보드 열고 닫기 (기억해 둬요)
+  const [panel, setPanel] = useState(true);
+  useEffect(() => { try { if (localStorage.getItem("rsv.panel") === "0") setPanel(false); } catch {} }, []);
+  const togglePanel = () => { setPanel((v) => { try { localStorage.setItem("rsv.panel", v ? "0" : "1"); } catch {} return !v; }); };
   const [now, setNow] = useState(nowMin());
   const [mobile, setMobile] = useState(false);
   useEffect(() => {
@@ -97,8 +102,8 @@ export default function SchedulePage() {
     ?? rows.find((r) => r.staff_id === id)?.staff_name ?? "담당 미정", [staff, rows]);
   const holidayOf = (d: string) => holidays.find((h) => h.day === d);
   const dayRows = useMemo(() => rows.filter((r) => r.day === day), [rows, day]);
-  const shown = useMemo(() => rows.filter((r) => (fSt === "all" || r.status === fSt)
-    && (fStaff === "all" || (r.staff_id || NO_STAFF) === fStaff) && (fProg === "all" || r.program_id === fProg))
+  const shown = useMemo(() => rows.filter((r) => (!fSt.length || fSt.includes(r.status))
+    && (!fStaff.length || fStaff.includes(r.staff_id || NO_STAFF)) && (!fProg.length || fProg.includes(r.program_id ?? "")))
     .sort((a, b) => a.day.localeCompare(b.day) || a.start_time.localeCompare(b.start_time)), [rows, fSt, fStaff, fProg]);
 
   // 영업시간: 설정 › 업무시간 (없으면 09~21시)
@@ -119,7 +124,7 @@ export default function SchedulePage() {
       if (!cols.some((c) => c.id === id)) cols.push({ id, name: id === NO_STAFF ? "담당 미정" : r.staff_name ?? "담당자", sub: "" });
     });
     const out = cols.length ? cols : [{ id: NO_STAFF, name: "담당 미정", sub: "" }];
-    return fStaff === "all" ? out : out.filter((c) => c.id === fStaff);
+    return !fStaff.length ? out : out.filter((c) => fStaff.includes(c.id));
   }, [staff, dayRows, fStaff]);
 
   // 범례: 지금 보이는 예약에 쓰인 프로그램 (없으면 앞쪽 프로그램)
@@ -356,10 +361,7 @@ export default function SchedulePage() {
             <button className={view === "week" ? "on" : ""} onClick={() => setView("week")}>주간</button>
             <button className={view === "mbrief" ? "on" : ""} onClick={() => setView("mbrief")}>월(간략)</button>
           </div>
-          <select className="sel fsel" value={fStaff} onChange={(e) => setFStaff(e.target.value)}>
-            <option value="all">직원 전체</option>
-            {staff.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-          </select>
+          <Filter label="직원" value={fStaff} onChange={setFStaff} opts={staff.map((x) => ({ v: x.id, l: x.name }))} />
         </div>
         {err && <p style={{ color: "var(--red)", padding: "0 16px" }}>{err}</p>}
         {view === "week" ? mweek() : month(true)}
@@ -389,10 +391,14 @@ export default function SchedulePage() {
         {canWrite && <button className="btn p" onClick={() => openNew(view === "day" ? day : today, Math.max(dStart, Math.ceil(now / 30) * 30))}>+ 새 예약</button>}
       </header>
 
-      <div className="rsv-body">
-        <Panel branch={branch} dayRows={dayRows} staffName={staffName} />
+      <div className={`rsv-body ${panel ? "" : "nopanel"}`}>
+        {panel && <Panel branch={branch} dayRows={dayRows} staffName={staffName} onClose={togglePanel} />}
         <section className="rsv-main">
           <div className="rsv-bar">
+            <button className={`btn sm pn-tg ${panel ? "on" : ""}`} onClick={togglePanel} title={panel ? "현황보드 닫기" : "현황보드 열기"} aria-pressed={panel}>
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden><rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" /><path d="M9.5 4.5v15" stroke="currentColor" strokeWidth="1.7" /></svg>
+              현황보드 {panel ? "닫기" : "열기"}
+            </button>
             <button className="btn sm" onClick={() => move(-1)} aria-label="이전">‹</button>
             <button className="btn sm" onClick={() => move(1)} aria-label="다음">›</button>
             <button className="btn sm" onClick={() => setDay(today)}>오늘</button>
@@ -412,19 +418,17 @@ export default function SchedulePage() {
             </div>
           )}
           <div className="rsv-filters">
-            <select className="sel fsel" value={fSt} onChange={(e) => setFSt(e.target.value)}>
-              <option value="all">예약 상태 전체</option>
-              {["예약", "완료", "노쇼", "취소"].map((x) => <option key={x} value={x}>{x === "완료" ? "결제 완료" : x}</option>)}
-            </select>
-            <select className="sel fsel" value={fStaff} onChange={(e) => setFStaff(e.target.value)}>
-              <option value="all">직원 전체</option>
-              {staff.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-              <option value={NO_STAFF}>담당 미정</option>
-            </select>
-            <select className="sel fsel" value={fProg} onChange={(e) => setFProg(e.target.value)}>
-              <option value="all">프로그램 전체</option>
-              {programs.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-            </select>
+            <Filter label="예약 상태" value={fSt} onChange={setFSt}
+              opts={[{ v: "예약", l: "예약" }, { v: "완료", l: "결제 완료" }, { v: "노쇼", l: "노쇼" }, { v: "취소", l: "취소" }]} />
+            <Filter label="직원" value={fStaff} onChange={setFStaff}
+              opts={[...staff.map((x) => ({ v: x.id, l: x.name })), { v: NO_STAFF, l: "담당 미정" }]} />
+            <Filter label="프로그램" value={fProg} onChange={setFProg}
+              opts={programs.map((x) => ({ v: x.id, l: x.name, sw: x.color }))} />
+            {(fSt.length + fStaff.length + fProg.length > 0) && (
+              <button className="btn t sm flt-clear" onClick={() => { setFSt([]); setFStaff([]); setFProg([]); }}>
+                필터 해제 · {shown.length}건 보는 중
+              </button>
+            )}
             <div className="rsv-legend">
               {legend.map((p) => <span key={p.id}><i className="lg-sw" style={{ background: p.color! }} />{p.short || p.name}</span>)}
             </div>
