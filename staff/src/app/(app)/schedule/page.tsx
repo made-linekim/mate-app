@@ -41,6 +41,9 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [q, setQ] = useState("");
+  const [fSt, setFSt] = useState("all");
+  const [fStaff, setFStaff] = useState("all");
+  const [fProg, setFProg] = useState("all");
   const [now, setNow] = useState(nowMin());
 
   const canWrite = me.tier !== "staff" || !!me.perms?.["schedule.reserve"];
@@ -88,6 +91,8 @@ export default function SchedulePage() {
     ?? rows.find((r) => r.staff_id === id)?.staff_name ?? "담당 미정", [staff, rows]);
   const holidayOf = (d: string) => holidays.find((h) => h.day === d);
   const dayRows = useMemo(() => rows.filter((r) => r.day === day), [rows, day]);
+  const shown = useMemo(() => rows.filter((r) => (fSt === "all" || r.status === fSt)
+    && (fStaff === "all" || (r.staff_id || NO_STAFF) === fStaff) && (fProg === "all" || r.program_id === fProg)), [rows, fSt, fStaff, fProg]);
 
   // 영업시간: 설정 › 업무시간 (없으면 09~21시)
   const [dStart, dEnd] = useMemo(() => {
@@ -106,8 +111,9 @@ export default function SchedulePage() {
       const id = r.staff_id || NO_STAFF;
       if (!cols.some((c) => c.id === id)) cols.push({ id, name: id === NO_STAFF ? "담당 미정" : r.staff_name ?? "담당자", sub: "" });
     });
-    return cols.length ? cols : [{ id: NO_STAFF, name: "담당 미정", sub: "" }];
-  }, [staff, dayRows]);
+    const out = cols.length ? cols : [{ id: NO_STAFF, name: "담당 미정", sub: "" }];
+    return fStaff === "all" ? out : out.filter((c) => c.id === fStaff);
+  }, [staff, dayRows, fStaff]);
 
   // 범례: 지금 보이는 예약에 쓰인 프로그램 (없으면 앞쪽 프로그램)
   const legend = useMemo(() => {
@@ -180,7 +186,7 @@ export default function SchedulePage() {
         </div>
         {cols.map((c) => {
           const off = !!holidayOf(c.day);
-          const items = rows.filter((r) => r.day === c.day && (view === "week" || (r.staff_id || NO_STAFF) === c.staffId));
+          const items = shown.filter((r) => r.day === c.day && (view === "week" || (r.staff_id || NO_STAFF) === c.staffId));
           const placed = lanes(items.map((r) => ({ r, start: toMin(r.start_time), minutes: r.minutes })));
           const showNow = c.day === today && now >= dStart && now <= dEnd;
           return (
@@ -205,26 +211,29 @@ export default function SchedulePage() {
   // 월 / 월 간략
   const month = (brief: boolean) => {
     const first = `${day.slice(0, 8)}01`;
-    const start = weekStart(first);
+    const start = addDays(first, -dow(first));
     const last = monthEnd(day);
-    const weeks = Math.ceil((((dow(first) + 6) % 7) + Number(last.slice(8))) / 7);
+    const weeks = Math.ceil((dow(first) + Number(last.slice(8))) / 7);
     const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i));
     return (
       <div className="mg">
-        {["월", "화", "수", "목", "금", "토", "일"].map((d) => <div key={d} className="mg-h">{d}</div>)}
+        {["일", "월", "화", "수", "목", "금", "토"].map((d) => <div key={d} className="mg-h">{d}</div>)}
         {cells.map((d) => {
           const inM = d.slice(0, 7) === day.slice(0, 7);
-          const list = rows.filter((r) => r.day === d);
+          const list = shown.filter((r) => r.day === d);
           const act = list.filter((r) => r.status === "예약" || r.status === "완료");
           const hol = holidayOf(d);
           return (
             <div key={d} className={`mg-c ${inM ? "" : "out"} ${d === today ? "td" : ""}`} onClick={() => { setDay(d); setView("day"); }}>
-              <div className="mg-d num" style={{ color: hol || dow(d) === 0 ? "var(--red)" : undefined }}>{Number(d.slice(8))}{hol && <span> 휴무</span>}</div>
-              {inM && brief && (act.length > 0 || list.length > 0) && (
+              <div className="mg-d num" style={{ color: hol || dow(d) === 0 ? "var(--red)" : undefined }}><i>{Number(d.slice(8))}</i>{hol && <span> 휴무</span>}</div>
+              {inM && brief && list.length > 0 && (
                 <div className="mg-brief num">
-                  <b>{act.length}건</b>
-                  {list.filter((r) => r.status === "노쇼").length > 0 && <span className="tag ns">노쇼 {list.filter((r) => r.status === "노쇼").length}</span>}
-                  {list.filter((r) => r.status === "취소").length > 0 && <span className="tag cc">취소 {list.filter((r) => r.status === "취소").length}</span>}
+                  <div>예약 <b>{act.length}</b></div>
+                  <div>결제 <b>{list.filter((r) => r.status === "완료").length}</b></div>
+                  <div className="mg-tags">
+                    {list.filter((r) => r.status === "노쇼").length > 0 && <span className="tag ns">노쇼 {list.filter((r) => r.status === "노쇼").length}</span>}
+                    {list.filter((r) => r.status === "취소").length > 0 && <span className="tag cc">취소 {list.filter((r) => r.status === "취소").length}</span>}
+                  </div>
                 </div>
               )}
               {inM && !brief && (
@@ -251,7 +260,7 @@ export default function SchedulePage() {
     <table className="t">
       <thead><tr><th>날짜</th><th>시간</th><th>고객 · 내용</th><th>프로그램</th><th>담당</th><th>상태</th></tr></thead>
       <tbody>
-        {rows.map((r) => {
+        {shown.map((r) => {
           const p = progMap.get(r.program_id ?? "");
           return (
             <tr key={r.id} onClick={() => setDraft({ ...r })} style={{ cursor: "pointer" }}>
@@ -264,7 +273,7 @@ export default function SchedulePage() {
             </tr>
           );
         })}
-        {rows.length === 0 && !loading && <tr><td colSpan={6} style={{ color: "var(--ink-3)", textAlign: "center" }}>이번 달 예약이 없어요</td></tr>}
+        {shown.length === 0 && !loading && <tr><td colSpan={6} style={{ color: "var(--ink-3)", textAlign: "center" }}>이번 달 예약이 없어요</td></tr>}
       </tbody>
     </table>
   );
@@ -291,9 +300,24 @@ export default function SchedulePage() {
             <button className="btn sm" onClick={() => move(1)} aria-label="다음">›</button>
             <button className="btn sm" onClick={() => setDay(today)}>오늘</button>
             <div className="rsv-date num">{title}</div>
-            <div className="seg">
+            <div className="seg" style={{ marginLeft: "auto" }}>
               {VIEWS.map((v) => <button key={v.k} className={view === v.k ? "on" : ""} onClick={() => setView(v.k)}>{v.l}</button>)}
             </div>
+          </div>
+          <div className="rsv-filters">
+            <select className="sel fsel" value={fSt} onChange={(e) => setFSt(e.target.value)}>
+              <option value="all">예약 상태 전체</option>
+              {["예약", "완료", "노쇼", "취소"].map((x) => <option key={x} value={x}>{x === "완료" ? "결제 완료" : x}</option>)}
+            </select>
+            <select className="sel fsel" value={fStaff} onChange={(e) => setFStaff(e.target.value)}>
+              <option value="all">직원 전체</option>
+              {staff.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+              <option value={NO_STAFF}>담당 미정</option>
+            </select>
+            <select className="sel fsel" value={fProg} onChange={(e) => setFProg(e.target.value)}>
+              <option value="all">프로그램 전체</option>
+              {programs.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
             <div className="rsv-legend">
               {legend.map((p) => <span key={p.id}><i className="lg-sw" style={{ background: p.color! }} />{p.short || p.name}</span>)}
             </div>
