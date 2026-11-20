@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { sb, type Staff } from "@/lib/sb";
 import Link from "next/link";
-import { type Program, type Rsv, SLOTS, toMin, usedAt, fmtDay, todayKST, DOW, dow } from "@/lib/schedule";
+import { type Program, type Rsv, SLOTS, toMin, usedAt, DAY_START, DAY_END, fmtDay, todayKST, DOW, dow } from "@/lib/schedule";
 
 // 새 예약은 day/start_time/program_id 만, 기존 예약은 Rsv 전체
 export type Draft = Partial<Rsv> & { day: string; start_time: string; program_id?: string | null };
@@ -46,6 +46,9 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const [nName, setNName] = useState("");
   const [nPhone, setNPhone] = useState("");
   const [reason, setReason] = useState("");
+  // 겹침 안내 (시안 1120 U-MO-RSV-1 시간겹침 · 같은고객): 강제 저장 없이 비어 있는 다른 시간을 골라 저장
+  const [clash, setClash] = useState<{ cust: boolean; other: Rsv; alts: number[] } | null>(null);
+  const [alt, setAlt] = useState<number | null>(null);
 
   // 고객 요약 (시안 8차 P03: 이력 · 보유 회원권 · 비고)
   const [sum, setSum] = useState<Summary | null>(null);
@@ -84,8 +87,14 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
     setFound((data ?? []) as Cust[]);
   };
 
-  const save = async () => {
+  // 같은 담당 또는 같은 고객이 같은 시간에 이미 예약(취소·노쇼 제외)이 있는지
+  const findClash = (at: number, ck: string | null, mins: number) => rows.find((r) =>
+    r.day === day && r.id !== draft.id && (r.status === "예약" || r.status === "완료")
+    && toMin(r.start_time) < at + mins && at < toMin(r.start_time) + (r.minutes || 30)
+    && ((!!ck && r.customer_key === ck) || (!!staffId && r.staff_id === staffId)));
+  const save = async (atOverride?: number) => {
     setErr("");
+    const at = atOverride ?? toMin(time);
     if (!prog) return setErr("프로그램을 골라 주세요.");
     let c = cust;
     if (!work && !c && custMode === "new") {
@@ -98,9 +107,19 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
       setCust(c);
     }
     if (!work && !c) return setErr("고객을 골라 주세요.");
-    if (left !== null && left <= 0) return setErr(`이 시간 ${prog.name} 정원(${prog.capacity}명)이 다 찼어요.`);
+    if (atOverride == null && left !== null && left <= 0) return setErr(`이 시간 ${prog.name} 정원(${prog.capacity}명)이 다 찼어요.`);
+    const ck = work ? null : c!.key;
+    const hit = findClash(at, ck, prog.minutes);
+    if (hit) {
+      const alts: number[] = [];
+      for (let m = Math.max(toMin(time) + 10, DAY_START); m + prog.minutes <= DAY_END && alts.length < 3; m += 10)
+        if (!findClash(m, ck, prog.minutes) && usedAt(rows, day, prog.id, m, prog.minutes, draft.id) < prog.capacity) { alts.push(m); m += prog.minutes - 10; }
+      setAlt(null); setClash({ cust: !!ck && hit.customer_key === ck, other: hit, alts });
+      return;
+    }
+    setClash(null);
     setBusy(true);
-    const body = { branch, day, start_time: time, program_id: prog.id, customer_key: work ? null : c!.key, title: work ? title : "", staff_id: staffId, memo };
+    const body = { branch, day, start_time: hm(at), program_id: prog.id, customer_key: work ? null : c!.key, title: work ? title : "", staff_id: staffId, memo };
     const { error } = editing
       ? await sb.rpc("rsv_update", { p_id: draft.id, p: body })
       : await sb.rpc("rsv_create", { p: body });
@@ -320,9 +339,33 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
               <button className="btn" disabled={busy} onClick={() => setStatus("예약")}>예약으로 되돌리기</button>
             )}
             <div style={{ flex: 1 }} />
-            {!locked && <button className={editing ? "btn" : "btn p"} disabled={busy} onClick={save}>{editing ? "저장" : "예약 등록"}</button>}
+            {!locked && <button className={editing ? "btn" : "btn p"} disabled={busy} onClick={() => save()}>{editing ? "저장" : "예약 등록"}</button>}
             {editing && !work && <button className="btn p" disabled title="결제 화면은 준비 중이에요">결제</button>}
           </div>
+        )}
+        {clash && prog && (
+          <>
+            <div className="rd-clash-dim" onClick={() => setClash(null)} />
+            <div className="rd-clash" role="dialog">
+              <i className="grab" />
+              <b className="t">{clash.cust ? "이 고객은 이미 이 시간에 예약이 있어요" : "이 시간에 이미 예약이 있어요"}</b>
+              <p className="why">겹침은 같은 담당 또는 같은 고객이 같은 시간일 때예요. 겹친 채로는 저장하지 않아요.</p>
+              <div className="who">{clash.other.customer_name || clash.other.title || "일정"} · {fmtDay(clash.other.day)} {clash.other.start_time.slice(0, 5)} – {hm(toMin(clash.other.start_time) + (clash.other.minutes || 30))}{clash.other.staff_name ? ` · 담당 ${clash.other.staff_name}` : ""}</div>
+              <div className="lb">다른 시간</div>
+              {clash.alts.length === 0 && <p className="why">이날 남은 빈 시간이 없어요. 날짜를 바꿔 주세요.</p>}
+              {clash.alts.map((m) => (
+                <button key={m} className={`alt ${alt === m ? "on" : ""}`} onClick={() => setAlt(m)}>
+                  <b className="num">{hm(m)} – {hm(m + prog.minutes)}</b>
+                  <span>{prog.name}{staffId ? ` · 담당 ${staff.find((x) => x.id === staffId)?.name ?? ""}` : ""} · 비어 있음</span>
+                </button>
+              ))}
+              {alt == null && clash.alts.length > 0 && <p className="why">저장하려면 비어 있는 시간을 골라 주세요.</p>}
+              <div className="bt">
+                <button className="btn" onClick={() => setClash(null)}>닫기</button>
+                <button className="btn p" disabled={alt == null || busy} onClick={() => { if (alt != null) { setTime(hm(alt)); save(alt); } }}>이 시간으로 저장</button>
+              </div>
+            </div>
+          </>
         )}
       </aside>
     </>

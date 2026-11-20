@@ -359,3 +359,54 @@ table.t tr:hover td{background:var(--bg-soft)}
 .rd-docked .rd-line{flex-wrap:wrap}
 .rd-empty{padding:24px;color:var(--ink-3);font-size:var(--fs-sm)}
 @media (max-width:767px){.rsv-dock{display:none}}
+
+/* ── 1120 시안: 상단 메뉴 (글자만, 빨간 밑줄) + 오른쪽 지점·새 예약·이름 ── */
+.side .nav a svg,.side .nav .off svg{display:none}
+.side .nav a,.side .nav .off{height:var(--nav-h);border-radius:0;padding:0 12px;font-size:var(--fs-md);border-bottom:2px solid transparent;margin-bottom:-1px}
+.side .nav a:hover{background:none;color:var(--ink)}
+.side .nav a.on{background:none;color:var(--red);font-weight:700;border-bottom-color:var(--red)}
+.side .nav>div+div{border-left:0;margin-left:4px;padding-left:4px;position:relative}
+.side .nav>div+div::before{content:"";width:1px;height:18px;background:var(--line-strong);margin-right:8px}
+.topr{display:flex;align-items:center;gap:8px;flex:none}
+.topr .btn{height:36px}
+.topr .topbr{cursor:default;color:var(--ink-2)}
+.topr .topnew{font-weight:600}
+.side .topr .mecard{border-left:0;padding-left:6px}
+@media (max-width:1100px){.topr .topbr{display:none}}
+.mm-me{display:flex;align-items:center;gap:12px;padding:10px 0 12px}
+.mm-me .av{width:44px;height:44px;border-radius:var(--r-ctl);background:var(--bg-sub);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--ink-2)}
+.mm-me b{display:block;font-size:var(--fs-md)}.mm-me span{font-size:var(--fs-sm);color:var(--ink-3)}
+.mmore a em,.mmore .off em{margin-left:auto;font-style:normal;font-size:var(--fs-sm);color:var(--ink-3)}
+.mmore .mm-out{margin-top:10px;height:44px}
+.bye{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:61;background:var(--bg);border-radius:var(--r-overlay);padding:22px 22px 16px;width:min(360px,calc(100vw - 32px));box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.bye b{font-size:var(--fs-lg)}.bye p{margin:8px 0 18px;color:var(--ink-3);font-size:var(--fs-sm);line-height:1.5}
+.bye>div{display:flex;justify-content:flex-end;gap:8px}
+
+/* 예약 겹침 시트 (시안 1120 U-MO-RSV-1) */
+.rd.rd-docked{position:relative}
+.rd-clash-dim{position:absolute;inset:0;background:var(--dim);z-index:5}
+.rd-clash{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--bg);border-radius:var(--r-overlay) var(--r-overlay) 0 0;padding:10px 20px 16px;display:flex;flex-direction:column;gap:8px;max-height:90%;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.15)}
+.rd-clash .grab{width:40px;height:4px;border-radius:2px;background:var(--line-strong);align-self:center;margin-bottom:6px}
+.rd-clash .t{font-size:var(--fs-lg)}
+.rd-clash .why{font-size:var(--fs-sm);color:var(--ink-3);margin:0;line-height:1.5}
+.rd-clash .who{background:var(--bg-sub);border-radius:var(--r-ctl);padding:10px 12px;font-size:var(--fs-sm);color:var(--ink-2)}
+.rd-clash .lb{font-size:var(--fs-sm);font-weight:600;color:var(--ink-3);margin-top:4px}
+.rd-clash .alt{all:unset;cursor:pointer;border:1px solid var(--line-strong);border-radius:var(--r-ctl);padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+.rd-clash .alt b{font-size:var(--fs-md)}.rd-clash .alt span{font-size:var(--fs-sm);color:var(--ink-3)}
+.rd-clash .alt.on{border-color:var(--red);box-shadow:inset 0 0 0 1px var(--red);background:var(--red-50)}
+.rd-clash .bt{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+
+/* 업무 메모 탭 (시안 1120 U-PC-RSV-1) */
+.memo-tab{display:flex;flex-direction:column;gap:10px;margin-top:12px;flex:1;min-height:0}
+.memo-nav{display:flex;align-items:center;gap:6px}
+.memo-nav b{font-size:var(--fs-md);min-width:64px;text-align:center}
+.memo-list{display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:50vh}
+.memo-empty{color:var(--ink-3);font-size:var(--fs-sm);background:var(--bg-soft);border-radius:var(--r-ctl);padding:14px;margin:0}
+.memo-it{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-ctl);padding:10px 12px}
+.memo-it span{font-size:var(--fs-xs);color:var(--ink-3)}
+.memo-it p{margin:4px 0 0;font-size:var(--fs-sm);white-space:pre-wrap;line-height:1.5}
+.memo-write{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.memo-write label{font-size:var(--fs-sm);color:var(--ink-3)}
+.memo-write textarea{height:auto;padding:8px 10px;resize:vertical}
+.memo-write .btn{align-self:flex-start}
+.memo-err{color:var(--red);font-size:var(--fs-sm);margin:0}

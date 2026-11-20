@@ -22,7 +22,7 @@ export default function Panel({ branch, dayRows, staffName, onClose }: { branch:
   return (
     <aside className="sb-panel">
       <div className="seg sb-tabs">
-        {["현황", "업무 메모", "문자", "네이버"].map((t) => (
+        {["현황", "업무 메모", "문자 내역", "네이버"].map((t) => (
           <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
@@ -36,7 +36,7 @@ export default function Panel({ branch, dayRows, staffName, onClose }: { branch:
           <CustomerRow branch={branch} />
           <ByStaffRow rows={dayRows} staffName={staffName} />
         </>
-      ) : (
+      ) : tab === "업무 메모" ? <MemoTab branch={branch} /> : (
         <div className="sb-card" style={{ color: "var(--ink-3)", fontSize: "var(--fs-sm)", marginTop: 12 }}>
           {tab} 기능은 준비 중이에요.
         </div>
@@ -202,5 +202,68 @@ function ByStaffRow({ rows, staffName }: { rows: Rsv[]; staffName: (id: string) 
       {list.length === 0 && <div className="sb-none">이 날 예약이 없어요</div>}
       {list.map(([k, v]) => <div key={k} className="sb-row sm"><span>{k ? staffName(k) : "담당 미정"}</span><span className="num">{v}건</span></div>)}
     </Fold>
+  );
+}
+
+// 업무 메모 (시안 1120 U-PC-RSV-1): 날짜별로 남기는 지점 메모. 일간 / 월간
+type Memo = { id: string; day: string; body: string; author: string; created_at: string };
+function MemoTab({ branch }: { branch: string }) {
+  const [day, setDay] = useState(todayKST());
+  const [mode, setMode] = useState<"d" | "m">("d");
+  const [list, setList] = useState<Memo[] | null>(null);
+  const [text, setText] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const from = mode === "d" ? day : `${day.slice(0, 8)}01`;
+  const to = mode === "d" ? day : monthEnd(day);
+  const load = () => {
+    setErr("");
+    sb.rpc("rsv_work_memo_list", { p_branch: branch, p_from: from, p_to: to }).then(({ data, error }) => {
+      if (error) { setList([]); setErr(/function|schema cache/i.test(error.message) ? "업무 메모는 서버 준비 중이에요." : error.message); return; }
+      setList((data ?? []) as Memo[]);
+    });
+  };
+  useEffect(load, [branch, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
+  const add = async () => {
+    if (!text.trim()) return;
+    setBusy(true);
+    const { error } = await sb.rpc("rsv_work_memo_add", { p_branch: branch, p_day: day, p_body: text.trim() });
+    setBusy(false);
+    if (error) return setErr(/function|schema cache/i.test(error.message) ? "업무 메모는 서버 준비 중이에요." : error.message);
+    setText(""); load();
+  };
+  const step = (n: number) => setDay(mode === "d" ? addDays(day, n) : `${addDays(`${day.slice(0, 8)}15`, n * 30).slice(0, 8)}01`);
+  const label = mode === "d" ? `${Number(day.slice(5, 7))}.${day.slice(8)}` : `${day.slice(0, 4)}년 ${Number(day.slice(5, 7))}월`;
+  const tm = (t: string) => new Date(t).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Seoul" });
+  return (
+    <div className="memo-tab">
+      <div className="memo-nav">
+        <button className="btn sm" onClick={() => step(-1)} aria-label="이전">‹</button>
+        <b className="num">{label}</b>
+        <button className="btn sm" onClick={() => step(1)} aria-label="다음">›</button>
+        <div className="seg sm" style={{ marginLeft: "auto" }}>
+          <button className={mode === "d" ? "on" : ""} onClick={() => setMode("d")}>일간</button>
+          <button className={mode === "m" ? "on" : ""} onClick={() => setMode("m")}>월간</button>
+        </div>
+      </div>
+      <div className="memo-list">
+        {list === null ? <p className="memo-empty">불러오는 중…</p>
+          : list.length === 0 ? <p className="memo-empty">{err || (mode === "d" ? "이날 남긴 메모가 없어요." : "이번 달 남긴 메모가 없어요.")}</p>
+          : list.map((m) => (
+            <div key={m.id} className="memo-it">
+              <span>{m.author || "직원"} · {mode === "m" ? `${Number(m.day.slice(5, 7))}.${m.day.slice(8)} ` : ""}{tm(m.created_at)}</span>
+              <p>{m.body}</p>
+            </div>
+          ))}
+      </div>
+      {mode === "d" && (
+        <div className="memo-write">
+          <label>메모 쓰기</label>
+          <textarea className="inp" rows={3} maxLength={500} value={text} onChange={(e) => setText(e.target.value)} placeholder="예: 저녁 마감 때 2번실 소독이 남아 있어요." />
+          {err && list && list.length > 0 && <p className="memo-err">{err}</p>}
+          <button className="btn p sm" disabled={busy || !text.trim()} onClick={add}>메모 저장</button>
+        </div>
+      )}
+    </div>
   );
 }

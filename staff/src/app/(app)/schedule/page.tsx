@@ -1,6 +1,6 @@
 "use client";
 // 예약 (메라 시안 P01): 왼쪽 현황보드 + 오른쪽 예약표(일간=담당자 열)
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useRef, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
@@ -134,6 +134,14 @@ export default function SchedulePage() {
     if (!canWrite) return;
     setDraft({ day: d, start_time: hhmm(start), program_id: "", staff_id: staffId && staffId !== NO_STAFF ? staffId : undefined });
   };
+  // 상단 메뉴 '+ 새 예약' (시안 1120): 다른 화면에서 오면 ?new=1, 예약 화면에 있으면 이벤트로 열어요
+  const newRef = useRef(openNew); newRef.current = () => openNew(today, Math.max(dStart, Math.ceil(now / 30) * 30));
+  useEffect(() => {
+    const go = () => (newRef.current as () => void)();
+    if (new URLSearchParams(window.location.search).get("new") === "1") { setTimeout(go, 0); window.history.replaceState(null, "", "/schedule"); }
+    window.addEventListener("rsv:new", go);
+    return () => window.removeEventListener("rsv:new", go);
+  }, []);
   const move = (n: number) => {
     if (view === "day") return setDay(addDays(day, n));
     if (view === "week") return setDay(addDays(day, n * 7));
@@ -381,7 +389,6 @@ export default function SchedulePage() {
         </select>
         <input className="inp" style={{ width: 240 }} placeholder="고객 이름 · 뒤 4자리" value={q}
           onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} />
-        {canWrite && <button className="btn p" onClick={() => openNew(view === "day" ? day : today, Math.max(dStart, Math.ceil(now / 30) * 30))}>+ 새 예약</button>}
       </header>
 
       <div className={`rsv-body dock ${panel ? "" : "nopanel"}`}>

@@ -12,8 +12,6 @@ const NAV: { group: string; items: Item[] }[] = [
     { href: "/schedule", label: "예약", icon: "cal" },
     { href: "/work", label: "오늘 할 일", icon: "check" },
     { href: "/customers", label: "고객", icon: "user" },
-    { href: "/membership", label: "회원권", icon: "card" },
-    { label: "운동일지", icon: "note" },
   ] },
   { group: "성과", items: [
     { label: "대시보드", icon: "grid" },
@@ -39,16 +37,17 @@ const ICONS = {
   bar: <path d="M4 20h16M7 16.5V11M12 16.5V6M17 16.5v-8" {...P} />,
   mega: <><path d="M4 10v4l11 4.5V5.5L4 10z" {...P} /><path d="M8 15l1 4.5M18.5 9.5v5" {...P} /></>,
   team: <><circle cx="9" cy="9" r="3.3" {...P} /><path d="M3 19.5c.9-3.2 3.2-4.7 6-4.7s5.1 1.5 6 4.7M15.5 5.9a3.3 3.3 0 010 6.3M17.5 14.9c1.7.6 3 2 3.5 4.6" {...P} /></>,
+  lines: <path d="M4.5 7h15M4.5 12h15M4.5 17h15" {...P} />,
   gear: <><circle cx="12" cy="12" r="3" {...P} /><path d="M12 3.5v2.3M12 18.2v2.3M3.5 12h2.3M18.2 12h2.3M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6" {...P} /></>,
 };
 
 // 해피콜은 '오늘 할 일' 안, 직원·권한은 '설정' 안에 있어요 (메라 시안)
 const isOn = (path: string, href: string) => path.startsWith(href)
-  || (href === "/work" && path.startsWith("/happycall")) || (href === "/settings" && path.startsWith("/staff"));
-// 모바일 하단 탭 (시안 02-05m): 예약 · 오늘 할 일 · 고객 · 운동일지 · 더보기
+  || (href === "/customers" && path.startsWith("/membership")) || (href === "/work" && path.startsWith("/happycall")) || (href === "/settings" && path.startsWith("/staff"));
+// 모바일 하단 탭 (시안 1120 staff_tabbar_icons): 예약 · 오늘 할 일 · 고객 · 매출 · 더보기
 const TABS: Item[] = [
   { href: "/schedule", label: "예약", icon: "cal" }, { href: "/work", label: "오늘 할 일", icon: "check" },
-  { href: "/customers", label: "고객", icon: "user" }, { label: "운동일지", icon: "note" },
+  { href: "/customers", label: "고객", icon: "user" }, { href: "/sales", label: "매출", icon: "bar" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -56,7 +55,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const [me, setMe] = useState<Staff | null | undefined>(undefined);
   const [more, setMore] = useState(false);
-  useEffect(() => setMore(false), [path]);
+  const [bye, setBye] = useState(false);
+  useEffect(() => { setMore(false); setBye(false); }, [path]);
 
   useEffect(() => {
     (async () => {
@@ -91,15 +91,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             ))}
           </nav>
-          <div className="mecard">
-            <div className="av">{me.name.slice(0, 1)}</div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div className="nm">{me.name}</div>
-              <div className="sb">{me.title || TIER_LABEL[me.tier]} · {me.branch}</div>
+          <div className="topr">
+            <span className="btn topbr">{me.branch}</span>
+            <Link href="/schedule?new=1" className="btn topnew" onClick={() => window.dispatchEvent(new Event("rsv:new"))}>+ 새 예약</Link>
+            <div className="mecard">
+              <div className="av">{me.name.slice(0, 1)}</div>
+              <div style={{ minWidth: 0 }}>
+                <div className="nm">{me.name}</div>
+                <div className="sb">{me.title || TIER_LABEL[me.tier]} · {me.branch}</div>
+              </div>
+              <button className="btn t sm" style={{ padding: 0, width: 28, color: "var(--ink-4)" }} onClick={() => setBye(true)} title="로그아웃" aria-label="로그아웃">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M14 4h4.5A1.5 1.5 0 0120 5.5v13a1.5 1.5 0 01-1.5 1.5H14M10 8l-4 4 4 4M6 12h10" {...P} /></svg>
+              </button>
             </div>
-            <button className="btn t sm" style={{ padding: 0, width: 28, color: "var(--ink-4)" }} onClick={() => sb.auth.signOut()} title="로그아웃" aria-label="로그아웃">
-              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M14 4h4.5A1.5 1.5 0 0120 5.5v13a1.5 1.5 0 01-1.5 1.5H14M10 8l-4 4 4 4M6 12h10" {...P} /></svg>
-            </button>
           </div>
         </aside>
         <div className="main">{children}</div>
@@ -111,7 +115,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               : <span key={t.label} className="off">{icon}<span>{t.label}</span></span>;
           })}
           <button className={more || !TABS.some((t) => t.href && isOn(path, t.href)) ? "on" : ""} onClick={() => setMore(!more)}>
-            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden><circle cx="6" cy="12" r="1.6" fill="currentColor" /><circle cx="12" cy="12" r="1.6" fill="currentColor" /><circle cx="18" cy="12" r="1.6" fill="currentColor" /></svg>
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden>{ICONS.lines}</svg>
             <span>더보기</span>
           </button>
         </nav>
@@ -119,12 +123,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <>
             <div className="dim mmore-dim" onClick={() => setMore(false)} />
             <div className="mmore">
-              {NAV.flatMap((g) => g.items).filter((n) => !TABS.some((t) => t.label === n.label)).map((n) => (
-                n.href
-                  ? <Link key={n.label} href={n.href}><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS[n.icon]}</svg>{n.label}</Link>
-                  : <span key={n.label} className="off"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS[n.icon]}</svg>{n.label}<em>준비 중</em></span>
-              ))}
-              <button onClick={() => sb.auth.signOut()}>{me.name} · {me.branch} · 로그아웃</button>
+              <div className="mm-me">
+                <div className="av">{me.name.slice(0, 1)}</div>
+                <div><b>{me.name}</b><span>{me.title || TIER_LABEL[me.tier]} · {me.branch}</span></div>
+              </div>
+              <Link href="/membership">회원권<em>열기</em></Link>
+              <Link href="/settings">설정 보기<em>{me.tier === "staff" ? "보기만" : "열기"}</em></Link>
+              {["대시보드", "통계", "마케팅", "내 정보 · 내 근무시간", "알림 설정", "도움말"].map((l) => <span key={l} className="off">{l}<em>준비 중</em></span>)}
+              <button className="mm-out" onClick={() => setBye(true)}>로그아웃</button>
+            </div>
+          </>
+        )}
+        {bye && (
+          <>
+            <div className="dim" style={{ zIndex: 60 }} onClick={() => setBye(false)} />
+            <div className="bye" role="dialog" aria-label="로그아웃 확인">
+              <b>로그아웃할까요?</b>
+              <p>{me.name} · {me.branch} 계정에서 나가요. 다시 들어오려면 아이디와 비밀번호가 필요해요.</p>
+              <div><button className="btn" onClick={() => setBye(false)}>취소</button><button className="btn p" onClick={() => sb.auth.signOut()}>로그아웃</button></div>
             </div>
           </>
         )}
