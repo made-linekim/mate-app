@@ -1,52 +1,74 @@
 "use client";
+// 예약 (메라 시안 P01): 왼쪽 현황보드 + 오른쪽 예약표(일간=담당자 열)
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import {
-  type Program, type Rsv, type Holiday, type RStatus,
-  SLOTS, DAY_START, DAY_END, STEP, ROW_H, toMin, slotLabel, todayKST, addDays, dow, DOW, weekStart, fmtDay,
-  usedAt, lanes, STATUS_STYLE,
+  type Program, type Rsv, type Holiday,
+  STEP, ROW_H, toMin, todayKST, addDays, dow, DOW, weekStart, lanes,
 } from "@/lib/schedule";
 import RsvDrawer, { type Draft } from "./RsvDrawer";
-import CapacityDrawer from "./CapacityDrawer";
+import Panel from "./Panel";
 
-type View = "day" | "week";
-const GROUPS = [
-  { k: "all", l: "전체" }, { k: "시술", l: "시술" }, { k: "체험", l: "체험" }, { k: "상담", l: "상담" }, { k: "업무", l: "업무·행사" },
+type View = "day" | "week" | "mbrief" | "month" | "list";
+const VIEWS: { k: View; l: string }[] = [
+  { k: "day", l: "일간" }, { k: "week", l: "주간" }, { k: "mbrief", l: "월 간략" }, { k: "month", l: "월" }, { k: "list", l: "목록" },
 ];
-const ST_FILTERS: { k: "all" | RStatus; l: string }[] = [
-  { k: "all", l: "전체" }, { k: "예약", l: "예약" }, { k: "완료", l: "결제완료" }, { k: "노쇼", l: "노쇼" }, { k: "취소", l: "취소" },
-];
-const WORK_COL = "__work";
-const isWork = (p?: Program | null) => !!p && (p.grp === "업무" || p.grp === "행사");
+type Col = { id: string; name: string; sub: string };
+type Hours = { days: { d: number; open: boolean; s: string; e: string }[] } | null;
+const NO_STAFF = "__none";
+const ymd = (d: string) => `${d} (${DOW[dow(d)]})`;
+const monthEnd = (d: string) => addDays(`${addDays(`${d.slice(0, 8)}28`, 4).slice(0, 8)}01`, -1);
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const nowMin = () => { const d = new Date(Date.now() + 9 * 36e5); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
+const tint = (c: string, pct: number) => `color-mix(in srgb, ${c} ${pct}%, #fff)`;
+const STATUS_TXT: Record<string, string> = { 완료: "결제 완료", 노쇼: "노쇼", 취소: "취소" };
 
 export default function SchedulePage() {
   const me = useMe();
+  const router = useRouter();
   const [branch, setBranch] = useState(me.branch);
   const [view, setView] = useState<View>("day");
   const [day, setDay] = useState(todayKST());
-  const [grp, setGrp] = useState("all");
-  const [st, setSt] = useState<"all" | RStatus>("all");
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [staff, setStaff] = useState<Col[]>([]);
   const [rows, setRows] = useState<Rsv[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [hours, setHours] = useState<Hours>(null);
+  const [soon, setSoon] = useState<Set<string>>(new Set());
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [capOpen, setCapOpen] = useState(false);
-  const [progVer, setProgVer] = useState(0);
+  const [q, setQ] = useState("");
+  const [now, setNow] = useState(nowMin());
 
   const canWrite = me.tier !== "staff" || !!me.perms?.["schedule.reserve"];
-  const canSet = me.tier !== "staff" || !!me.perms?.["settings.edit"];
-  const from = view === "day" ? day : weekStart(day);
-  const to = view === "day" ? day : addDays(from, 6);
+  const today = todayKST();
+  const [from, to] = useMemo<[string, string]>(() => {
+    if (view === "day") return [day, day];
+    if (view === "week") return [weekStart(day), addDays(weekStart(day), 6)];
+    return [`${day.slice(0, 8)}01`, monthEnd(day)];
+  }, [view, day]);
+
+  useEffect(() => { const t = setInterval(() => setNow(nowMin()), 60e3); return () => clearInterval(t); }, []);
 
   useEffect(() => {
-    sb.rpc("rsv_program_list", { p_branch: branch }).then(({ data, error }) => {
-      if (error) setErr(error.message);
-      setPrograms((data ?? []) as Program[]);
+    let on = true;
+    Promise.all([
+      sb.rpc("rsv_program_list", { p_branch: branch }),
+      sb.from("staff_accounts").select("id,name,title,status").eq("branch", branch).eq("status", "active").order("name"),
+      sb.rpc("settings_get", { p_branch: branch }),
+      sb.rpc("membership_holdings", { p_branch: branch, p_filter: "soon" }),
+    ]).then(([p, s, h, m]) => {
+      if (!on) return;
+      setPrograms((p.data ?? []) as Program[]);
+      setStaff(((s.data ?? []) as { id: string; name: string; title: string | null }[]).map((x) => ({ id: x.id, name: x.name, sub: x.title ?? "" })));
+      setHours((h.data as { hours: Hours } | null)?.hours ?? null);
+      setSoon(new Set(((m.data?.rows ?? []) as { customer_key: string }[]).map((r) => r.customer_key)));
     });
-  }, [branch, progVer]);
+    return () => { on = false; };
+  }, [branch]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,231 +84,237 @@ export default function SchedulePage() {
   useEffect(() => { load(); }, [load]);
 
   const progMap = useMemo(() => new Map(programs.map((p) => [p.id, p])), [programs]);
-  const shown = useMemo(() => rows.filter((r) => st === "all" || r.status === st), [rows, st]);
+  const staffName = useCallback((id: string) => staff.find((s) => s.id === id)?.name
+    ?? rows.find((r) => r.staff_id === id)?.staff_name ?? "담당 미정", [staff, rows]);
   const holidayOf = (d: string) => holidays.find((h) => h.day === d);
+  const dayRows = useMemo(() => rows.filter((r) => r.day === day), [rows, day]);
 
-  // 일간 보기 열 = 프로그램 (업무·행사는 한 열로)
-  const columns = useMemo(() => {
-    const list = programs.filter((p) => !isWork(p) && (grp === "all" || p.grp === grp))
-      .map((p) => ({ id: p.id, label: p.short || p.name, full: p.name, cap: p.capacity, minutes: p.minutes, color: p.color }));
-    if (grp === "all" || grp === "업무") list.push({ id: WORK_COL, label: "업무·행사", full: "업무·행사", cap: 0, minutes: 60, color: null });
-    return list;
-  }, [programs, grp]);
+  // 영업시간: 설정 › 업무시간 (없으면 09~21시)
+  const [dStart, dEnd] = useMemo(() => {
+    const ds = hours?.days?.filter((x) => x.open && (view !== "day" || x.d === dow(day))) ?? [];
+    let s = ds.length ? Math.min(...ds.map((x) => toMin(x.s))) : 9 * 60;
+    let e = ds.length ? Math.max(...ds.map((x) => toMin(x.e))) : 21 * 60;
+    rows.forEach((r) => { const m = toMin(r.start_time); s = Math.min(s, m); e = Math.max(e, m + r.minutes); });
+    return [Math.floor(s / 60) * 60, Math.ceil(e / 60) * 60];
+  }, [hours, view, day, rows]);
+  const slots = useMemo(() => Array.from({ length: (dEnd - dStart) / STEP }, (_, i) => dStart + i * STEP), [dStart, dEnd]);
 
-  const counts = useMemo(() => {
-    const c = { 예약: 0, 완료: 0, 노쇼: 0, 취소: 0 } as Record<RStatus, number>;
-    rows.forEach((r) => { c[r.status] += 1; });
-    return c;
-  }, [rows]);
+  // 일간 열 = 담당자 (예약에만 있는 담당자, 담당 미정도 열로)
+  const staffCols = useMemo(() => {
+    const cols = [...staff];
+    dayRows.forEach((r) => {
+      const id = r.staff_id || NO_STAFF;
+      if (!cols.some((c) => c.id === id)) cols.push({ id, name: id === NO_STAFF ? "담당 미정" : r.staff_name ?? "담당자", sub: "" });
+    });
+    return cols.length ? cols : [{ id: NO_STAFF, name: "담당 미정", sub: "" }];
+  }, [staff, dayRows]);
 
-  const openNew = (d: string, start: number, programId?: string) => {
+  // 범례: 지금 보이는 예약에 쓰인 프로그램 (없으면 앞쪽 프로그램)
+  const legend = useMemo(() => {
+    const used = new Set(rows.map((r) => r.program_id));
+    const list = programs.filter((p) => p.color && used.has(p.id));
+    return (list.length ? list : programs.filter((p) => p.color && p.grp !== "업무")).slice(0, 9);
+  }, [programs, rows]);
+
+  const openNew = (d: string, start: number, staffId?: string) => {
     if (!canWrite) return;
-    setDraft({ day: d, start_time: slotLabelValue(start), program_id: programId && programId !== WORK_COL ? programId : "" });
+    setDraft({ day: d, start_time: hhmm(start), program_id: "", staff_id: staffId && staffId !== NO_STAFF ? staffId : undefined });
   };
-  const openEdit = (r: Rsv) => setDraft({ ...r });
+  const move = (n: number) => {
+    if (view === "day") return setDay(addDays(day, n));
+    if (view === "week") return setDay(addDays(day, n * 7));
+    const x = new Date(`${day.slice(0, 8)}01T00:00:00Z`); x.setUTCMonth(x.getUTCMonth() + n);
+    setDay(x.toISOString().slice(0, 10));
+  };
+  const title = view === "day" ? ymd(day) : view === "week" ? `${from} ~ ${to.slice(5)}` : `${day.slice(0, 4)}년 ${Number(day.slice(5, 7))}월`;
+  const search = () => q.trim() && router.push(`/customers?q=${encodeURIComponent(q.trim())}`);
 
-  const move = (n: number) => setDay(addDays(day, view === "day" ? n : n * 7));
-  const monthDays = useMemo(() => {
+  // 예약 블록
+  const block = (r: Rsv, top: number, h: number, lane: number, n: number, showStaff: boolean) => {
+    const p = progMap.get(r.program_id ?? "");
+    const c = p?.color ?? "#8A8A8A";
+    const name = r.kind === "고객" ? r.customer_name : r.title || p?.name || r.kind;
+    const cancel = r.status === "취소", noshow = r.status === "노쇼", done = r.status === "완료";
+    const sel = draft?.id === r.id;
+    return (
+      <button key={r.id} className="rv" onClick={(e) => { e.stopPropagation(); setDraft({ ...r }); }}
+        title={`${r.start_time} ${name} · ${p?.name ?? ""}${r.staff_name ? ` · 담당 ${r.staff_name}` : ""}${r.memo ? `\n${r.memo}` : ""}`}
+        style={{
+          top: top + 2, height: h, left: `calc(${(lane / n) * 100}% + 4px)`, width: `calc(${100 / n}% - 8px)`,
+          background: cancel ? "#fff" : tint(c, 13), borderLeft: `3px solid ${cancel ? "var(--st-cancel-line)" : c}`,
+          border: sel ? "2px solid var(--ink)" : cancel ? "1px dashed var(--st-cancel-line)" : undefined,
+          borderLeftWidth: 3, opacity: done ? "var(--st-done-opacity)" as unknown as number : undefined,
+        }}>
+        <div className="l1 num" style={{ paddingRight: noshow || cancel ? 40 : 0 }}><b>{r.start_time.slice(0, 5)} {name}</b>{done && <span> · 결제 완료</span>}{h < 40 && <span> {p?.short || p?.name}</span>}</div>
+        {h >= 40 && <div className="l2">{p?.short || p?.name || r.kind} {r.minutes}분{showStaff && r.staff_name ? ` · ${r.staff_name}` : ""}</div>}
+        {(noshow || cancel) && <span className={`tag ${noshow ? "ns" : "cc"}`}>{STATUS_TXT[r.status]}</span>}
+        {!noshow && !cancel && r.customer_key && soon.has(r.customer_key) && <i className="dot" title="회원권 만료 예정" />}
+      </button>
+    );
+  };
+
+  // 시간 격자 (일간: 담당자 열 / 주간: 요일 열)
+  const grid = () => {
+    const cols = view === "day"
+      ? staffCols.map((c) => ({ key: c.id, day, head: c.name, sub: c.sub, staffId: c.id }))
+      : Array.from({ length: 7 }, (_, i) => addDays(from, i)).map((d) => ({
+        key: d, day: d, head: `${Number(d.slice(8))}일 (${DOW[dow(d)]})`, sub: `${rows.filter((r) => r.day === d && (r.status === "예약" || r.status === "완료")).length}건`, staffId: undefined as string | undefined,
+      }));
+    const gridH = slots.length * ROW_H;
+    return (
+      <div className="tg" style={{ gridTemplateColumns: `64px repeat(${cols.length}, minmax(${view === "day" ? 180 : 120}px, 1fr))` }}>
+        <div className="tg-h tg-corner" />
+        {cols.map((c) => {
+          const hol = holidayOf(c.day);
+          return (
+            <div key={c.key} className="tg-h">
+              <b style={{ color: view === "week" && (hol || dow(c.day) === 0) ? "var(--red)" : view === "week" && c.day === today ? "var(--red)" : undefined }}>{c.head}</b>
+              <span>{hol && view === "week" ? "휴무" : c.sub || " "}</span>
+            </div>
+          );
+        })}
+        <div className="tg-axis" style={{ height: gridH }}>
+          {slots.filter((m) => m % 60 === 0).map((m) => (
+            <div key={m} className="num" style={{ top: ((m - dStart) / STEP) * ROW_H }}>{hhmm(m)}</div>
+          ))}
+        </div>
+        {cols.map((c) => {
+          const off = !!holidayOf(c.day);
+          const items = rows.filter((r) => r.day === c.day && (view === "week" || (r.staff_id || NO_STAFF) === c.staffId));
+          const placed = lanes(items.map((r) => ({ r, start: toMin(r.start_time), minutes: r.minutes })));
+          const showNow = c.day === today && now >= dStart && now <= dEnd;
+          return (
+            <div key={c.key} className="tg-col" style={{ height: gridH, background: off ? "var(--bg-sub)" : undefined }}>
+              {slots.map((m) => (
+                <div key={m} className={`tg-slot ${m % 60 ? "half" : ""}`} style={{ top: ((m - dStart) / STEP) * ROW_H, cursor: canWrite && !off ? "pointer" : "default" }}
+                  onClick={() => !off && openNew(c.day, m, c.staffId)} title={canWrite && !off ? `${hhmm(m)} 예약 등록` : undefined} />
+              ))}
+              {showNow && <div className="tg-now" style={{ top: ((now - dStart) / STEP) * ROW_H }} />}
+              {placed.map(({ r, start, minutes, lane, lanes: n }) => {
+                const top = ((start - dStart) / STEP) * ROW_H;
+                const h = Math.max((minutes / STEP) * ROW_H - 4, 26);
+                return block(r, top, h, lane, n, view === "week");
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // 월 / 월 간략
+  const month = (brief: boolean) => {
     const first = `${day.slice(0, 8)}01`;
-    const out: string[] = [];
-    for (let d = first; d.slice(0, 7) === day.slice(0, 7); d = addDays(d, 1)) out.push(d);
-    return out;
-  }, [day]);
-  const today = todayKST();
-  const gridH = ((DAY_END - DAY_START) / STEP) * ROW_H;
+    const start = weekStart(first);
+    const last = monthEnd(day);
+    const weeks = Math.ceil((((dow(first) + 6) % 7) + Number(last.slice(8))) / 7);
+    const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i));
+    return (
+      <div className="mg">
+        {["월", "화", "수", "목", "금", "토", "일"].map((d) => <div key={d} className="mg-h">{d}</div>)}
+        {cells.map((d) => {
+          const inM = d.slice(0, 7) === day.slice(0, 7);
+          const list = rows.filter((r) => r.day === d);
+          const act = list.filter((r) => r.status === "예약" || r.status === "완료");
+          const hol = holidayOf(d);
+          return (
+            <div key={d} className={`mg-c ${inM ? "" : "out"} ${d === today ? "td" : ""}`} onClick={() => { setDay(d); setView("day"); }}>
+              <div className="mg-d num" style={{ color: hol || dow(d) === 0 ? "var(--red)" : undefined }}>{Number(d.slice(8))}{hol && <span> 휴무</span>}</div>
+              {inM && brief && (act.length > 0 || list.length > 0) && (
+                <div className="mg-brief num">
+                  <b>{act.length}건</b>
+                  {list.filter((r) => r.status === "노쇼").length > 0 && <span className="tag ns">노쇼 {list.filter((r) => r.status === "노쇼").length}</span>}
+                  {list.filter((r) => r.status === "취소").length > 0 && <span className="tag cc">취소 {list.filter((r) => r.status === "취소").length}</span>}
+                </div>
+              )}
+              {inM && !brief && (
+                <>
+                  {list.slice(0, 4).map((r) => {
+                    const p = progMap.get(r.program_id ?? "");
+                    return (
+                      <div key={r.id} className="mg-it num" style={{ borderLeftColor: p?.color ?? "var(--ink-4)", opacity: r.status === "완료" ? .5 : 1, textDecoration: r.status === "취소" ? "line-through" : undefined }}>
+                        {r.start_time.slice(0, 5)} {r.kind === "고객" ? r.customer_name : r.title || p?.name}
+                      </div>
+                    );
+                  })}
+                  {list.length > 4 && <div className="mg-more">+{list.length - 4}건</div>}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const listView = () => (
+    <table className="t">
+      <thead><tr><th>날짜</th><th>시간</th><th>고객 · 내용</th><th>프로그램</th><th>담당</th><th>상태</th></tr></thead>
+      <tbody>
+        {rows.map((r) => {
+          const p = progMap.get(r.program_id ?? "");
+          return (
+            <tr key={r.id} onClick={() => setDraft({ ...r })} style={{ cursor: "pointer" }}>
+              <td className="num">{r.day.slice(5).replace("-", "/")} ({DOW[dow(r.day)]})</td>
+              <td className="num">{r.start_time.slice(0, 5)}</td>
+              <td><b>{r.kind === "고객" ? r.customer_name : r.title || r.kind}</b></td>
+              <td><span className="lg-sw" style={{ background: p?.color ?? "var(--ink-4)" }} />{p?.name ?? "-"} <span style={{ color: "var(--ink-4)" }}>{r.minutes}분</span></td>
+              <td>{r.staff_name ?? "-"}</td>
+              <td><span className={`badge ${r.status === "완료" ? "ok" : r.status === "노쇼" ? "warn" : r.status === "취소" ? "em" : ""}`}>{STATUS_TXT[r.status] ?? "예약"}</span></td>
+            </tr>
+          );
+        })}
+        {rows.length === 0 && !loading && <tr><td colSpan={6} style={{ color: "var(--ink-3)", textAlign: "center" }}>이번 달 예약이 없어요</td></tr>}
+      </tbody>
+    </table>
+  );
 
   return (
-    <>
-      <header className="top" style={{ flexWrap: "wrap", height: "auto", minHeight: "var(--top-h)", rowGap: 8, paddingTop: 12, paddingBottom: 12 }}>
-        <h1>예약표</h1>
-        <span className="sub num">
-          {loading ? "" : `예약 ${counts.예약} · 결제완료 ${counts.완료} · 노쇼 ${counts.노쇼} · 취소 ${counts.취소}`}
-        </span>
+    <div className="rsv">
+      <header className="top">
+        <h1>예약</h1>
+        <span className="sub num">{ymd(today)}</span>
         <div style={{ flex: 1 }} />
-        {me.tier === "owner" && (
-          <div className="seg">
-            {BRANCHES.map((b) => <button key={b} className={branch === b ? "on" : ""} onClick={() => setBranch(b)}>{b}</button>)}
-          </div>
-        )}
-        {canSet && <button className="btn" onClick={() => setCapOpen(true)}>정원 설정</button>}
-        {canWrite && <button className="btn p" onClick={() => openNew(view === "day" ? day : today >= from && today <= to ? today : from, 10 * 60)}>예약 등록</button>}
+        <select className="sel" style={{ width: 128 }} value={branch} disabled={me.tier !== "owner"} onChange={(e) => setBranch(e.target.value)}>
+          {(me.tier === "owner" ? BRANCHES : [me.branch]).map((b) => <option key={b}>{b}</option>)}
+        </select>
+        <input className="inp" style={{ width: 240 }} placeholder="고객 이름 · 뒤 4자리" value={q}
+          onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} />
+        {canWrite && <button className="btn p" onClick={() => openNew(view === "day" ? day : today, Math.max(dStart, Math.ceil(now / 30) * 30))}>+ 새 예약</button>}
       </header>
 
-      <div className="page">
-        {/* 날짜 이동 */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-          <button className="btn sm" onClick={() => move(-1)} aria-label="이전">‹</button>
-          <div style={{ fontSize: "var(--fs-lg)", fontWeight: 700, minWidth: 150, textAlign: "center" }} className="num">
-            {view === "day" ? fmtDay(day) : `${fmtDay(from)} ~ ${fmtDay(to).replace(/^\d+월 /, "")}`}
+      <div className="rsv-body">
+        <Panel branch={branch} dayRows={dayRows} staffName={staffName} />
+        <section className="rsv-main">
+          <div className="rsv-bar">
+            <button className="btn sm" onClick={() => move(-1)} aria-label="이전">‹</button>
+            <button className="btn sm" onClick={() => move(1)} aria-label="다음">›</button>
+            <button className="btn sm" onClick={() => setDay(today)}>오늘</button>
+            <div className="rsv-date num">{title}</div>
+            <div className="seg">
+              {VIEWS.map((v) => <button key={v.k} className={view === v.k ? "on" : ""} onClick={() => setView(v.k)}>{v.l}</button>)}
+            </div>
+            <div className="rsv-legend">
+              {legend.map((p) => <span key={p.id}><i className="lg-sw" style={{ background: p.color! }} />{p.short || p.name}</span>)}
+            </div>
           </div>
-          <button className="btn sm" onClick={() => move(1)} aria-label="다음">›</button>
-          <button className="btn sm t" onClick={() => setDay(today)}>오늘</button>
-          <input type="date" className="inp" style={{ width: 150, height: "var(--btn-h-sm)" }} value={day}
-            onChange={(e) => e.target.value && setDay(e.target.value)} />
-          <div style={{ flex: 1 }} />
-          <div className="seg">
-            <button className={view === "day" ? "on" : ""} onClick={() => setView("day")}>일간</button>
-            <button className={view === "week" ? "on" : ""} onClick={() => setView("week")}>주간</button>
+          {err && <p style={{ color: "var(--red)", padding: "0 20px" }}>{err}</p>}
+          {view === "day" && holidayOf(day) && (
+            <div style={{ padding: "0 20px 8px" }}><span className="badge em">지점 휴무일{holidayOf(day)!.reason ? ` · ${holidayOf(day)!.reason}` : ""}</span></div>
+          )}
+          <div className="rsv-scroll">
+            {(view === "day" || view === "week") && grid()}
+            {view === "mbrief" && month(true)}
+            {view === "month" && month(false)}
+            {view === "list" && listView()}
           </div>
-        </div>
-
-        {/* 일간: 이번 달 날짜 띠 */}
-        {view === "day" && (
-          <div style={{ display: "flex", gap: 2, overflowX: "auto", marginBottom: 12, paddingBottom: 4 }}>
-            {monthDays.map((d) => {
-              const w = dow(d); const on = d === day;
-              return (
-                <button key={d} onClick={() => setDay(d)} className="num" style={{
-                  minWidth: 34, height: 44, border: 0, borderRadius: "var(--r-ctl)", display: "flex", flexDirection: "column",
-                  alignItems: "center", justifyContent: "center", fontSize: "var(--fs-sm)", fontWeight: on ? 700 : 500,
-                  background: on ? "var(--red)" : d === today ? "var(--red-50)" : "transparent",
-                  color: on ? "#fff" : w === 0 || holidayOf(d) ? "var(--red)" : w === 6 ? "var(--ink-3)" : "var(--ink-2)",
-                }}>
-                  <span style={{ fontSize: 10, lineHeight: "12px" }}>{DOW[w]}</span>{Number(d.slice(8))}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* 필터 */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-          {view === "day" && GROUPS.map((g) => (
-            <button key={g.k} className={`chip ${grp === g.k ? "on" : ""}`} onClick={() => setGrp(g.k)}>{g.l}</button>
-          ))}
-          <div className="seg" style={{ marginLeft: "auto" }}>
-            {ST_FILTERS.map((f) => <button key={f.k} className={st === f.k ? "on" : ""} onClick={() => setSt(f.k)}>{f.l}</button>)}
-          </div>
-        </div>
-
-        {err && <p style={{ color: "var(--red)" }}>{err}</p>}
-        {view === "day" && holidayOf(day) && (
-          <p className="badge em" style={{ marginBottom: 12 }}>지점 휴무일 {holidayOf(day)!.reason ? `· ${holidayOf(day)!.reason}` : ""}</p>
-        )}
-
-        <div className="card" style={{ padding: 0, overflow: "auto", maxHeight: "calc(100vh - 260px)" }}>
-          {(() => {
-            const cols = view === "day"
-              ? columns.map((c) => ({ key: c.id, day, head: c.label, title: c.full, cap: c.cap, prog: c.id }))
-              : Array.from({ length: 7 }, (_, i) => addDays(from, i)).map((d) => ({
-                key: d, day: d, head: `${DOW[dow(d)]} ${Number(d.slice(8))}`, title: fmtDay(d), cap: 0, prog: undefined as string | undefined,
-              }));
-            const colMin = view === "day" ? 128 : 140;
-            return (
-              <div style={{ display: "grid", gridTemplateColumns: `76px repeat(${cols.length}, minmax(${colMin}px, 1fr))`, minWidth: 76 + cols.length * colMin }}>
-                {/* 머리줄 */}
-                <div style={headCell({ left: true })} />
-                {cols.map((c) => {
-                  const hol = view === "week" && holidayOf(c.day);
-                  return (
-                    <div key={c.key} title={c.title} style={headCell({})}>
-                      <div style={{ fontWeight: 700, color: hol || (view === "week" && dow(c.day) === 0) ? "var(--red)" : c.day === today && view === "week" ? "var(--red)" : "var(--ink)" }}>
-                        {c.head}
-                      </div>
-                      {view === "day" && c.cap > 0 && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontWeight: 500 }}>정원 {c.cap}명</div>}
-                      {view === "week" && <div className="num" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontWeight: 500 }}>
-                        {rows.filter((r) => r.day === c.day && (r.status === "예약" || r.status === "완료")).length}건
-                      </div>}
-                      {hol && <div style={{ fontSize: "var(--fs-xs)", color: "var(--red)", fontWeight: 500 }}>휴무</div>}
-                    </div>
-                  );
-                })}
-
-                {/* 시간축 */}
-                <div style={{ position: "sticky", left: 0, zIndex: 2, background: "var(--bg)", borderRight: "1px solid var(--line)" }}>
-                  {SLOTS.map((m) => (
-                    <div key={m} className="num" style={{ height: ROW_H, fontSize: "var(--fs-xs)", color: m % 60 ? "transparent" : "var(--ink-3)", padding: "2px 8px", whiteSpace: "nowrap", borderTop: m % 60 ? "0" : "1px solid var(--line)" }}>
-                      {slotLabel(m).replace(":00", "시")}
-                    </div>
-                  ))}
-                </div>
-
-                {/* 열 */}
-                {cols.map((c) => {
-                  const off = !!holidayOf(c.day);
-                  const items = shown.filter((r) => r.day === c.day && (view === "week" || (c.prog === WORK_COL
-                    ? isWork(progMap.get(r.program_id ?? ""))
-                    : r.program_id === c.prog)));
-                  const placed = lanes(items.map((r) => ({ r, start: toMin(r.start_time), minutes: r.minutes })));
-                  return (
-                    <div key={c.key} style={{ position: "relative", height: gridH, borderRight: "1px solid var(--line)", background: off ? "var(--bg-sub)" : "var(--bg)" }}>
-                      {SLOTS.map((m) => {
-                        const p = c.prog && c.prog !== WORK_COL ? progMap.get(c.prog) : undefined;
-                        const full = !!p && usedAt(rows, c.day, p.id, m, p.minutes) >= p.capacity;
-                        return (
-                          <div key={m}
-                            onClick={() => !off && !full && openNew(c.day, m, c.prog)}
-                            title={full ? "정원이 찼어요" : canWrite && !off ? `${slotLabel(m)} 예약 등록` : undefined}
-                            style={{
-                              position: "absolute", left: 0, right: 0, top: ((m - DAY_START) / STEP) * ROW_H, height: ROW_H,
-                              borderTop: m % 60 ? "1px dashed var(--line)" : "1px solid var(--line)",
-                              background: full ? "var(--bg-soft)" : undefined,
-                              cursor: canWrite && !off && !full ? "pointer" : "default",
-                            }} />
-                        );
-                      })}
-                      {placed.map(({ r, start, minutes, lane, lanes: n }) => {
-                        const p = progMap.get(r.program_id ?? "");
-                        const top = ((Math.max(start, DAY_START) - DAY_START) / STEP) * ROW_H;
-                        const h = Math.max(((Math.min(start + minutes, DAY_END) - Math.max(start, DAY_START)) / STEP) * ROW_H - 2, 22);
-                        const color = p?.color ?? "var(--ink-4)";
-                        const name = r.kind === "고객" ? r.customer_name : r.title || p?.name || r.kind;
-                        return (
-                          <button key={r.id} onClick={(e) => { e.stopPropagation(); openEdit(r); }}
-                            title={`${r.start_time} ${p?.name ?? ""} · ${name}${r.staff_name ? ` · 담당 ${r.staff_name}` : ""}${r.memo ? `\n${r.memo}` : ""}`}
-                            style={{
-                              position: "absolute", top: top + 1, height: h, zIndex: 1,
-                              left: `calc(${(lane / n) * 100}% + 2px)`, width: `calc(${100 / n}% - 4px)`,
-                              textAlign: "left", padding: "4px 6px", overflow: "hidden",
-                              borderRadius: "var(--r-badge)", border: "1px solid var(--line)", borderLeft: `3px solid ${color}`,
-                              background: "var(--bg-soft)", color: "var(--ink)", fontSize: "var(--fs-xs)", lineHeight: "16px",
-                              textDecoration: r.status === "취소" ? "line-through" : undefined,
-                              ...STATUS_STYLE[r.status],
-                            }}>
-                            {(() => {
-                              const sub = `${r.start_time}${view === "week" && p ? ` ${p.short || p.name}` : ""}${r.status !== "예약" ? ` · ${r.status === "완료" ? "결제완료" : r.status}` : ""}`;
-                              const one: React.CSSProperties = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
-                              if (h < 40) return <div style={one}><b>{name}</b> <span className="num" style={{ opacity: .8 }}>{sub}</span></div>;
-                              return (<>
-                                <div style={{ ...one, fontWeight: 700 }}>{name}</div>
-                                <div className="num" style={{ ...one, opacity: .8 }}>{sub}</div>
-                                {h > 50 && n === 1 && r.staff_name && <div style={{ ...one, opacity: .8 }}>담당 {r.staff_name}</div>}
-                              </>);
-                            })()}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </div>
-        {!loading && rows.length === 0 && !err && (
-          <p style={{ color: "var(--ink-3)", fontSize: "var(--fs-sm)", marginTop: 12 }}>
-            {view === "day" ? "이 날" : "이 주"} 예약이 없어요.{canWrite ? " 빈 칸을 누르면 바로 예약을 잡을 수 있어요." : ""}
-          </p>
-        )}
+        </section>
       </div>
 
-      {capOpen && (
-        <CapacityDrawer programs={programs} onClose={() => setCapOpen(false)} onSaved={() => { setCapOpen(false); setProgVer((v) => v + 1); }} />
-      )}
       {draft && (
         <RsvDrawer branch={branch} draft={draft} programs={programs} rows={rows} canWrite={canWrite}
           onClose={() => setDraft(null)} onSaved={() => { setDraft(null); load(); }} />
       )}
-    </>
+    </div>
   );
-}
-
-function slotLabelValue(m: number) { return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; }
-
-function headCell({ left }: { left?: boolean }): React.CSSProperties {
-  return {
-    position: "sticky", top: 0, zIndex: left ? 4 : 3, ...(left ? { left: 0 } : {}),
-    background: "var(--bg-sub)", minHeight: "var(--th-h)", padding: "8px", textAlign: "center",
-    fontSize: "var(--fs-sm)", borderBottom: "1px solid var(--line)", borderRight: "1px solid var(--line)",
-  };
 }

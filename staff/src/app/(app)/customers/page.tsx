@@ -25,6 +25,7 @@ export default function Customers() {
   const [rows, setRows] = useState<Row[]>([]);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
+  useEffect(() => { const v = new URLSearchParams(window.location.search).get("q"); if (v) { setQ(v); setQuery(v); } }, []);
 
   useEffect(() => {
     let on = true;
