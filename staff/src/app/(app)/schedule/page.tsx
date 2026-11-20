@@ -142,6 +142,12 @@ export default function SchedulePage() {
     window.addEventListener("rsv:new", go);
     return () => window.removeEventListener("rsv:new", go);
   }, []);
+  useEffect(() => {
+    if (!draft) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setDraft(null); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [draft]);
   const move = (n: number) => {
     if (view === "day") return setDay(addDays(day, n));
     if (view === "week") return setDay(addDays(day, n * 7));
@@ -391,7 +397,7 @@ export default function SchedulePage() {
           onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} />
       </header>
 
-      <div className={`rsv-body dock ${panel ? "" : "nopanel"}`}>
+      <div className={`rsv-body ${draft ? "dock" : ""} ${panel ? "" : "nopanel"}`}>
         {panel && <Panel branch={branch} dayRows={dayRows} staffName={staffName} onClose={togglePanel} />}
         <section className="rsv-main">
           <div className="rsv-bar">
@@ -441,14 +447,15 @@ export default function SchedulePage() {
           </div>
         </section>
         {/* 오른쪽 예약 입력 (뷰티처럼 늘 열려 있음): 날짜·빈 칸을 누르면 여기 채워져요 */}
-        <aside className="rsv-dock">
-          {canWrite || draft ? (
-            <RsvDrawer key={draft ? `${draft.id ?? "new"}-${draft.day}-${draft.start_time}-${draft.staff_id ?? ""}` : `blank-${today}`}
-              docked branch={branch} draft={draft ?? { day: today, start_time: hhmm(Math.max(dStart, Math.ceil(now / 30) * 30)), program_id: "" }}
+        {/* 오른쪽 예약 창: 날짜·빈 칸·예약을 눌렀을 때만 떠요 */}
+        {draft && (
+          <aside className="rsv-dock">
+            <RsvDrawer key={`${draft.id ?? "new"}-${draft.day}-${draft.start_time}-${draft.staff_id ?? ""}`}
+              docked branch={branch} draft={draft}
               programs={programs} rows={rows} canWrite={canWrite}
               onClose={() => setDraft(null)} onSaved={() => { setDraft(null); load(); }} />
-          ) : <div className="rd-empty">예약을 누르면 여기에서 볼 수 있어요</div>}
-        </aside>
+          </aside>
+        )}
       </div>
       {hov && (
         <div className="mg-pop" style={{ left: Math.min(hov.x, (typeof window !== "undefined" ? window.innerWidth : 1600) - 300), top: hov.y + 4 }}>

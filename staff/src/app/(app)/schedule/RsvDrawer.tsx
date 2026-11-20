@@ -157,7 +157,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             </span>
           )}
           <div style={{ flex: 1 }} />
-          {(!docked || editing) && <button className="rd-x" onClick={onClose} aria-label="닫기" title={docked ? "새 예약으로" : "닫기"}>×</button>}
+          <button className="rd-x" onClick={onClose} aria-label="닫기" title="닫기">×</button>
         </div>
         {!editing && (
           <div className="rd-tabs">
