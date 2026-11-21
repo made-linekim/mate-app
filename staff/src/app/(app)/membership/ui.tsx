@@ -39,7 +39,7 @@ export const friendly = (m: string) =>
   /permission|denied|권한/i.test(m) ? "이 화면을 볼 권한이 없어요" : "불러오지 못했어요. 잠시 뒤 다시 시도해 주세요";
 
 /* ── 회원권 화면 공용 상태 (헤더의 지점 · 고객 검색) ── */
-export type MbState = { branch: string; setBranch: (b: string) => void; q: string; setQ: (q: string) => void };
+export type MbState = { branch: string; setBranch: (b: string) => void; q: string; setQ: (q: string) => void; rev: number };
 export const MbCtx = createContext<MbState | null>(null);
 export const useMb = () => useContext(MbCtx)!;
 

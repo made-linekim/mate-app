@@ -30,7 +30,7 @@ const md = (d: string | null) => (d ? `${d.slice(2, 4)}.${d.slice(5, 7)}.${d.sli
 export default function Holdings() {
   const me = useMe();
   const router = useRouter();
-  const { branch, q } = useMb();
+  const { branch, q, rev } = useMb();
   const [filter, setFilter] = useState("active");
   const [prod, setProd] = useState<string | null>(null);
   const [data, setData] = useState<Data | null>(null);
@@ -48,7 +48,7 @@ export default function Holdings() {
       setLoading(false);
     });
     return () => { on = false; };
-  }, [branch, filter]);
+  }, [branch, filter, rev]);
 
   const rows = useMemo(() => {
     const s = q.trim();
