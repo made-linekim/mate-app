@@ -43,7 +43,7 @@ export const LNAV: { g: string; items: NavItem[] }[] = [
   ] },
   { g: "사람", items: [
     { label: "직원", href: "/settings/staff", icon: "users", help: "역할 · 직무 · 팀" },
-    { label: "권한", href: "/settings/perms", icon: "shield", help: "직급마다 쓰는 기능" },
+    { label: "권한", href: "/settings/perms", icon: "shield", help: "역할별 기본 권한 · 직원별 권한" },
     { label: "계정", href: "/settings/account", icon: "user", help: "로그인 계정" },
   ] },
   { g: "상품", items: [
