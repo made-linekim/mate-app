@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMe } from "@/lib/me";
 import PayModal from "./PayModal";
 import "./rsv-new.css";
+import AlimtalkModal from "@/components/AlimtalkModal";
 import { RsvStatusAsk, sendRequest } from "@/lib/approval";
 import { type Program, type Rsv, SLOTS, toMin, usedAt, DAY_START, DAY_END, fmtDay, todayKST, DOW, dow } from "@/lib/schedule";
 
@@ -34,6 +35,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const canPay = me.tier !== "staff" || !!me.perms?.["schedule.pay"];
   const canPayCancel = me.tier === "owner" || !!me.perms?.["schedule.pay_cancel"];
   const [payOpen, setPayOpen] = useState(false);
+  const [atOpen, setAtOpen] = useState(false);
   type Paid = { gross: number; discount: number; received: number; unpaid: number; pay: Record<string, number>; detail: { sessions?: string }; created_by: string; created_at: string; canceled_at: string | null; new_membership: string | null };
   const [paid, setPaid] = useState<Paid | null>(null);
   const [cxReason, setCxReason] = useState("");
@@ -330,6 +332,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
                 <span className="rn-rsum">{[prog?.name, staffName].filter(Boolean).join(" · ")}</span>
                 <div style={{ flex: 1 }} />
                 <Link className="btn sm" href={`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(cust.key)}&from=rsv&ctx=${encodeURIComponent([day, time, prog?.name].filter(Boolean).join("|"))}`}>고객 차트</Link>
+                <button className="btn sm" onClick={() => setAtOpen(true)}>알림톡</button>
                 {!ro && !editing && <button className="btn sm" onClick={() => { setCust(null); setFound(null); setQ(""); }}>다른 고객</button>}
               </div>
               <div className="rd-box rd-row">
@@ -648,6 +651,10 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
           onClose={() => setPick(false)} onRep={() => { setPick(false); setMode("rsv"); setRep(true); }}
           onPick={(d, t, sid) => { setDay(d); setTime(t); if (sid) setStaffId(sid); setPick(false); }} />}
       </aside>
+      {atOpen && cust && (
+        <AlimtalkModal customerKey={cust.key} suggest={editing ? "RESERVE_REMIND" : undefined} onClose={() => setAtOpen(false)}
+          prefill={{ name: cust.name, reservation_date: day ? `${+day.slice(5, 7)}월 ${+day.slice(8, 10)}일` : "", reservation_time: time ?? "", program_name: prog?.name ?? "" }} />
+      )}
       {payOpen && (draft.id || newId) && cust && (
         <PayModal branch={branch} programs={programs} head={custHead} onClose={() => { setPayOpen(false); if (newId) onSaved(); }} onDone={() => { setPayOpen(false); onSaved(); }}
           rsv={{ id: (draft.id ?? newId)!, day: draft.id ? draft.day : day, start_time: draft.id ? draft.start_time : time, customer_key: cust.key, customer_name: cust.name, program_id: draft.id ? draft.program_id ?? null : programId || null, staff_name: draft.staff_name ?? staffName ?? null }} />

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sb, STATUS_LABEL, TIER_LABEL, type Perm, type Staff } from "@/lib/sb";
 import { useMe } from "@/lib/me";
-import { Head, Ico, IconBtn, useSetBranch } from "../ui";
+import { Chip, HelpD, Msg, PageH, useBranch } from "../kit";
 import { CreateDrawer, EditDrawer } from "./drawers";
 import Detail, { titleOf, type Preset } from "../perms/Detail";
 import { isOn } from "@/lib/perm";
@@ -13,7 +13,7 @@ const FILTERS: StatusFilter[] = ["all", "active", "leave", "resigned"];
 export default function StaffSettings() {
   const me = useMe();
   const isAdmin = me.tier === "owner" || me.tier === "manager";
-  const branch = useSetBranch(true);
+  const { branch, pick } = useBranch();
   const [list, setList] = useState<Staff[]>([]);
   const [perms, setPerms] = useState<Perm[]>([]);
   const [status, setStatus] = useState<StatusFilter>("active");
@@ -38,7 +38,7 @@ export default function StaffSettings() {
   useEffect(() => { load(); }, [load]);
 
   const inBranch = useMemo(() => list.filter((s) => branch === "all" || s.branch === branch), [list, branch]);
-  const shown = inBranch.filter((s) => status === "all" || s.status === status);
+  const shown = inBranch.filter((s) => s.status !== "resigned");
   const n = (k: StatusFilter) => inBranch.filter((s) => k === "all" || s.status === k).length;
   const canEdit = (t: Staff) => me.tier === "owner" || (me.tier === "manager" && t.tier === "staff");
   // 직급 기본값과 다른 칸 수 (예외)
@@ -50,58 +50,38 @@ export default function StaffSettings() {
   const permText = (s: Staff) => (s.tier === "owner" ? "모든 권한" : s.tier === "manager" ? "관리자 권한" : `${perms.filter((x) => isOn(s.perms?.[x.key])).length}개 켬`) + (excN(s) ? ` · 예외 ${excN(s)}` : "");
   const titles = [...new Set(["@manager", ...presets.map((x) => x.name), ...list.filter((x) => x.tier === "staff").map((x) => x.title || "직원")])];
   const canDetail = (t: Staff) => t.tier !== "owner" && t.id !== me.id && (me.tier === "owner" || (me.tier === "manager" && t.tier === "staff" && t.branch === me.branch));
-  const tierBadge = (s: Staff) => <span className={`badge ${s.tier === "staff" ? "" : "em"}`}>{TIER_LABEL[s.tier]}</span>;
-  const stBadge = (s: Staff) => <span className={`badge ${s.status === "active" ? "ok" : s.status === "leave" ? "warn" : ""}`}>{STATUS_LABEL[s.status]}</span>;
+
+  const roleName = (s: Staff) => TIER_LABEL[s.tier];
+  const ext = (s: Staff) => s as Staff & { team?: string | null; level?: number | null };
+  const total = inBranch.filter((s) => s.tier !== "owner" && s.status !== "resigned");
 
   return (
-    <>
-      <Head title="직원" meta="직원 등록 · 직급" />
-      <div className="st-bar">
-        {FILTERS.map((k) => (
-          <button key={k} className={`chip ${status === k ? "on" : ""}`} onClick={() => setStatus(k)}>
-            {k === "all" ? "전체" : STATUS_LABEL[k]} <i>{n(k)}</i>
-          </button>
-        ))}
-        {isAdmin && <div className="st-right"><button className="btn p" onClick={() => setCreating(true)}><Ico n="plus" />직원 추가</button></div>}
-      </div>
-      {err && <p className="st-msg">{err}</p>}
-      {note && <p className="st-msg ok">{note}</p>}
-
-      <div className="st-tbl st-pc">
-        <table className="t">
-          <thead><tr><th>이름</th><th>등급</th><th>직급</th><th>아이디</th><th>근무</th><th>입사일</th><th>세부설정</th><th>상태</th><th style={{ width: 64 }}>수정</th></tr></thead>
-          <tbody>
-            {shown.map((s) => (
-              <tr key={s.id}>
-                <td className="nm"><span className="st-dot" style={{ background: s.color ?? undefined }} />{s.name}</td>
-                <td>{tierBadge(s)}</td>
-                <td>{s.title ?? "-"}</td>
-                <td>{s.login_id}</td>
-                <td>{s.branch}</td>
-                <td className="num">{s.hired_on ?? "-"}</td>
-                <td className="st-detcell">{canDetail(s) ? <button className="pl-det" onClick={() => setDetail(s)}>세부설정</button> : null}<span>{permText(s)}</span></td>
-                <td>{stBadge(s)}</td>
-                <td>{canEdit(s) && <IconBtn n="edit" label="직원 수정" onClick={() => setEditing(s)} />}</td>
-              </tr>
-            ))}
-            {shown.length === 0 && <tr><td colSpan={9} className="none">직원이 없어요</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="st-m">
-        <div className="st-list">
-          {shown.map((s) => (
-            <div key={s.id} className="st-mrow">
-              <button disabled={!canEdit(s)} onClick={() => setEditing(s)}>
-                <span className="sq" style={{ background: s.color ?? "var(--line-strong)", borderRadius: "50%" }} />
-                <span className="tx"><b>{s.name}{tierBadge(s)}</b><span>{[s.title, s.branch, STATUS_LABEL[s.status], permText(s)].filter(Boolean).join(" · ")}</span></span>
-              </button>
-              {canDetail(s) && <button className="pl-det" onClick={() => setDetail(s)}>세부설정</button>}
-            </div>
-          ))}
-          {shown.length === 0 && <p className="st-foot">직원이 없어요</p>}
+    <div className="ct">
+      <PageH title="직원" sub={`${branch === "all" ? "전 지점" : branch} · 역할과 직무, 팀`}>
+        <Msg text={note || err} />
+        {isAdmin && <button className="btn p sm" onClick={() => setCreating(true)}>직원 등록</button>}
+      </PageH>
+      {pick}
+      <div className="body">
+        <div className="ltool">
+          <span className="help">{branch === "all" ? "전 지점" : branch} · {total.length}명</span>
         </div>
+        <div className="v3card">
+          <table className="tbl">
+            <tbody>
+              <tr><th>이름</th><th>역할</th><th>직무</th><th>팀</th><th className="num">레벨</th><th>근무 지점</th><th>상태</th></tr>
+              {shown.filter((s) => s.tier !== "owner").map((s) => (
+                <tr key={s.id} style={canEdit(s) ? { cursor: "pointer" } : undefined} onClick={() => canEdit(s) && setEditing(s)} title={permText(s)}>
+                  <td>{s.name}</td><td>{roleName(s)}</td><td>{s.title ?? "—"}</td><td>{ext(s).team || "—"}</td>
+                  <td className="num">{ext(s).level ?? "—"}</td><td>{s.branch}</td>
+                  <td><span className={`badge ${s.status === "active" ? "ok" : s.status === "leave" ? "caution" : ""}`}>{STATUS_LABEL[s.status]}</span></td>
+                </tr>
+              ))}
+              {shown.filter((s) => s.tier !== "owner").length === 0 && <tr><td colSpan={7}>직원이 없어요</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <HelpD>{[shown.filter((s) => s.tier !== "owner" && !ext(s).team).map((s) => s.name).join("·") && `${shown.filter((s) => s.tier !== "owner" && !ext(s).team).map((s) => s.name).join("·")}은 아직 팀에 넣지 않았어요.`, "대표관리자는 이 지점 목록에 두지 않아요. 줄을 누르면 고치고 세부설정을 열 수 있어요."].filter(Boolean).join(" ")}</HelpD>
       </div>
 
       {creating && <CreateDrawer titles={titles} presets={presets} onClose={() => setCreating(false)} onDone={load} />}
@@ -114,6 +94,6 @@ export default function StaffSettings() {
           onDetail={canDetail(editing) ? () => { const t = editing; setEditing(null); setDetail(t); } : undefined}
           onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} />
       )}
-    </>
+    </div>
   );
 }

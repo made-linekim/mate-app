@@ -92,23 +92,24 @@ export function useMkState() {
 export const canEdit = (me: ReturnType<typeof useMe>) => me.tier !== "staff" || !!me.perms?.["marketing.edit"];
 export const canBudget = (me: ReturnType<typeof useMe>) => me.tier === "owner";
 
-/* ── 화면 머리: 제목 · 직원만 · 기간 설명 · 오른쪽 버튼 ─────────── */
+/* ── 화면 제목 줄 (시안 .pageh): 제목 · 직원만 · 설명 · 오른쪽 ─────────── */
 export function Head({ title, meta, children, period = true }: { title: string; meta: string; children?: React.ReactNode; period?: boolean }) {
   const me = useMe();
   const { branch, setBranch, period: p, setPeriod } = useMk();
   return (
-    <div className="mk-head">
+    <div className="pageh">
       <h1>{title}</h1>
-      <span className="mk-only">직원만</span>
-      <span className="meta">{meta} · {branch}</span>
+      <span className="badge staff">직원만</span>
+      <span className="sub">{meta}{meta ? " · " : ""}{branch}</span>
+      <span className="sp" />
       <div className="act">
         {me.tier === "owner" && (
-          <select className="sel" aria-label="지점" value={branch} onChange={(e) => setBranch(e.target.value)}>
+          <select className="sel sm" aria-label="지점" value={branch} onChange={(e) => setBranch(e.target.value)}>
             {BRANCHES.map((b) => <option key={b}>{b}</option>)}
           </select>
         )}
         {period && (
-          <select className="sel" aria-label="기간" value={p} onChange={(e) => setPeriod(e.target.value as PeriodKey)}>
+          <select className="sel sm" aria-label="기간" value={p} onChange={(e) => setPeriod(e.target.value as PeriodKey)}>
             {PERIODS.map((x) => <option key={x.k} value={x.k}>{x.l}</option>)}
           </select>
         )}
@@ -118,18 +119,33 @@ export function Head({ title, meta, children, period = true }: { title: string; 
   );
 }
 
-/* 한 줄 안내 (디자인 v3). '확정' 띠는 없애고, 권한 표시는 잠금 칩으로. 모바일에서는 ⓘ 를 눌러야 펼쳐져요 */
-export function Info({ tag = "확정", children }: { tag?: string; children: React.ReactNode }) {
+/* 한 줄 안내 (시안 .ltool .note): ⓘ + (직원만 칩) + 문장. 모바일에서는 ⓘ 를 눌러야 펼쳐져요 */
+export function Info({ tag, children }: { tag?: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
-    <>
-      <button className="mk-ibtn" aria-expanded={open} onClick={() => setOpen(!open)}>ⓘ 안내 {open ? "접기" : "보기"}</button>
-      <div className={`mk-info v3-info ${open ? "open" : ""}`}>
-        <InfoIco />
-        {tag !== "확정" && <Lock>{tag}</Lock>}
-        <span>{children}</span>
-      </div>
-    </>
+    <div className={`ltool mx-lt ${open ? "open" : ""}`}>
+      <button className="mx-ibtn" aria-expanded={open} onClick={() => setOpen(!open)}><InfoIco /> 안내 {open ? "접기" : "보기"}</button>
+      <div className="note"><InfoIco />{tag && <span className="badge staff">{tag}</span>}<span>{children}</span></div>
+    </div>
+  );
+}
+
+/* 수집 루틴 줄 (시안 .collect .crow) */
+export function Collect({ jobs, fail, children }: { jobs: Job[]; fail: React.ReactNode; children?: React.ReactNode }) {
+  const { toast } = useMk();
+  return (
+    <div className="collect">
+      <h2>수집 루틴 상태</h2>
+      {jobs.map((j) => (
+        <div className="crow" key={j.job}>
+          <span className="nm">{JOB_NAME[j.job] ?? j.job}</span>
+          <span className="meta">매일 {j.sched ?? JOB_TIME[j.job] ?? "08:00"} · 마지막 실행 {when(j.at)} · {j.result === "성공" ? "정상" : j.result}</span>
+          <button className="btn sm" onClick={() => toast("지금 바로 실행은 준비 중이에요. 매일 정해진 시각에 자동으로 돌아요")}>한 번 실행</button>
+        </div>
+      ))}
+      <div className="crow"><span className="nm">실패 기록</span><span className="meta">{fail}</span></div>
+      {children}
+    </div>
   );
 }
 
@@ -141,27 +157,28 @@ export function Blocked({ err }: { err: string }) {
   return <div className="mk-empty card">{err}</div>;
 }
 
-/* 확인 창 */
-export function Modal({ title, children, onClose, foot }: { title: string; children: React.ReactNode; onClose: () => void; foot: React.ReactNode }) {
+/* 확인 창 (시안 .mask + .modal: 폭 400, 제목 16/700, 버튼 오른쪽) */
+export function Modal({ title, children, onClose, foot, wide }: { title: string; children: React.ReactNode; onClose: () => void; foot: React.ReactNode; wide?: boolean }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
   return (
-    <>
-      <div className="dim mk-dim" onClick={onClose} />
-      <div className="mk-modal" role="dialog" aria-label={title}>
-        <h3>{title}</h3>
+    <div className="mx">
+      <div className="mx-mask" onClick={onClose} />
+      <div className={`mx-modal ${wide ? "wide" : ""}`} role="dialog" aria-label={title}>
+        <h2>{title}</h2>
         {children}
-        <div className="ft">{foot}</div>
+        <div className="acts">{foot}</div>
       </div>
-    </>
+    </div>
   );
 }
 
 /* 수집 루틴 상태 줄 */
-export type Job = { job: string; result: string; reason: string | null; at: string | null };
+export type Job = { job: string; result: string; reason: string | null; at: string | null; sched?: string };
+const JOB_TIME: Record<string, string> = { "ads-meta": "08:00", "ads-naver": "08:00", "insta-count": "08:10", "blog-count": "08:12", "keyword-rank": "08:15" };
 const JOB_NAME: Record<string, string> = {
   "ads-meta": "메타 광고 성과", "ads-naver": "네이버 검색광고", "ads-daangn-api": "당근 광고",
   "blog-count": "네이버 블로그 글 수", "insta-count": "인스타그램 게시물", "keyword-rank": "키워드 순위",
@@ -171,14 +188,4 @@ export function when(at: string | null) {
   const d = new Date(new Date(at).getTime() + 9 * 3600e3).toISOString();
   const day = d.slice(0, 10) === todayKST() ? "오늘" : md(d.slice(0, 10));
   return `${day} ${d.slice(11, 16)}`;
-}
-export function JobRow({ j }: { j: Job }) {
-  const bad = j.result !== "성공" && j.result !== "건너뜀";
-  return (
-    <div className="row">
-      <b>{JOB_NAME[j.job] ?? j.job}</b>
-      <span className={bad ? "bad" : ""}>매일 자동 · 마지막 실행 {when(j.at)} · {j.result === "성공" ? "정상" : j.result}{j.reason ? ` · ${j.reason}` : ""}</span>
-      <span />
-    </div>
-  );
 }

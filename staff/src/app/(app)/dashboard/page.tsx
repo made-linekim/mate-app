@@ -35,18 +35,21 @@ function Dashboard() {
   const router = useRouter();
   const tab: TabK = (TABS.find((t) => t.k === sp.get("tab"))?.k) ?? "glance";
   const [branch, setBranch] = useState(me.branch);
+  const rich = tab === "glance" && me.tier !== "staff";
   const go = (k: TabK) => router.replace(k === "glance" ? "/dashboard" : `/dashboard?tab=${k}`, { scroll: false });
 
   return (
     <>
-      <header className="top v3-hd">
-        <h1>대시보드</h1>
+      {/* 시안 v3: 한눈에(대표관리자·관리자)는 제목+탭 머리, 나머지는 흰 띠에 탭만 (DASH-1 매니저·직원, DASH-2~4) */}
+      <header className={`top v3-hd ${rich ? "" : "ds3-band"}`}>
+        {rich && <h1>대시보드</h1>}
         <nav className="ds-tabs">
           {TABS.map((t) => (
             <button key={t.k} className={t.k === tab ? "on" : ""} onClick={() => go(t.k)}>{t.l}</button>
           ))}
         </nav>
         <div className="v3-right">
+          {rich && <Lock title="결제 때 고른 담당 직원 기준이에요">매출 순위는 대표관리자 · 관리자만</Lock>}
           {me.tier === "owner" && tab !== "team" && (
             <select className="sel ds-br" aria-label="지점" value={branch} onChange={(e) => setBranch(e.target.value)}>
               {BRANCHES.map((b) => <option key={b}>{b}</option>)}
@@ -54,7 +57,7 @@ function Dashboard() {
           )}
         </div>
       </header>
-      <div className="page ds">
+      <div className={`page ds ${rich ? "ds3-rich" : ""}`}>
         {tab === "glance" && <Glance branch={branch} />}
         {tab === "goal" && <Goal branch={branch} />}
         {tab === "growth" && <Growth branch={branch} />}
@@ -134,6 +137,7 @@ type Glance = {
 function Glance({ branch }: { branch: string }) {
   const { data: d, err } = useRpc<Glance>("dash_glance", { p_branch: branch });
   if (!d) return <Loading err={err} />;
+  if (!d.show_rank) return <GlanceSimple d={d} branch={branch} />;
   const mon = Number(d.today.slice(5, 7));
   const rsv = d.rsv_list ?? [];
   const left = rsv.filter((r) => r.status === "예약").length;
@@ -206,6 +210,58 @@ function Glance({ branch }: { branch: string }) {
               lead: <span className="v3-av">{r.customer.slice(0, 1)}</span>, name: r.customer, sub: r.reason,
               end: <span className="btn sm ds-act">{r.action === "해피콜" ? ICO_CALL : ICO_RE}{r.action}</span>,
             }))} />
+          </section>
+        </div>
+      ) : (
+        <Empty>고객 목록을 볼 권한이 없어서 예약·만료·이탈 명단은 숨겼어요.</Empty>
+      )}
+    </>
+  );
+}
+
+/* 시안 DASH-1 매니저·직원: 숫자 카드 4 + (매출 권한이면 월 매출) + 표 3 */
+function GlanceSimple({ d, branch }: { d: Glance; branch: string }) {
+  const mon = Number(d.today.slice(5, 7));
+  const T = ({ head, cls, rows, empty }: { head: string[]; cls: string; empty: string; rows: { key: string; href: string; cells: React.ReactNode[] }[] }) => (
+    <div className={`ds3-t ${cls}`}>
+      <div className="h">{head.map((h, i) => <span key={i}>{h}</span>)}</div>
+      {rows.length === 0 ? <div className="e">{empty}</div> : rows.slice(0, FOLD).map((r) => (
+        <Link key={r.key} href={r.href} className="r">{r.cells.map((c, i) => <span key={i}>{c}</span>)}</Link>
+      ))}
+    </div>
+  );
+  return (
+    <>
+      <div className="ds-g4">
+        <Kpi v={d.rsv_today} l="오늘 예약" />
+        <Kpi v={d.visit_today} l="오늘 방문" />
+        <Kpi v={`${d.rereg_done} / ${d.rereg_due}`} l="이번 달 재등록" />
+        <Kpi v={`${d.risk_count}명`} l="이탈 위험" red={d.risk_count > 0} />
+      </div>
+      {d.show_sales && (
+        <section className="card ds-card">
+          <h2>월 매출</h2>
+          <p className="ds-sub">{branch} · 올해 1–{mon}월 · 단위 만 원. 올해는 잉크, 작년은 회색이에요.</p>
+          <div className="ds3-leg"><span><i className="k" />올해 (만 원)</span><span><i className="l" />작년</span></div>
+          <MonthChart rows={(d.monthly ?? []).filter((r) => r.m <= mon)} />
+        </section>
+      )}
+      {d.show_customers ? (
+        <div className="ds-g3">
+          <section className="card ds-card">
+            <h2>오늘 예약</h2>
+            <T head={["시간", "고객", "담당"]} cls="c3" empty="오늘 잡힌 예약이 없어요."
+              rows={(d.rsv_list ?? []).map((r) => ({ key: r.key + r.time, href: chartHref(branch, r.key), cells: [r.time, r.customer, r.staff || "-"] }))} />
+          </section>
+          <section className="card ds-card">
+            <h2>만료 임박</h2>
+            <T head={["고객", "잔여", "만료"]} cls="cx" empty="한 달 안에 끝나는 회원권이 없어요."
+              rows={(d.expire_list ?? []).map((r) => ({ key: r.key + r.end_on, href: chartHref(branch, r.key), cells: [r.customer, r.kind === "회차" ? `${r.left_n}회` : "기간", md(r.end_on)] }))} />
+          </section>
+          <section className="card ds-card">
+            <h2>이탈 위험</h2>
+            <T head={["고객", "이유", ""]} cls="cr" empty="이탈 위험 고객이 없어요."
+              rows={(d.risk_list ?? []).map((r) => ({ key: r.key, href: r.action === "해피콜" ? "/work?tab=happycall" : chartHref(branch, r.key), cells: [r.customer, r.reason, <em key="a">{r.action}</em>] }))} />
           </section>
         </div>
       ) : (
@@ -315,7 +371,6 @@ function Goal({ branch }: { branch: string }) {
     const v = d.mine?.visit, r = d.mine?.rereg;
     return (
       <>
-        <Note>직원은 내 목표만 봐요. 방문·재등록 달성률만 보여요.</Note>
         <section className="card ds-card">
           <h2>내 목표 · {mon}월</h2>
           <div className="ds-g2 in">
@@ -334,9 +389,6 @@ function Goal({ branch }: { branch: string }) {
   const cards = (["sales", "visit", "rereg"] as const).filter((k) => k !== "sales" || d.show_sales);
   return (
     <>
-      <Note action={d.can_edit && <button className="btn sm ds-note-btn" onClick={() => setEdit(true)}>목표 정하기</button>}>
-        목표는 {d.show_sales ? "매출, " : ""}방문, 재등록 순으로 봐요. 직원별 달성률은 대표관리자·관리자만 봐요. 목표가 없으면 달성률 대신 &apos;-&apos;로 보여요.
-      </Note>
       <div className="ds-g4">
         {cards.map((k) => {
           const g = b[k]; const p = pct(g?.actual ?? 0, g?.target);
@@ -360,7 +412,8 @@ function Goal({ branch }: { branch: string }) {
         })}
       </div>
       <section className="card ds-card">
-        <h2>직원별 달성률 <Info>이 표는 대표관리자·관리자만 봐요. 100%를 넘으면 초록이에요. 직원 목표는 &apos;목표 정하기&apos;에서 넣어요.</Info></h2>
+        <h2>직원별 달성률</h2>
+        <p className="ds-sub">이 표는 대표관리자·관리자만 봐요. 100%를 넘으면 초록이에요.</p>
         {(d.staff ?? []).length === 0 ? <Empty>등록된 직원이 없어요.</Empty> : (
           <div className={`ds-sg ${d.show_sales ? "s3" : "s2"}`}>
             <div className="h"><span>직원</span>{cards.map((k) => <span key={k}>{MET[k]}</span>)}</div>
@@ -377,7 +430,7 @@ function Goal({ branch }: { branch: string }) {
         )}
       </section>
       <section className="card ds-card">
-        <h2>변경 이력</h2>
+        <h2>변경 이력{d.can_edit && <button className="btn sm v3-r ds3-edit" onClick={() => setEdit(true)}>목표 정하기</button>}</h2>
         {(d.logs ?? []).length === 0 ? <Empty>아직 목표를 바꾼 기록이 없어요.</Empty> : (
           <div className="ds-logs">
             {d.logs!.map((l, i) => (
@@ -388,6 +441,7 @@ function Goal({ branch }: { branch: string }) {
             ))}
           </div>
         )}
+        <p className="ds-sub ds3-foot">누가·언제·무엇을 얼마에서 얼마로만 기록에 남아요.{d.can_edit ? " 목표는 오른쪽 위 '목표 정하기'에서 바꿔요." : ""}</p>
       </section>
       {edit && <GoalEditor d={d} branch={branch} month={month} onClose={(ch) => { setEdit(false); if (ch) reload(); }} />}
     </>
@@ -481,7 +535,7 @@ function Growth({ branch }: { branch: string }) {
   const r = d.rules;
   const mine = d.me;
   const lv = mine ? levelOf(mine.score, r) : null;
-  const parts = mine ? PART.map(([k, l]) => `${l} ${mine.parts_pct ? `${mine.parts[k] ?? 0}%` : (mine.parts[k] ?? 0).toLocaleString()}`).join(" · ") : "";
+  const parts = mine ? PART.map(([k, l]) => `${l}${mine.parts_pct && k === "sales" ? " 기여" : ""} ${mine.parts_pct ? `${mine.parts[k] ?? 0}%` : (mine.parts[k] ?? 0).toLocaleString()}`).join(" · ") : "";
   const top = Math.max(1, ...(d.staff ?? []).map((s) => s.score));
 
   const myCard = (
@@ -500,20 +554,16 @@ function Growth({ branch }: { branch: string }) {
   );
 
   if (!d.show_staff) {
-    return (<><Note>직원은 내 성장만 봐요. 매출에서 온 점수는 비율로만 보이고, 매출 숫자는 두지 않아요.</Note>{myCard}</>);
+    return myCard;
   }
   return (
     <>
-      <Note>{me.tier === "owner" ? "대표관리자는 지점을 바꿔 직원 점수와 순위를 봐요." : "관리자는 자기 지점 직원의 점수와 순위를 봐요."}</Note>
       <div className="ds-g2">
         {myCard}
         <section className="card ds-card">
-          <h2>레벨</h2>
+          <h2>레벨 <Info>{r.names.map((n, i) => `${n} ${r.levels[i].toLocaleString()}점~`).join(" · ")}. 매출 {(r.sales_per / 10000).toLocaleString()}만 원당 {r.sales_pt}점, 재등록 {r.rereg}점, 해피콜 {r.call}점, 운동일지 {r.log}점, 후기 {r.review}점이에요.</Info></h2>
           <p className="ds-sub">{r.names.join(" · ")}</p>
-          <p className="ds-sub">이번 달 점수로 레벨이 올라가요. 매출 {(r.sales_per / 10000).toLocaleString()}만 원당 {r.sales_pt}점, 재등록 {r.rereg}점, 해피콜 {r.call}점, 운동일지 {r.log}점, 후기 {r.review}점이에요.</p>
-          <div className="ds-lvs">
-            {r.names.map((n, i) => <span key={n}><b>{n}</b><em className="num">{r.levels[i].toLocaleString()}점~</em></span>)}
-          </div>
+          <p className="ds-sub">이번 달 점수로 레벨이 올라가요. 바꾼 기록은 남아요.</p>
         </section>
       </div>
       <section className="card ds-card">
@@ -557,10 +607,7 @@ function Team() {
 
   return (
     <>
-      <Note action={d.can_edit && <button className="btn sm ds-note-btn" onClick={() => setEd("new")}>+ 팀 만들기</button>}>
-        팀 순위는 팀원 점수를 더해 정해요. 1위만 테두리와 배경으로 강조하고, 100%를 넘으면 초록으로 보여요.
-      </Note>
-      <p className="ds-sub ds-cap">{m}월 팀전 · {range}</p>
+      <div className="ds3-cap"><p className="ds-sub">{m}월 팀전 · {range} · 팀 순위는 팀원 점수를 더해 정해요.</p>{d.can_edit && <button className="btn sm" onClick={() => setEd("new")}>+ 팀 만들기</button>}</div>
       {d.teams.length === 0 ? (
         <section className="card ds-card"><Empty>
           이번 달 팀이 아직 없어요.{d.can_edit ? " 위 '+ 팀 만들기'로 팀을 만들어 주세요." : " 대표관리자·관리자가 팀을 만들면 보여요."}
@@ -593,8 +640,8 @@ function Team() {
           <h2>팀전 규칙</h2>
           <p className="ds-sub">기간 {range}</p>
           <p className="ds-sub">점수는 매출·재등록·해피콜·운동일지·후기를 더해요.</p>
+          <p className="ds-sub">1위 팀에게는 보너스 점수를 더하고, 상금 규칙은 대표관리자가 정해요.</p>
           <p className="ds-sub">매출 {(d.rules.sales_per / 10000).toLocaleString()}만 원당 {d.rules.sales_pt}점 · 재등록 1건 {d.rules.rereg}점 · 해피콜 1건 {d.rules.call}점 · 운동일지 1건 {d.rules.log}점 · 후기 1건 {d.rules.review}점</p>
-          <p className="ds-sub">팀 목표 점수는 팀마다 정해요. 상금 규칙은 대표관리자가 정해요.</p>
         </section>
       </div>
       {ed && d.staff_pick && <TeamEditor team={ed === "new" ? null : ed} month={d.month} pick={d.staff_pick} onClose={(ch) => { setEd(null); if (ch) reload(); }} />}

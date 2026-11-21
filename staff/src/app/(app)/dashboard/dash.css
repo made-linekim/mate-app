@@ -175,3 +175,41 @@
 .ds-chart .bars i.k.p{background:repeating-linear-gradient(45deg,var(--ink) 0 4px,#6E6E74 4px 8px)}
 .ds-act{display:inline-flex;align-items:center;gap:6px}
 .app .ds-act{color:var(--ink);border-color:var(--line-strong)}
+
+/* v3 시안 DASH-1 매니저·직원, DASH-2~4 (표 · 범례 · 캡션) */
+.app .ds3-t{display:flex;flex-direction:column}
+.app .ds3-t .h,.app .ds3-t .r{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;gap:8px;padding:0 8px}
+.app .ds3-t .h{height:32px;background:var(--bg-soft);font-size:12px;color:var(--ink-3);border-bottom:1px solid var(--line)}
+.app .ds3-t .r{height:40px;font-size:14px;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
+.app .ds3-t .r:last-child{border-bottom:0}
+.app .ds3-t .r:hover{background:var(--bg-soft)}
+.app .ds3-t.cx .h,.app .ds3-t.cx .r{grid-template-columns:1fr 40px 64px}
+.app .ds3-t.cx span:nth-child(2){text-align:right}
+.app .ds3-t.cr .h,.app .ds3-t.cr .r{grid-template-columns:1fr 1.6fr 1fr}
+.app .ds3-t.cr em{font-style:normal;color:var(--red)}
+.app .ds3-t .e{padding:16px 8px;color:var(--ink-3);font-size:13px}
+.app .ds3-leg{display:flex;gap:16px;font-size:12px;color:var(--ink-3);margin:4px 0 12px}
+.app .ds3-leg span{display:inline-flex;align-items:center;gap:8px}
+.app .ds3-leg i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.app .ds3-leg i.k{background:var(--ink)}.app .ds3-leg i.l{background:var(--line-strong)}
+.app .ds3-cap{display:flex;align-items:center;gap:12px;margin:-8px 0 8px}
+.app .ds3-cap .btn{margin-left:auto}
+.app .ds3-foot{margin-top:12px}
+.app .ds3-edit{margin-left:auto}
+@media (max-width:767px){ .app .ds3-t.cr .h,.app .ds3-t.cr .r{grid-template-columns:1fr 1.4fr auto} }
+@media (min-width:768px){
+ .app .page.ds{padding-top:12px;gap:16px}
+ .app .ds-kpi b{font-size:22px;line-height:30px}
+ .app .ds-kpi span{font-size:13px}
+ .app .ds-list .r,.app .ds-sg .r,.app .ds-st .r{min-height:40px;font-size:14px}
+ .app .ds-list .h,.app .ds-sg .h,.app .ds-st .h{height:32px;background:var(--bg-soft);font-weight:500}
+ .app .ds-st .rk{font-weight:400}
+ .app .ds3-cap .btn{height:28px}
+ .app .ds3-cap{margin:-4px 0 -4px}
+}
+@media (min-width:768px){ .app .ds-st .r.t3 .rk{font-weight:400} }
+@media (min-width:768px){
+ .app .page.ds.ds3-rich{padding-top:24px}
+ .app .ds3-rich .ds-chart{height:220px}
+ .app .ds3-rich .ds-rrow{min-height:56px}
+}

@@ -418,6 +418,7 @@ export function FilterRows({ f, setF, kinds }: { f: Filters; setF: (f: Filters) 
   return (
     <>
       <Cond label="조회기간"><PeriodPicker /></Cond>
+      <BranchCond />
       <Cond label="고객 검색">
         <form className="sl-row" onSubmit={(e) => { e.preventDefault(); setF({ ...f, q: q.trim() }); }}>
           <input className="inp" style={{ maxWidth: 280 }} placeholder="이름 또는 연락처 뒤 4자리" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -452,24 +453,207 @@ export function filterSummary(range: Range, mode: Mode, f: Filters, kinds?: { k:
   return [periodLabel(range, mode), kinds ? `구분 ${k}` : null, f.staff ? `담당 ${f.staff}` : null, `고객 ${f.q || "전체"}`].filter(Boolean).join(" · ");
 }
 
+/* ── v3 확정 시안 (U-PC-SALES-1~6): 위 한 줄 도구 + 기본 8열 원장 + 열 설정 ───────── */
+/* 조회 요약 한 줄: 11.01 – 11.18 · 의정부점 · 조회됨 */
+export function rangeHelp(range: Range, branch: string | null, done = true) {
+  const t = todayKST();
+  const to = range.to > t && range.from <= t ? t : range.to;
+  const p = range.from === to ? md(range.from) : `${md(range.from)} – ${md(to)}`;
+  return [p, branch ?? "전 지점", done ? "조회됨" : null].filter(Boolean).join(" · ");
+}
+
+/* 원장 위 도구 줄: 왼쪽 요약 + 조건 바꾸기, 오른쪽 버튼 */
+export function SlTool({ help, cond, right, textCond }: { help: string; cond?: React.ReactNode; right?: React.ReactNode; textCond?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className="sl3-tool">
+        {textCond && cond
+          ? <button className="sl3-help sl3-helpb" title="눌러서 기간 바꾸기" aria-expanded={open} onClick={() => setOpen(!open)}>{help}</button>
+          : <span className="sl3-help">{help}</span>}
+        {cond && !textCond && <button className={`btn sm ${open ? "on" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "조건 접기" : "조건 바꾸기"}</button>}
+        <span className="sl3-sp" />
+        {right}
+      </div>
+      {open && cond && <div className="sl3-cond">{cond}</div>}
+    </>
+  );
+}
+
+/* 지점 고르기 (조건 바꾸기 안, 대표관리자만) */
+export function BranchCond() {
+  const me = useMe();
+  const { branch, setBranch } = useSales();
+  if (me.tier !== "owner") return null;
+  return (
+    <Cond label="지점">
+      <div className="sl-row">
+        <button className={`chip ${!branch ? "on" : ""}`} onClick={() => setBranch(null)}>전 지점</button>
+        {BRANCHES.map((b) => <button key={b} className={`chip ${branch === b ? "on" : ""}`} onClick={() => setBranch(b)}>{b}</button>)}
+      </div>
+    </Cond>
+  );
+}
+
+type LK = "date" | "customer" | "content" | "amount" | "method" | "staff" | "status" | "memo"
+  | "branch" | "kind" | "card" | "cash" | "account" | "npay" | "unpaid" | "settled" | "discount" | "point" | "sessions" | "time";
+const DASH = <span className="sl-z">—</span>;
+const method3 = (s: Sale) => [s.card && "카드", s.cash && "현금", s.account && "계좌이체", s.npay && "NPay"].filter(Boolean).join(" · ");
+function Status({ s }: { s: Sale }) {
+  if (s.is_refund || (s.amount ?? 0) < 0) return <span className="badge">환불</span>;
+  if ((s.unpaid ?? 0) > 0) return <span className="badge warn">미수</span>;
+  return <span className="badge ok">완료</span>;
+}
+const money = (n: number | null | undefined) => (n ? won(n) : <span className="sl-z">0</span>);
+export const LCOLS: { k: LK; h: string; def?: boolean; n?: boolean; v: (s: Sale) => React.ReactNode; csv: (s: Sale) => string | number }[] = [
+  { k: "date", h: "날짜", def: true, v: (s) => md(s.day), csv: (s) => s.day },
+  { k: "customer", h: "고객", def: true, v: (s) => s.customer_name || DASH, csv: (s) => s.customer_name },
+  { k: "content", h: "상품", def: true, v: (s) => s.content || DASH, csv: (s) => s.content ?? "" },
+  { k: "amount", h: "금액", def: true, n: true, v: (s) => money(s.amount), csv: (s) => s.amount ?? 0 },
+  { k: "method", h: "결제수단", def: true, v: (s) => method3(s) || DASH, csv: (s) => method3(s) },
+  { k: "staff", h: "담당", def: true, v: (s) => s.staff_name || DASH, csv: (s) => s.staff_name ?? "" },
+  { k: "status", h: "상태", def: true, v: (s) => <Status s={s} />, csv: (s) => (s.is_refund || (s.amount ?? 0) < 0 ? "환불" : (s.unpaid ?? 0) > 0 ? "미수" : "완료") },
+  { k: "memo", h: "메모", def: true, v: (s) => (s.memo ? <span className="sl-clip" style={{ maxWidth: 200 }} title={s.memo}>{s.memo}</span> : DASH), csv: (s) => s.memo ?? "" },
+  { k: "kind", h: "구분", v: (s) => kindLabel(s.kind), csv: (s) => s.kind ?? "" },
+  { k: "card", h: "카드", n: true, v: (s) => money(s.card), csv: (s) => s.card ?? 0 },
+  { k: "cash", h: "현금", n: true, v: (s) => money(s.cash), csv: (s) => s.cash ?? 0 },
+  { k: "account", h: "계좌이체", n: true, v: (s) => money(s.account), csv: (s) => s.account ?? 0 },
+  { k: "unpaid", h: "미수 발생", n: true, v: (s) => money(s.unpaid), csv: (s) => s.unpaid ?? 0 },
+  { k: "settled", h: "미수 정산", n: true, v: (s) => money(s.unpaid_settled), csv: (s) => s.unpaid_settled ?? 0 },
+  { k: "npay", h: "NPay", n: true, v: (s) => money(s.npay), csv: (s) => s.npay ?? 0 },
+  { k: "discount", h: "할인", n: true, v: (s) => money(s.discount), csv: (s) => s.discount ?? 0 },
+  { k: "point", h: "포인트", n: true, v: (s) => money(s.point), csv: (s) => s.point ?? 0 },
+  { k: "sessions", h: "회차 차감", v: (s) => s.sessions || DASH, csv: (s) => s.sessions ?? "" },
+  { k: "time", h: "시간", v: (s) => dur(s.duration_min), csv: (s) => dur(s.duration_min) },
+  { k: "branch", h: "지점", v: (s) => s.branch, csv: (s) => s.branch },
+];
+const DEF_COLS = LCOLS.filter((c) => c.def).map((c) => c.k);
+
+/* 열 설정은 사람마다 저장 (이 기기 · 계정별) */
+function useCols() {
+  const me = useMe();
+  const key = `sales:cols:${me.id}`;
+  const [cols, setCols] = useState<LK[]>(DEF_COLS);
+  useEffect(() => {
+    try { const v = JSON.parse(localStorage.getItem(key) || "null"); if (Array.isArray(v) && v.length) setCols(v.filter((k) => LCOLS.some((c) => c.k === k))); } catch {}
+  }, [key]);
+  const save = (v: LK[]) => { setCols(v); try { localStorage.setItem(key, JSON.stringify(v)); } catch {} };
+  return [cols, save] as const;
+}
+
+export function ColDrawer({ cols, onSave, onClose }: { cols: LK[]; onSave: (v: LK[]) => void; onClose: () => void }) {
+  const [v, setV] = useState<LK[]>(cols);
+  const order = (x: LK[]) => LCOLS.map((c) => c.k).filter((k) => x.includes(k));
+  return (
+    <>
+      <div className="dim" style={{ zIndex: 60 }} onClick={onClose} />
+      <div className="drawer sl3-cols" role="dialog" aria-label="열 설정">
+        <div className="sl3-dh"><b>열 설정</b><button className="btn sm" onClick={onClose}>닫기</button></div>
+        <div className="sl3-db">
+          <div className="sl3-info"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>열 설정은 사람마다 저장돼요. 다른 사람 화면은 바뀌지 않아요.</div>
+          {LCOLS.map((c) => (
+            <label key={c.k} className="sl3-ck">
+              <input type="checkbox" checked={v.includes(c.k)} onChange={() => setV(v.includes(c.k) ? v.filter((x) => x !== c.k) : order([...v, c.k]))} />
+              {c.h}{c.def && <small>기본</small>}
+            </label>
+          ))}
+        </div>
+        <div className="sl3-pv">
+          <span>미리보기</span>
+          <div>{order(v).map((k) => <em key={k}>{LCOLS.find((c) => c.k === k)!.h}</em>)}</div>
+        </div>
+        <div className="sl3-df">
+          <button className="btn" onClick={() => setV(DEF_COLS)}>기본값으로</button>
+          <button className="btn p" disabled={!v.length} onClick={() => { onSave(order(v)); onClose(); }}>저장</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ExcelBtn({ onClick, busy, disabled }: { onClick: () => void; busy?: boolean; disabled?: boolean }) {
+  const me = useMe();
+  if (!canSee(me, "export.excel")) return null;
+  return <button className="btn sm" disabled={busy || disabled} onClick={onClick}>{busy ? "준비 중" : "엑셀 다운"}</button>;
+}
+export { ExcelBtn };
+
 /* ── 전체·회원권·관리·제품·기타 탭 공용 화면 ─────────────────── */
-export function LedgerScreen({ tab, cols, opt, kinds, csvName, top }: {
-  tab: Query["tab"]; cols: ColSpec[]; opt?: Col[]; kinds?: { k: string; l: string; ks?: string[] }[]; csvName: string;
-  top?: (q: Query) => React.ReactNode;
+export function LedgerScreen({ tab, kinds, csvName }: {
+  tab: Query["tab"]; kinds?: { k: string; l: string; ks?: string[] }[]; csvName: string;
 }) {
-  const { range, mode, branch } = useSales();
+  const { range, branch } = useSales();
   const [f, setF] = useFilters();
+  const [cols, setCols] = useCols();
+  const [edit, setEdit] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState<Sale[]>([]);
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const query: Query = {
     tab, range, branch, staff: f.staff, q: f.q,
     kinds: f.kind.length ? f.kind.flatMap((x) => kinds?.find((o) => o.k === x)?.ks ?? [x]) : null,
   };
+  const key = JSON.stringify(query);
+  useEffect(() => setPage(0), [key]);
+  useEffect(() => {
+    let on = true;
+    setLoading(true);
+    sb.rpc("sales_list", salesArgs(query, PAGE, page * PAGE)).then(({ data, error }) => {
+      if (!on) return;
+      setErr(error ? friendly(error.message) : "");
+      setRows((data ?? []) as Sale[]);
+      setLoading(false);
+    });
+    return () => { on = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, page]);
+  const total = rows[0]?.total ?? 0;
+  const cs = cols.map((k) => LCOLS.find((c) => c.k === k)!).filter(Boolean);
+
+  async function exportCsv() {
+    setBusy(true);
+    const { rows: all, err } = await fetchAllSales(query);
+    if (err) setErr(err);
+    downloadCsv(`${csvName}_${range.from}_${range.to}.csv`, cs.map((c) => c.h), all.map((s) => cs.map((c) => c.csv(s))));
+    setBusy(false);
+  }
+
+  return (
+    <div className="sl3-led">
+      <SlTool help={rangeHelp(range, branch, !loading)}
+        cond={<><FilterRows f={f} setF={setF} kinds={kinds} /></>}
+        right={<><button className="btn sm" onClick={() => setEdit(true)}>열 설정</button><ExcelBtn onClick={exportCsv} busy={busy} disabled={!total} /></>} />
+      {err && <p className="sl-err">{err}</p>}
+      <div className="sl3-card">
+        <div className="sl-scroll">
+          <table className="sl3-t">
+            <thead><tr>{cs.map((c) => <th key={c.k} className={c.n ? "r" : undefined}>{c.h}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((s) => <tr key={s.dedup_key}>{cs.map((c) => <td key={c.k} className={c.n ? "r" : undefined}>{c.v(s)}</td>)}</tr>)}
+              {!loading && rows.length === 0 && !err && <tr><td colSpan={cs.length} className="sl-empty">이 기간에 매출 기록이 없어요</td></tr>}
+              {loading && rows.length === 0 && <tr><td colSpan={cs.length} className="sl-empty">불러오는 중</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {total > PAGE && <Pager page={page} pages={Math.max(1, Math.ceil(total / PAGE))} onChange={setPage} />}
+      {edit && <ColDrawer cols={cols} onSave={setCols} onClose={() => setEdit(false)} />}
+    </div>
+  );
+}
+
+/* 확인 창 (돈이 나가거나 되돌릴 수 없는 일만, v3 C 원칙) */
+export function Confirm({ title, lines, ok, onOk, onClose, busy }: { title: string; lines: React.ReactNode[]; ok: string; onOk: () => void; onClose: () => void; busy?: boolean }) {
   return (
     <>
-      <CondBar summary={filterSummary(range, mode, f, kinds)}>
-        <FilterRows f={f} setF={setF} kinds={kinds} />
-      </CondBar>
-      {top?.(query)}
-      <SalesTable csvName={csvName} cols={cols} opt={opt} query={query} />
+      <div className="dim" style={{ zIndex: 60 }} onClick={onClose} />
+      <div className="sl3-modal" role="dialog" aria-label={title}>
+        <b>{title}</b>
+        {lines.map((l, i) => <p key={i}>{l}</p>)}
+        <div className="sl3-mf"><button className="btn" onClick={onClose}>닫기</button><button className="btn p" disabled={busy} onClick={onOk}>{ok}</button></div>
+      </div>
     </>
   );
 }
