@@ -6,7 +6,7 @@ import { sb, TIER_LABEL, type Staff } from "@/lib/sb";
 import { MeCtx } from "@/lib/me";
 import { SET_NAV, SetIcon } from "./settings/ui";
 
-// 메뉴: 실제로 쓰는 것만 보여요. 대시보드·통계·마케팅은 만들면 여기에 넣어요.
+// 메뉴: 실제로 쓰는 것만 보여요. 통계·마케팅은 만들면 여기에 넣어요.
 type Item = { href?: string; label: string; icon: keyof typeof ICONS };
 const NAV: { group: string; items: Item[] }[] = [
   { group: "업무", items: [
@@ -15,6 +15,7 @@ const NAV: { group: string; items: Item[] }[] = [
     { href: "/customers", label: "고객", icon: "user" },
   ] },
   { group: "성과", items: [
+    { href: "/dashboard", label: "대시보드", icon: "grid" },
     { href: "/sales", label: "매출", icon: "won" },
   ] },
   { group: "관리", items: [
@@ -148,6 +149,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div className="av">{me.name.slice(0, 1)}</div>
                 <div><b>{me.name}</b><span>{me.title || TIER_LABEL[me.tier]} · {me.branch}</span></div>
               </div>
+              <Link href="/dashboard" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.grid}</svg><span>대시보드<small>오늘 현황 · 목표 · 직원 성장 · 팀전</small></span></Link>
               <Link href="/membership" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.card}</svg><span>회원권<small>고객이 가진 회원권 · 잔여</small></span></Link>
               <div className="mm-g">설정{me.tier === "staff" ? " (보기만)" : ""}</div>
               {SET_NAV.flatMap((g) => g.items).map((i) => (
