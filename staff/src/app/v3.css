@@ -1,0 +1,230 @@
+/* ================================================================
+   MERA 디자인 기준 v3 — 가독성 (대표 승인 2026-11-21)
+   정본: MERA_DESIGN_v3_가독성.md (Drive 1sLsFjHmEC3u1xNoQ-mbrL8KFdg_s79sj)
+   보이는 방식만 바꿔요. 메뉴 순서·화면 내용·기능은 그대로.
+   적용: P1 선택=연한 빨강 면 · P2 상단 메뉴 아이콘 · P3 회색 바탕+흰 카드
+         P5 월 간략 날짜 띠 없음 · P6 중립 회색 --bg-track · P7 신규 고객 진한 회색
+         P8 하위 탭 = 회색 바닥 세그먼트
+   거절: P4 (+N건 더보기) → 예약 블록은 지금처럼 전부 보여요.
+   이 파일은 tokens.css 와 화면별 css 뒤에서 이기도록 `.app` 를 앞에 붙여요.
+   ================================================================ */
+:root{ --bg-page:#F4F4F6; --bg-track:#ECECEF; }
+
+/* ── 1. 바탕과 면 ── */
+body{background:var(--bg-page)}
+.app .main{background:var(--bg-page)}
+.app .top{background:var(--bg)}
+.app .card{background:var(--bg);border-color:var(--line);box-shadow:none}
+.app table.t th{background:var(--bg-soft);color:var(--ink-3);font-size:var(--fs-xs);font-weight:600}
+
+/* ── 2. 상단 메뉴: 아이콘 16 + 14/600, 선택 = 연한 빨강 면 ── */
+.app .side{background:var(--bg)}
+.app .side .nav a svg,.app .side .nav .off svg{display:block;width:16px;height:16px;color:var(--ink-3)}
+.app .side .nav a,.app .side .nav .off{height:40px;margin:0;padding:0 10px;gap:6px;border-radius:var(--r-ctl);border-bottom:0;font-size:var(--fs-md);font-weight:600;color:var(--ink-2)}
+.app .side .nav a:hover{background:var(--bg-sub);color:var(--ink)}
+.app .side .nav a.on{background:var(--red-50);color:var(--red);font-weight:700}
+.app .side .nav a.on svg{color:var(--red)}
+.app .topr .topnew{background:var(--red);border-color:var(--red);color:#fff}
+
+/* ── 3. 하위 탭 줄 (P8): 머리줄(흰색, 높이 60)에 페이지 제목 20/700 + 회색 바닥 세그먼트 ── */
+.app .v3-hd{height:auto;min-height:60px;padding-top:10px;padding-bottom:10px;gap:16px;flex-wrap:wrap;row-gap:8px;background:var(--bg);border-bottom:1px solid var(--line)}
+.app .v3-hd h1{flex:none;margin:0}
+.app .v3-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.app .sl-tabs,.app .mb-tabs,.app .mk-tabs,.app .st-tabs,.app .st-sub,.app .ds-tabs,.app .c-tabs,.app .w-tabs,.app .v3-seg{
+ display:flex;flex-wrap:wrap;align-items:center;gap:2px;width:fit-content;max-width:100%;height:auto;min-width:0;
+ margin:0;padding:3px;border:0;border-radius:10px;background:var(--bg-track);overflow:visible}
+/* 머리줄 밖에 따로 있는 탭 줄(오늘 할 일 업무 탭·통계 집계 탭)은 흰 줄 위에 */
+.app .w-tabs,.app .st-sub{margin:0 var(--page-x) 12px;max-width:calc(100% - var(--page-x) * 2);box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(-12px -100vmax -12px -100vmax);position:relative;z-index:1}
+.app .sl-tabs>a,.app .mb-tabs>a,.app .mk-tabs>a,.app .st-tabs>a,.app .st-sub>a,.app .ds-tabs>button,.app .c-tabs>a,.app .c-tabs>button,.app .w-tabs>button,.app .v3-seg>button{
+ all:unset;cursor:pointer;box-sizing:border-box;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border:0;border-radius:var(--r-ctl);margin:0;
+ font-size:var(--fs-md);font-weight:600;color:var(--ink-3);background:none;white-space:nowrap}
+.app .sl-tabs>a:hover,.app .mb-tabs>a:hover,.app .mk-tabs>a:hover,.app .st-tabs>a:hover,.app .st-sub>a:hover,.app .ds-tabs>button:hover,.app .c-tabs>a:hover,.app .c-tabs>button:hover,.app .w-tabs>button:hover,.app .v3-seg>button:hover{color:var(--ink)}
+.app .sl-tabs>a.on,.app .mb-tabs>a.on,.app .mk-tabs>a.on,.app .st-tabs>a.on,.app .st-sub>a.on,.app .ds-tabs>button.on,.app .c-tabs>.on,.app .w-tabs>button.on,.app .v3-seg>button.on{
+ background:var(--red-50);color:var(--red);font-weight:700;border:0;box-shadow:inset 0 0 0 1px var(--red-200)}
+.app .w-tabs>button.on::after{display:none}
+.app .c-tabs .n,.app .w-tabs button i{font-size:var(--fs-xs);font-weight:600;color:var(--ink-4);display:inline}
+.app .c-tabs .on .n,.app .w-tabs button.on i{color:var(--red)}
+.app .v3-seg>button .c{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--red);color:#fff;font-size:11px;font-style:normal;font-weight:700;margin-left:2px}
+.app .w-subbar .bar{height:8px;background:var(--bg-track)}
+.app .w-subbar .bar i{background:var(--ink)}
+.app .w-subbar .prog em{color:var(--ink)}
+.app .c-top .sub{order:3}
+.app .c-top .c-right{order:4}
+
+/* 보기 전환 세그먼트(.seg)도 같은 모양 */
+.app .seg{background:var(--bg-track);padding:3px;height:auto;min-height:var(--seg-h);border-radius:10px}
+.app .seg button{height:30px;border-radius:var(--r-ctl);color:var(--ink-3);font-weight:600}
+.app .seg button.on{background:var(--red-50);color:var(--red);font-weight:700;box-shadow:inset 0 0 0 1px var(--red-200)}
+.app .seg.sm button{height:26px}
+
+/* 필터 칩 (v1.2 그대로, 높이·굵기만 맞춤) */
+.app .chip{height:var(--chip-h);font-size:var(--fs-sm);font-weight:600;background:var(--bg);border-color:var(--line-strong);color:var(--ink-2)}
+.app .chip.on{background:var(--red-50);border-color:var(--red);color:var(--red)}
+
+/* ── 4. 글자 단계 ── */
+.app .top h1{font-size:var(--fs-xl);line-height:var(--lh-xl);font-weight:700;color:var(--ink)}
+.app .card .hd h2{font-size:var(--fs-lg);line-height:24px;font-weight:700}
+
+/* ── 6. 배지 ── */
+.app .badge{height:var(--badge-h);border-radius:var(--r-badge);font-size:var(--fs-xs);font-weight:600;padding:0 8px}
+/* 개수 칩 (카드 제목 옆) */
+.v3-cnt{display:inline-flex;align-items:center;justify-content:center;height:22px;min-width:22px;padding:0 8px;border-radius:999px;background:var(--bg-sub);color:var(--ink-3);font-size:var(--fs-xs);font-weight:600}
+.v3-cnt.now{background:var(--red);color:#fff}
+/* 잠금 칩: 자물쇠 + "대표 · 지점장만" */
+.v3-lock{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border:1px solid var(--line-strong);border-radius:var(--r-badge);background:var(--bg);font-size:var(--fs-xs);font-weight:600;color:var(--ink-3);white-space:nowrap}
+.v3-lock.red{border-color:var(--red-200);background:var(--red-50);color:var(--red)}
+/* 한 줄 안내 */
+.v3-info{display:flex;align-items:center;gap:8px;min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:var(--r-ctl);background:var(--bg);font-size:var(--fs-sm);color:var(--ink-3)}
+
+/* ── 표가 회색 바탕에 바로 놓이지 않게: 표 감싸는 칸은 흰 카드 ── */
+.app .sl-scroll,.app .mb-scroll,.app .st-tbl,.app .c-tbl,.app .w-card{background:var(--bg)}
+
+/* ================= 화면별 ================= */
+
+/* 예약: 회색 바탕 + 흰 카드 달력 (블록은 전부 보임, P4 안 함) */
+.app .rsv .top{background:var(--bg)}
+.app .rsv-main{background:var(--bg-page)}
+.app .rsv-bar{background:var(--bg)}
+.app .rsv-bar .seg{background:var(--bg-track)}
+.app .rsv-bar .seg button.on{background:var(--red-50);color:var(--red);box-shadow:inset 0 0 0 1px var(--red-200)}
+.app .rsv-date{background:none;padding:0 4px;font-size:var(--fs-xl);line-height:var(--lh-xl)}
+.app .rsv-scroll{padding:16px}
+.app .rsv-scroll>.tg,.app .rsv-scroll>table{border-color:var(--line);border-radius:var(--r-card)}
+.app .rsv-scroll>.mg{background:var(--line);border-color:var(--line);border-radius:var(--r-card)}
+.app .mg-h{background:var(--bg);color:var(--ink-3);font-size:var(--fs-sm);font-weight:600;padding:10px 6px}
+.app .mg-h.sun{background:var(--bg);color:var(--red)}
+.app .mg-h.sat{background:var(--bg);color:var(--ink-3)}
+.app .mg-c:hover{background:var(--bg-soft)}
+.app .mg-c.out{background:var(--bg-soft)}
+.app .mg-c.td{background:var(--bg);box-shadow:inset 0 0 0 2px var(--red)}
+.app .mg-cnt{background:none;color:var(--ink-4);font-weight:600;padding:0}
+.app .mg-hol{background:var(--bg-sub);color:var(--ink-3);font-weight:600;border-radius:var(--r-badge);padding:0 6px;line-height:20px}
+/* 왼쪽 현황보드: 위젯 카드로 */
+.app .sb-panel{background:var(--bg-page);border-right:1px solid var(--line)}
+.app .sb-card{background:var(--bg);border-color:var(--line);border-radius:var(--r-card);padding:14px 16px}
+.app .sb-hd b{font-size:var(--fs-md);font-weight:700}
+.app .sb-kpi b{font-size:var(--fs-xl);font-weight:700}
+.app .rsv-dock{background:var(--bg-page)}
+.app .rd-docked .hd{background:var(--bg);color:var(--ink);border-bottom:1px solid var(--line)}
+.app .rd-docked .hd .rd-sub{color:var(--ink-3)}.app .rd-docked .hd .rd-x{color:var(--ink-3)}
+.app .rd-docked .rd-tabs,.app .rd-docked .ft{background:var(--bg)}
+
+/* 설정 왼쪽 목록: 흰 카드 + 아이콘 + 선택 면 + 왼쪽 3px 빨강 막대 */
+@media (min-width:768px){
+ .app .st-wrap{grid-template-columns:232px minmax(0,1fr);gap:24px}
+ .app .st-nav{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);padding:12px}
+ .app .st-nav .g{font-size:var(--fs-xs);font-weight:600;color:var(--ink-4);padding:0 12px;margin:16px 0 4px}
+ .app .st-nav>div:first-child>.g{margin-top:4px}
+ .app .st-nav a{position:relative;min-height:40px;padding:6px 12px;font-size:var(--fs-md);font-weight:600;color:var(--ink-2)}
+ .app .st-nav a svg{width:16px;height:16px;color:var(--ink-3)}
+ .app .st-nav .st-l small{display:none}
+ .app .st-nav a.on{background:var(--red-50);color:var(--red)}
+ .app .st-nav a.on svg{color:var(--red)}
+ .app .st-nav a.on::before{content:"";position:absolute;left:-12px;top:0;bottom:0;width:3px;background:var(--red)}
+ .app .st-body{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);padding:20px;align-self:start}
+}
+.app .st-note{background:var(--bg);color:var(--ink-3);border:1px solid var(--line);font-weight:400}
+
+/* 고객 목록: 신규 고객 = 진한 회색 채움 (P7) */
+.app .btn.v3-dark{background:var(--ink);border-color:var(--ink);color:#fff}
+
+/* ── 모바일: 가로 스크롤 없이, 탭은 줄바꿈 ── */
+@media (max-width:767px){
+ .app .v3-hd{padding:10px 16px;gap:8px 10px}
+ .app .v3-hd>nav,.app .v3-hd>.v3-seg{order:10;flex:1 1 100%;width:100%}
+ .app .v3-hd>nav,.app .v3-hd>.v3-seg{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr))}
+ .app .v3-hd>nav>*,.app .v3-hd>.v3-seg>*{justify-content:center}
+ .app .w-tabs,.app .st-sub{margin:0 16px 10px;max-width:calc(100% - 32px)}
+ .app .c-tabs{display:none}
+ .app .sl-tabs>a,.app .mb-tabs>a,.app .mk-tabs>a,.app .st-tabs>a,.app .st-sub>a,.app .ds-tabs>button,.app .c-tabs>a,.app .c-tabs>button,.app .w-tabs>button,.app .v3-seg>button{height:32px;padding:0 10px;font-size:var(--fs-sm)}
+ .app .rsv-scroll{padding:8px}
+ .app .mtab{background:var(--bg)}
+ .app .mtab .on{color:var(--red)}
+}
+.app .v3-hd h1{font-size:var(--fs-xl);line-height:var(--lh-xl);font-weight:700}
+.app .st-top.v3-hd{justify-content:flex-start}
+.app .st-top.v3-hd .st-tools,.app .sl-top.v3-hd .sl-tools,.app .mb-top.v3-hd .mb-tools{margin-left:auto}
+/* 마케팅 안내 줄 → 한 줄 안내 */
+.app .mk-info.v3-info{display:flex;background:var(--bg);border:1px solid var(--line);color:var(--ink-3);font-size:var(--fs-sm);line-height:20px;padding:9px 14px;align-items:center;gap:8px;margin-bottom:16px}
+@media (max-width:767px){.app .mk-info.v3-info{display:none}.app .mk-info.v3-info.open{display:flex;align-items:flex-start}}
+
+/* ── 대시보드 · 한눈에 (v3 비교안 01) ── */
+.app .ds-note{background:var(--bg);border:1px solid var(--line);color:var(--ink-3)}
+.v3-kpi{display:flex;flex-direction:column;gap:10px;min-height:0}
+.v3-kpi .k{display:flex;align-items:center;gap:10px;font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
+.v3-kpi .ic{width:32px;height:32px;border-radius:var(--r-ctl);background:var(--bg-sub);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-3);flex:none}
+.v3-kpi .v{font-size:var(--fs-2xl);line-height:var(--lh-2xl);font-weight:700;color:var(--ink)}
+.v3-kpi .v.red{color:var(--red)}
+.v3-kpi .v small{font-size:var(--fs-lg);font-weight:600;color:var(--ink-4);margin-left:4px}
+.v3-kpi .c{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.v3-prog{flex:1 1 100%;height:6px;border-radius:999px;background:var(--bg-track);overflow:hidden}
+.v3-prog i{display:block;height:100%;background:var(--ink);border-radius:999px}
+.app .badge.v3-ns{background:var(--st-noshow-bg);color:var(--st-noshow-ink)}
+.app .ds-g2.v3-82{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.app .ds-card h2{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.app .ds-card h2 small{font-size:var(--fs-xs);font-weight:400;color:var(--ink-4)}
+.v3-r,.v3-all{margin-left:auto}
+.v3-all{font-size:var(--fs-sm);font-weight:600;color:var(--ink-3)}
+.v3-all:hover{color:var(--ink)}
+.app .ds-rrow .n{width:24px;height:24px;border-radius:50%;background:var(--bg-sub);color:var(--ink-3);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-xs);font-weight:700;flex:none}
+.app .ds-rrow.t1 .n{background:var(--ink);color:#fff}
+.app .ds-rrow .nm{font-weight:600}
+.app .ds-rrow .v{font-weight:600}
+.app .ds-bar{height:8px;background:var(--bg-track)}
+/* 카드 머리 56 + 줄 목록 */
+.app .v3-lc{padding:0}
+.app .v3-lc h2{min-height:56px;margin:0;padding:0 20px;border-bottom:1px solid var(--line)}
+.v3-ll .r{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 20px;border-bottom:1px solid var(--line)}
+.v3-ll .r:last-child{border-bottom:0}
+.v3-ll .r:hover{background:var(--bg-soft)}
+.v3-ll .m{display:flex;flex-direction:column;min-width:0;flex:1}
+.v3-ll .m b{font-size:var(--fs-md);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v3-ll .m small{font-size:var(--fs-xs);color:var(--ink-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v3-ll .e{display:flex;gap:6px;align-items:center;flex:none}
+.v3-time{width:48px;flex:none;font-size:var(--fs-md);font-weight:700}
+.v3-av{width:32px;height:32px;border-radius:50%;background:var(--bg-sub);color:var(--ink-3);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:600;flex:none}
+.v3-ll .ds-more{margin:8px 20px 12px}
+@media (max-width:767px){
+ .app .ds-g2.v3-82{grid-template-columns:1fr}
+ .v3-kpi .ic{width:28px;height:28px}
+ .v3-ll .r{padding:8px 16px}
+ .app .v3-lc h2{padding:0 16px}
+}
+
+/* ── 고객 목록 (v3 비교안 02) ── */
+.app .c-tbl{background:var(--bg);border-color:var(--line)}
+.app .c-tbl table.t td{height:56px}
+.v3-nmc{display:flex;align-items:center;gap:10px}
+.v3-2l{display:inline-flex;flex-direction:column;line-height:18px;min-width:0}
+.v3-2l small{font-size:var(--fs-xs);color:var(--ink-4);font-weight:400}
+.v3-2l small.v3-old{color:var(--amb);font-weight:600}
+.app .c-tbl .nm b{font-weight:600}
+.app .c-rem{height:22px;padding:0 8px;font-size:var(--fs-xs);font-weight:600;border-radius:var(--r-badge)}
+.app .c-rem.plain{background:var(--bg-sub);color:var(--ink-3);padding:0 8px;font-weight:600}
+.app .v3-dots{width:32px;padding:0;color:var(--ink-3)}
+.app .c-menu>.btn.v3-dots{min-width:0}
+.app .c-sel{border:1px solid var(--red-200)}
+.app .c-sel b{color:var(--red)}
+.app .c-chips .chip b{font-weight:600;color:inherit;opacity:.85}
+
+/* ── 설정: 카드 속 카드 없음 · 켜기 = 진한 회색, 예외만 빨강 ── */
+@media (min-width:768px){
+ .app .st-body .card{border:0;border-radius:0;padding:0;background:none}
+ .app .st-body .card+.card{border-top:1px solid var(--line);padding-top:20px;margin-top:20px}
+}
+.app .st-sw.on{background:var(--ink)}
+.app .st-ck.on{background:var(--ink);border-color:var(--ink)}
+.app .st-ck.fix.on{background:var(--ink-4);border-color:var(--ink-4)}
+.app .pd-exc{background:var(--red-50);color:var(--red)}
+.app .st-head h2{font-size:var(--fs-lg);font-weight:700}
+.app .sb-tabs button{padding:0 4px;font-size:var(--fs-xs)}
+.app .pd-card.exc{background:var(--red-50);box-shadow:inset 3px 0 0 var(--red)}
+.app .pd-card.exc .st-sw.on{background:var(--red)}
+
+/* 제품 하위 탭 · 직급 세부설정 세그먼트도 같은 세그먼트 */
+.app .gd-sub nav,.app .pd-seg{gap:2px;padding:3px;background:var(--bg-track);border-radius:10px}
+.app .gd-sub nav a,.app .pd-seg button{height:32px;padding:0 14px;border-radius:var(--r-ctl);background:none;font-size:var(--fs-md);font-weight:600;color:var(--ink-3)}
+.app .gd-sub nav a.on,.app .pd-seg button.on{background:var(--red-50);color:var(--red);font-weight:700;box-shadow:inset 0 0 0 1px var(--red-200)}
+/* 해피콜 오른쪽 상세: 빨간 두꺼운 테두리 대신 1px 선 */
+.app .hc-pane{border:1px solid var(--line)}
+@media (max-width:767px){.app .gd-sub nav a,.app .pd-seg button{padding:0 10px;font-size:var(--fs-sm)}}

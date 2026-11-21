@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { InfoIco, Lock } from "@/lib/v3";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { todayKST } from "@/lib/sales";
@@ -117,13 +118,17 @@ export function Head({ title, meta, children, period = true }: { title: string; 
   );
 }
 
-/* 회색 안내 줄 (시안). 모바일에서는 ⓘ 를 눌러야 펼쳐져요 */
+/* 한 줄 안내 (디자인 v3). '확정' 띠는 없애고, 권한 표시는 잠금 칩으로. 모바일에서는 ⓘ 를 눌러야 펼쳐져요 */
 export function Info({ tag = "확정", children }: { tag?: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button className="mk-ibtn" aria-expanded={open} onClick={() => setOpen(!open)}>ⓘ 안내 {open ? "접기" : "보기"}</button>
-      <div className={`mk-info ${open ? "open" : ""}`}><span className="tg">{tag}</span><span>{children}</span></div>
+      <div className={`mk-info v3-info ${open ? "open" : ""}`}>
+        <InfoIco />
+        {tag !== "확정" && <Lock>{tag}</Lock>}
+        <span>{children}</span>
+      </div>
     </>
   );
 }

@@ -40,8 +40,11 @@ export default function MembershipLayout({ children }: { children: React.ReactNo
 
   return (
     <MbCtx.Provider value={ctx}>
-      <header className="top mb-top">
+      <header className="top mb-top v3-hd">
         <h1>회원권</h1>
+        <nav className="mb-tabs">
+          {TABS.map((t) => <Link key={t.href} href={t.href} className={t === cur ? "on" : ""}>{t.label}</Link>)}
+        </nav>
         <div className="mb-tools">
           <select className="sel" aria-label="지점" disabled={me.tier !== "owner"} value={branch} onChange={(e) => setBranch(e.target.value)}>
             {(me.tier === "owner" ? BRANCHES : [branch]).map((b) => <option key={b} value={b}>{b}</option>)}
@@ -66,9 +69,6 @@ export default function MembershipLayout({ children }: { children: React.ReactNo
           )}
         </div>
       </header>
-      <nav className="mb-tabs">
-        {TABS.map((t) => <Link key={t.href} href={t.href} className={t === cur ? "on" : ""}>{t.label}</Link>)}
-      </nav>
       <div className="page">{children}</div>
       {sell && (
         <SellModal branch={branch} init={sell === "new" ? null : sell}

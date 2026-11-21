@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { Lock } from "@/lib/v3";
 import { sb, type Perm, type Staff } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { isOn, sameVal, type PermMap, type PermOpts, type PermVal } from "@/lib/perm";
@@ -193,11 +194,11 @@ export default function Detail(p: Props) {
             const d = CARDS[x.key]; const v = valOf(x); const on = isOn(v);
             const o = (typeof v === "object" && v ? v : {}) as PermOpts;
             return (
-              <div key={x.key} className={`pd-card ${on ? "" : "off"}`}>
+              <div key={x.key} className={`pd-card ${on ? "" : "off"} ${isExc(x) ? "exc" : ""}`}>
                 <div className="pd-ch">
                   <b>{d?.label ?? x.label}</b>
                   {isExc(x) && <span className="pd-exc">예외</span>}
-                  {x.owner_only && <span className="pd-own">대표관리자만</span>}
+                  {x.owner_only && <Lock>대표관리자만</Lock>}
                   <Switch on={on} disabled={!editable(x)} label={d?.label ?? x.label} onChange={(nv) => setVal(x.key, nv ? onValue(x.key) : undefined)} />
                 </div>
                 {!on && <p className="pd-off">{lockOwner(x) ? "꺼짐 · 대표관리자만 켤 수 있어요" : d?.off ?? (d?.opts ? "꺼짐 · 켜면 아래 선택이 나와요" : "꺼짐 · 할 수 없어요")}</p>}

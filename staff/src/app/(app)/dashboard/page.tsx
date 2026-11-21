@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { sb, BRANCHES, TIER_LABEL, type Tier } from "@/lib/sb";
 import { useMe } from "@/lib/me";
+import { Cnt, Lock } from "@/lib/v3";
 import "./dash.css";
 
 type TabK = "glance" | "goal" | "growth" | "team";
@@ -38,16 +39,21 @@ function Dashboard() {
 
   return (
     <>
-      <nav className="ds-tabs">
-        {TABS.map((t) => (
-          <button key={t.k} className={t.k === tab ? "on" : ""} onClick={() => go(t.k)}>{t.l}</button>
-        ))}
-        {me.tier === "owner" && tab !== "team" && (
-          <select className="sel ds-br" aria-label="지점" value={branch} onChange={(e) => setBranch(e.target.value)}>
-            {BRANCHES.map((b) => <option key={b}>{b}</option>)}
-          </select>
-        )}
-      </nav>
+      <header className="top v3-hd">
+        <h1>대시보드</h1>
+        <nav className="ds-tabs">
+          {TABS.map((t) => (
+            <button key={t.k} className={t.k === tab ? "on" : ""} onClick={() => go(t.k)}>{t.l}</button>
+          ))}
+        </nav>
+        <div className="v3-right">
+          {me.tier === "owner" && tab !== "team" && (
+            <select className="sel ds-br" aria-label="지점" value={branch} onChange={(e) => setBranch(e.target.value)}>
+              {BRANCHES.map((b) => <option key={b}>{b}</option>)}
+            </select>
+          )}
+        </div>
+      </header>
       <div className="page ds">
         {tab === "glance" && <Glance branch={branch} />}
         {tab === "goal" && <Goal branch={branch} />}
@@ -129,32 +135,41 @@ function Glance({ branch }: { branch: string }) {
   const { data: d, err } = useRpc<Glance>("dash_glance", { p_branch: branch });
   if (!d) return <Loading err={err} />;
   const mon = Number(d.today.slice(5, 7));
-  const note = d.show_rank ? "월 매출과 직원별 매출 순위는 매출 권한이 있는 대표관리자·관리자만 봐요."
-    : d.show_sales ? "월 매출은 매출 권한이 있는 사람만 봐요."
-    : "한눈에에는 예약·방문·재등록·이탈 위험만 보여요.";
+  const rsv = d.rsv_list ?? [];
+  const left = rsv.filter((r) => r.status === "예약").length;
+  const reregP = pct(d.rereg_done, d.rereg_due);
+  const dday = (e: string) => { const n = Math.round((Date.parse(e) - Date.parse(d.today)) / 864e5); return n >= 0 ? `D-${n}` : "지남"; };
+  const st = (s: string) => s === "완료" ? <span className="badge ok">✓ 방문</span>
+    : s === "노쇼" ? <span className="badge v3-ns">노쇼</span>
+    : s === "취소" ? <span className="badge">취소</span> : <span className="badge">예정</span>;
   return (
     <>
-      <Note>{note}</Note>
       <div className="ds-g4">
-        <Kpi v={d.rsv_today} l="오늘 예약" />
-        <Kpi v={d.visit_today} l="오늘 방문" />
-        <Kpi v={`${d.rereg_done} / ${d.rereg_due}`} l="이번 달 재등록" />
-        <Kpi v={`${d.risk_count}명`} l="이탈 위험" red={d.risk_count > 0} />
+        <KpiV3 ico="cal" l="오늘 예약" v={d.rsv_today} u="건">
+          <span className="badge ok">방문 {d.visit_today}</span><span className="badge">남은 {left}</span>
+        </KpiV3>
+        <KpiV3 ico="user" l="오늘 방문" v={d.visit_today} u="명" />
+        <KpiV3 ico="re" l="이번 달 재등록" v={d.rereg_done} u={`/ ${d.rereg_due}`}>
+          {reregP != null && <><span className="badge">목표 {reregP}%</span><div className="v3-prog"><i style={{ width: `${Math.min(100, reregP)}%` }} /></div></>}
+        </KpiV3>
+        <KpiV3 ico="warn" l="이탈 위험" v={d.risk_count} u="명" red={d.risk_count > 0}>
+          {(d.risk_list ?? []).some((r) => r.action === "해피콜") && <span className="badge em">해피콜 필요 {(d.risk_list ?? []).filter((r) => r.action === "해피콜").length}</span>}
+        </KpiV3>
       </div>
 
       {d.show_sales && (
-        <div className={d.show_rank ? "ds-g2" : ""}>
+        <div className={d.show_rank ? "ds-g2 v3-82" : ""}>
           <section className="card ds-card">
-            <h2>월 매출 <small>{branch} · 1–{mon}월 · 만 원</small></h2>
+            <h2>월 매출 <small>{branch} · 단위 만 원</small>{!d.show_rank && <span className="v3-r"><Lock>매출 권한</Lock></span>}</h2>
             <MonthChart rows={d.monthly ?? []} />
           </section>
           {d.show_rank && (
             <section className="card ds-card">
-              <h2>직원별 매출 순위 · {mon}월 <Info>이 순위는 매출 권한이 있는 대표관리자·관리자만 봐요. 결제 때 고른 담당 직원 기준이에요.</Info></h2>
+              <h2>직원별 매출 순위 <Cnt n={`${mon}월`} /><span className="v3-r"><Lock title="결제 때 고른 담당 직원 기준이에요">대표·관리자</Lock></span></h2>
               {(d.rank ?? []).length === 0 ? <Empty>이번 달 매출 기록이 아직 없어요.</Empty> : (
                 <div className="ds-rank">
                   {d.rank!.map((r, i) => (
-                    <div key={r.name} className={`ds-rrow ${i < 3 ? "t3" : ""}`}>
+                    <div key={r.name} className={`ds-rrow ${i === 0 ? "t1" : ""}`}>
                       <span className="n num">{i + 1}</span><span className="nm">{r.name}</span>
                       <Bar goal={false} p={(100 * r.amount) / Math.max(d.rank![0].amount, 1)} />
                       <span className="v num">{man(r.amount)}</span>
@@ -169,29 +184,65 @@ function Glance({ branch }: { branch: string }) {
 
       {d.show_customers ? (
         <div className="ds-g3">
-          <section className="card ds-card">
-            <h2>오늘 예약</h2>
-            <List head={["시간", "고객", "담당"]} cols="ds-c3" empty="오늘 잡힌 예약이 없어요."
-              rows={(d.rsv_list ?? []).map((r) => ({ key: r.key + r.time, href: chartHref(branch, r.key),
-                cells: [<span key="t" className="num">{r.time}</span>, r.customer, r.staff || "-"] }))} />
+          <section className="card ds-card v3-lc">
+            <h2>오늘 예약 <Cnt n={rsv.length} /><Link className="v3-all" href="/schedule">전체 보기 ›</Link></h2>
+            <LineList empty="오늘 잡힌 예약이 없어요." rows={rsv.map((r) => ({
+              key: r.key + r.time, href: chartHref(branch, r.key),
+              lead: <b className="v3-time num">{r.time}</b>, name: r.customer, sub: r.staff ? `담당 ${r.staff}` : "담당 없음", end: st(r.status),
+            }))} />
           </section>
-          <section className="card ds-card">
-            <h2>만료 임박 <Info>30일 안에 끝나거나 2회 이하 남은 회원권이에요.</Info></h2>
-            <List head={["고객", "잔여", "만료"]} cols="ds-c3b" empty="한 달 안에 끝나는 회원권이 없어요."
-              rows={(d.expire_list ?? []).map((r) => ({ key: r.key + r.end_on, href: chartHref(branch, r.key),
-                cells: [r.customer, <span key="l" className="num">{r.kind === "회차" ? `${r.left_n}회` : "기간"}</span>, <span key="e" className="num">{md(r.end_on)}</span>] }))} />
+          <section className="card ds-card v3-lc">
+            <h2>만료 임박 <Cnt n={(d.expire_list ?? []).length} /><Link className="v3-all" href="/membership">전체 보기 ›</Link></h2>
+            <LineList empty="한 달 안에 끝나는 회원권이 없어요." rows={(d.expire_list ?? []).map((r) => ({
+              key: r.key + r.end_on, href: chartHref(branch, r.key),
+              lead: <span className="v3-av">{r.customer.slice(0, 1)}</span>, name: r.customer, sub: `${md(r.end_on)} 만료`,
+              end: <>{r.kind === "회차" ? <span className={`badge ${r.left_n <= 2 ? "em" : "warn"} num`}>잔여 {r.left_n}회</span> : <span className="badge">기간</span>}<span className="badge num">{dday(r.end_on)}</span></>,
+            }))} />
           </section>
-          <section className="card ds-card">
-            <h2>이탈 위험 <Info>회원권이 있는데 21일 넘게 안 왔거나, 14일 안에 끝나는데 다음 예약이 없는 고객이에요.</Info></h2>
-            <List head={["고객", "이유", ""]} cols="ds-c3c" empty="이탈 위험 고객이 없어요."
-              rows={(d.risk_list ?? []).map((r) => ({ key: r.key, href: r.action === "해피콜" ? "/work?tab=happycall" : chartHref(branch, r.key),
-                cells: [r.customer, r.reason, <span key="a" className="ds-act">{r.action}</span>] }))} />
+          <section className="card ds-card v3-lc">
+            <h2>이탈 위험 <Cnt n={(d.risk_list ?? []).length} now={(d.risk_list ?? []).length > 0} /><Link className="v3-all" href="/work?tab=happycall">전체 보기 ›</Link></h2>
+            <LineList empty="이탈 위험 고객이 없어요." rows={(d.risk_list ?? []).map((r) => ({
+              key: r.key, href: r.action === "해피콜" ? "/work?tab=happycall" : chartHref(branch, r.key),
+              lead: <span className="v3-av">{r.customer.slice(0, 1)}</span>, name: r.customer, sub: r.reason,
+              end: <span className="btn sm">{r.action}</span>,
+            }))} />
           </section>
         </div>
       ) : (
         <Empty>고객 목록을 볼 권한이 없어서 예약·만료·이탈 명단은 숨겼어요.</Empty>
       )}
     </>
+  );
+}
+
+const KICO: Record<string, React.ReactNode> = {
+  cal: <><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
+  user: <><circle cx="9" cy="9" r="3.3" /><path d="M3 19.5c.9-3.2 3.2-4.7 6-4.7s5.1 1.5 6 4.7M15.5 5.9a3.3 3.3 0 010 6.3M17.5 14.9c1.7.6 3 2 3.5 4.6" /></>,
+  re: <path d="M19.5 12a7.5 7.5 0 11-2.2-5.3M19.5 4.5v4h-4" />,
+  warn: <><path d="M12 4l9 15.5H3z" /><path d="M12 10v4M12 17h.01" /></>,
+};
+function KpiV3({ ico, l, v, u, red, children }: { ico: string; l: string; v: React.ReactNode; u?: string; red?: boolean; children?: React.ReactNode }) {
+  return (
+    <div className="card v3-kpi">
+      <div className="k"><span className="ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{KICO[ico]}</svg></span>{l}</div>
+      <div className={`v num ${red ? "red" : ""}`}>{v}{u && <small>{u}</small>}</div>
+      {children && <div className="c">{children}</div>}
+    </div>
+  );
+}
+function LineList({ rows, empty }: { empty: string; rows: { key: string; href: string; lead: React.ReactNode; name: string; sub: string; end: React.ReactNode }[] }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? rows : rows.slice(0, FOLD);
+  if (!rows.length) return <div className="ds-empty">{empty}</div>;
+  return (
+    <div className="v3-ll">
+      {shown.map((r) => (
+        <Link key={r.key} href={r.href} className="r">
+          {r.lead}<span className="m"><b>{r.name}</b><small>{r.sub}</small></span><span className="e">{r.end}</span>
+        </Link>
+      ))}
+      {rows.length > FOLD && <button className="ds-more" onClick={() => setAll(!all)}>{all ? "접기" : `나머지 ${rows.length - FOLD}명 보기`}</button>}
+    </div>
   );
 }
 
