@@ -26,7 +26,7 @@ export const SET_NAV: { group: string; items: SetItem[] }[] = [
   ] },
   { group: "직원", items: [
     { label: "직원", href: "/settings/staff", icon: "team", help: "직원 등록 · 계정" },
-    { label: "권한", href: "/settings/perms", icon: "key", help: "직원별 쓸 수 있는 기능" },
+    { label: "직급 · 권한", href: "/settings/perms", icon: "key", help: "직급마다 쓰는 메뉴 · 기능" },
   ] },
 ];
 export function SetIcon({ n, s = 20 }: { n: keyof typeof SET_ICONS; s?: number }) {
@@ -51,6 +51,16 @@ export function Head({ title, children }: { title: string; children?: React.Reac
       <h2>{title}</h2>
       <div className="st-act">{children}</div>
     </div>
+  );
+}
+
+/** 설명글은 펼쳐 두지 않고 ⓘ 를 눌러야 보여요 */
+export function Info({ children, label = "설명" }: { children: React.ReactNode; label?: string }) {
+  return (
+    <details className="st-info">
+      <summary aria-label={label}><span>ⓘ</span>{label}</summary>
+      <div>{children}</div>
+    </details>
   );
 }
 
