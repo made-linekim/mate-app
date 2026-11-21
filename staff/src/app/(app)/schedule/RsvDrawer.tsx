@@ -453,8 +453,8 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             <div className="rd-clash" role="dialog">
               <i className="grab" />
               <b className="t">{clash.cust ? "이 고객은 이미 이 시간에 예약이 있어요" : "이 시간에 이미 예약이 있어요"}</b>
-              <p className="why">겹침은 같은 담당 또는 같은 고객이 같은 시간일 때예요. 겹친 채로는 저장하지 않아요.</p>
-              <div className="who">{clash.other.customer_name || clash.other.title || "일정"} · {fmtDay(clash.other.day)} {clash.other.start_time.slice(0, 5)} – {hm(toMin(clash.other.start_time) + (clash.other.minutes || 30))}{clash.other.staff_name ? ` · 담당 ${clash.other.staff_name}` : ""}</div>
+              <div className="nt"><ClashInfo /><p>겹침은 같은 담당 또는 같은 고객이 같은 시간일 때예요. 겹친 채로는 저장하지 않아요.</p></div>
+              <div className="who"><ClashInfo />{clash.other.customer_name || clash.other.title || "일정"} · {clash.other.day === kstToday() ? "오늘" : fmtDay(clash.other.day)} {clash.other.start_time.slice(0, 5)} – {hm(toMin(clash.other.start_time) + (clash.other.minutes || 30))}{(() => { const pn = programs.find((x) => x.id === clash.other.program_id); return pn ? ` · ${pn.short || pn.name}` : ""; })()}{clash.other.staff_name ? ` · 담당 ${clash.other.staff_name}` : ""}</div>
               <div className="lb">다른 시간</div>
               {clash.alts.length === 0 && <p className="why">이날 남은 빈 시간이 없어요. 날짜를 바꿔 주세요.</p>}
               {clash.alts.map((m) => (
@@ -463,7 +463,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
                   <span>{prog.name}{staffId ? ` · 담당 ${staff.find((x) => x.id === staffId)?.name ?? ""}` : ""} · 비어 있음</span>
                 </button>
               ))}
-              {alt == null && clash.alts.length > 0 && <p className="why">저장하려면 비어 있는 시간을 골라 주세요.</p>}
+              {clash.alts.length > 0 && <p className="why">저장하려면 비어 있는 시간을 골라 주세요.</p>}
               <div className="bt">
                 <button className="btn" onClick={() => setClash(null)}>닫기</button>
                 <button className="btn p" disabled={alt == null || busy} onClick={() => { if (alt != null) { setTime(hm(alt)); save(alt); } }}>이 시간으로 저장</button>
@@ -478,4 +478,10 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
       )}
     </>
   );
+}
+
+const kstToday = () => new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10);
+// 겹침 시트 안내 아이콘 (U-MO-RSV-1 v3)
+function ClashInfo() {
+  return <svg className="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>;
 }
