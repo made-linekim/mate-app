@@ -131,7 +131,7 @@ export function Info({ tag = "확정", children }: { tag?: string; children: Rea
 /* SQL 아직 안 돌렸을 때 */
 export function Blocked({ err }: { err: string }) {
   if (err === "NEED_SQL") {
-    return <div className="mk-empty card">마케팅 자료를 불러오는 기능이 아직 서버에 없어요. 대표관리자가 041 마케팅 SQL을 실행하면 바로 보여요.</div>;
+    return <div className="mk-empty card">마케팅 자료를 불러오는 기능이 아직 서버에 없어요. 대표관리자가 045 마케팅 SQL을 실행하면 바로 보여요.</div>;
   }
   return <div className="mk-empty card">{err}</div>;
 }
