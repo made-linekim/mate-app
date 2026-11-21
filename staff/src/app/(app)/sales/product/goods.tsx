@@ -1,6 +1,6 @@
 "use client";
 /* 제품 (판매 · 매입 · 재고 · 미지급금 · 거래처 · 제품 항목) 공용. 접두어 gd-
-   구조는 뷰티사랑넷 제품 메뉴, 모양은 MERA 매출 화면·새 예약 팝업과 같은 틀. 서버: 041 SQL (goods_*) */
+   구조는 뷰티사랑넷 제품 메뉴, 모양은 MERA 매출 화면·새 예약 팝업과 같은 틀. 서버: 042 SQL (goods_*) */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,10 +25,10 @@ export const SUBS = [
   { href: "/sales/product/items", label: "제품 항목" },
 ];
 
-/* 041 SQL 이 아직 없으면 알아듣게 */
+/* 042 SQL 이 아직 없으면 알아듣게 */
 export const friendly = (m: string) =>
   /goods_|pay_checkout|function|schema cache/i.test(m) && /not find|does not exist|schema cache/i.test(m)
-    ? "제품 서버 준비 중이에요 (041 SQL 실행 전). 실행하면 바로 쓸 수 있어요."
+    ? "제품 서버 준비 중이에요 (042 SQL 실행 전). 실행하면 바로 쓸 수 있어요."
     : m.replace(/^.*?ERROR:\s*/, "");
 
 export function SubNav({ right }: { right?: React.ReactNode }) {
