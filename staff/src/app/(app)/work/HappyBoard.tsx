@@ -32,18 +32,23 @@ const TAG: Record<Kind, { l: string; c: string }> = {
 };
 const ORDER: Kind[] = ["norsv", "new", "low", "consult", "todo"];
 const TAGS = ["재등록 관심", "소개 가능", "불만 있음", "연락 원치 않음"];
+const ONSITE = "현장에서 소통함";
 const NO_REASONS = [
-  { l: "이미 예약함", r: "해당없음" }, { l: "다른 곳 다님", r: "거절" }, { l: "지금은 쉬고 싶음", r: "거절" }, { l: "연락 원치 않음", r: "거절" },
+  { l: ONSITE, r: "해당없음" }, { l: "이미 예약함", r: "해당없음" }, { l: "다른 곳 다님", r: "거절" }, { l: "지금은 쉬고 싶음", r: "거절" }, { l: "연락 원치 않음", r: "거절" },
 ];
 const RES_LABEL: Record<string, string> = {
   예약완료: "예약 잡음", 답장대기: "답장 기다림 · 내일 다시", 부재: "부재 · 내일 다시 연락", 거절: "안 함", 해당없음: "안 함", 통화완료: "통화함",
 };
 
-const md = (s: string | null) => (s ? `${s.slice(5, 7)}/${s.slice(8, 10)}` : "-");
+const THIS_YEAR = new Date().getFullYear().toString();
+// 올해가 아니면 연도까지 (예: 20.11.30)
+const md = (s: string | null) => (!s ? "-" : s.slice(0, 4) === THIS_YEAR ? `${s.slice(5, 7)}/${s.slice(8, 10)}` : `${s.slice(2, 4)}.${s.slice(5, 7)}.${s.slice(8, 10)}`);
+// 365일 넘으면 '1년 넘게' 처럼
+const whyN = (n: string) => { const d = /^(\d+)일$/.exec(n); return d && Number(d[1]) >= 365 ? `${Math.floor(Number(d[1]) / 365)}년 넘게` : n; };
 const nk = (r: Board) => `${r.branch}|${r.customer_key}`;
 const given = (n: string | null) => {
   const s = (n ?? "").replace(/\(.*?\)/g, "").trim();
-  return s.length >= 3 ? s.slice(1) : s || "고객";
+  return !s ? "고객" : s.length >= 3 ? s.slice(1) : s;
 };
 
 // 상황별 자동 문구 (시안 문구 기준)
@@ -88,7 +93,11 @@ export default function HappyBoard({ branch, today, onCount }: { branch: string;
   const [text, setText] = useState("");
   const [copied, setCopied] = useState("");
   const [noOpen, setNoOpen] = useState(false);
-  const [toast, setToast] = useState<{ name: string; label: string; id: string | null; key: string } | null>(null);
+  const [toast, setToast] = useState<{ name: string; label: string; ids: string[]; keys: string[] } | null>(null);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [bulkNo, setBulkNo] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [mOpen, setMOpen] = useState(false);
   const toastT = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -100,9 +109,10 @@ export default function HappyBoard({ branch, today, onCount }: { branch: string;
     const seen = new Set<string>();
     setRows((l.data as HcRow[]).map((r) => fromList(r, today)).filter((r) => (seen.has(nk(r)) ? false : (seen.add(nk(r)), true))));
   }, [branch, today]);
-  useEffect(() => { setRows(null); setSel(null); load(); }, [load]);
+  useEffect(() => { setRows(null); setSel(null); setChecked(new Set()); load(); }, [load]);
 
-  const all = useMemo(() => rows ?? [], [rows]);
+  // 현장에서 이미 소통한 고객은 목록에서 빼요
+  const all = useMemo(() => (rows ?? []).filter((r) => !(r.done && r.result_note === ONSITE)), [rows]);
   const sorted = useMemo(() => [...all].sort((a, b) =>
     Number(a.done) - Number(b.done) || ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind) || (parseInt(b.why_n) || 0) - (parseInt(a.why_n) || 0)), [all]);
   const list = f === "all" ? sorted : sorted.filter((r) => r.kind === f);
@@ -137,40 +147,67 @@ export default function HappyBoard({ branch, today, onCount }: { branch: string;
   };
   const fullPhone = cur?.phone && !cur.phone.includes("*") ? cur.phone : null;
 
+  const kindFor = (r: Board) => {
+    const k0 = r.kind === "todo" ? "norsv" : r.kind;
+    return legacy ? (k0 === "low" ? "expiring" : k0 === "norsv" || k0 === "consult" ? "lapsed" : k0) : k0;
+  };
+  const errMsg = (m: string) => m.includes("NO_PERMISSION") ? "해피콜 기록 권한이 없어요." : m.includes("BAD_RESULT") || m.includes("BAD_KIND") ? "서버 업데이트(038)가 아직이에요. 이 결과는 저장되지 않았어요." : "저장하지 못했어요. 다시 눌러 주세요.";
+  const save = async (r: Board, result: string, note: string) => {
+    const { data, error } = await sb.rpc("happycall_log", {
+      p_item: r.item_id, p_customer_key: r.customer_key, p_branch: r.branch, p_kind: kindFor(r), p_result: result, p_note: note, p_follow_day: null,
+    });
+    return error ? { ok: false as const, msg: errMsg(error.message) } : { ok: true as const, id: (data as string | null) ?? null };
+  };
+  const showToast = (name: string, label: string, ids: string[], keys: string[]) => {
+    if (toastT.current) clearTimeout(toastT.current);
+    setToast({ name, label, ids, keys });
+    toastT.current = setTimeout(() => setToast(null), 8000);
+  };
+  const mark = (keys: string[], patch: Partial<Board>) => setRows((rs) => rs && rs.map((x) => (keys.includes(nk(x)) ? { ...x, ...patch } : x)));
+
   const record = async (r: Board, result: string, note = "") => {
     // 다음 고객으로 먼저 넘기고 저장 (실패하면 되돌려요)
     const idx = open.findIndex((x) => nk(x) === nk(r));
     const next = open[idx + 1] ?? open[idx - 1] ?? null;
-    setRows((rs) => rs && rs.map((x) => (nk(x) === nk(r) ? { ...x, done: true, result, result_note: note } : x)));
+    mark([nk(r)], { done: true, result, result_note: note });
     setSel(next ? nk(next) : null);
-    const k0 = r.kind === "todo" ? "norsv" : r.kind;
-    const kind = legacy ? (k0 === "low" ? "expiring" : k0 === "norsv" || k0 === "consult" ? "lapsed" : k0) : k0;
-    const { data, error } = await sb.rpc("happycall_log", {
-      p_item: r.item_id, p_customer_key: r.customer_key, p_branch: r.branch, p_kind: kind, p_result: result, p_note: note, p_follow_day: null,
-    });
-    if (error) {
-      setRows((rs) => rs && rs.map((x) => (nk(x) === nk(r) ? { ...x, done: false, result: null } : x)));
-      setSel(nk(r));
-      setErr(error.message.includes("NO_PERMISSION") ? "해피콜 기록 권한이 없어요." : error.message.includes("BAD_RESULT") || error.message.includes("BAD_KIND") ? "서버 업데이트(038)가 아직이에요. 이 결과는 저장되지 않았어요." : "저장하지 못했어요. 다시 눌러 주세요.");
+    if (!next) setMOpen(false);
+    const res = await save(r, result, note);
+    if (!res.ok) {
+      mark([nk(r)], { done: false, result: null, result_note: null });
+      setSel(nk(r)); setErr(res.msg);
       return false;
     }
     setErr("");
-    const id = (data as string | null) ?? null;
-    setRows((rs) => rs && rs.map((x) => (nk(x) === nk(r) ? { ...x, log_id: id } : x)));
-    if (toastT.current) clearTimeout(toastT.current);
-    setToast({ name: r.name ?? "고객", label: RES_LABEL[result] ?? result, id, key: nk(r) });
-    toastT.current = setTimeout(() => setToast(null), 6000);
+    mark([nk(r)], { log_id: res.id });
+    setChecked((c) => { const n = new Set(c); n.delete(nk(r)); return n; });
+    showToast(r.name ?? "고객", RES_LABEL[result] ?? (note || result), res.id ? [res.id] : [], [nk(r)]);
     return true;
+  };
+  // 선택한 고객 한 번에 기록
+  const recordMany = async (result: string, note = "") => {
+    const targets = open.filter((r) => checked.has(nk(r)));
+    if (!targets.length) return;
+    setBusy(true); setBulkNo(false);
+    const ids: string[] = []; const keys: string[] = []; let fail = "";
+    for (const r of targets) {
+      const res = await save(r, result, note);
+      if (res.ok) { ids.push(...(res.id ? [res.id] : [])); keys.push(nk(r)); } else fail = res.msg;
+    }
+    mark(keys, { done: true, result, result_note: note });
+    setChecked(new Set()); setBusy(false);
+    setErr(fail ? `${targets.length - keys.length}명은 ${fail}` : "");
+    if (keys.length) showToast(`${keys.length}명`, note || RES_LABEL[result] || result, ids, keys);
   };
   const undo = async () => {
     if (!toast) return;
     const t = toast; setToast(null);
-    if (t.id) {
-      const { error } = await sb.rpc("happycall_undo", { p_id: t.id });
+    for (const id of t.ids) {
+      const { error } = await sb.rpc("happycall_undo", { p_id: id });
       if (error) return setErr("되돌리지 못했어요.");
     }
-    setRows((rs) => rs && rs.map((x) => (nk(x) === t.key ? { ...x, done: false, result: null, result_note: null, log_id: null } : x)));
-    setSel(t.key);
+    mark(t.keys, { done: false, result: null, result_note: null, log_id: null });
+    if (t.keys.length === 1) setSel(t.keys[0]);
   };
   const booked = async (r: Board) => {
     if (!(await record(r, "예약완료"))) return;
@@ -197,11 +234,27 @@ export default function HappyBoard({ branch, today, onCount }: { branch: string;
     : consent && /거부|미동의|^n/i.test(consent) ? <span className="note no">광고 수신 거부 · 안내만 보내기</span>
     : <span className="note">광고 수신 동의 확인 전</span>;
 
+  const openKeys = open.map(nk);
+  const allOn = openKeys.length > 0 && openKeys.every((k) => checked.has(k));
+  const toggleAll = () => setChecked(allOn ? new Set() : new Set(openKeys));
+  const toggleOne = (k: string) => setChecked((c) => { const n = new Set(c); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  const nChecked = openKeys.filter((k) => checked.has(k)).length;
+  // 한 번에 보내기: 선택한 고객에게 보낼 공통 문구(이름 없이 '고객님')를 복사하고 카카오 채널 관리자를 열어요
+  const bulkSend = async () => {
+    const t = open.filter((r) => checked.has(nk(r)));
+    if (!t.length) return;
+    const kinds = new Set(t.map((r) => r.kind));
+    const base = { ...t[0], name: null, kind: kinds.size === 1 ? t[0].kind : "norsv" } as Board;
+    const ok = await copy(draftText(base, t[0].branch, me.name));
+    flash(ok ? `${t.length}명에게 보낼 공통 문구를 복사했어요. 카카오 채널에서 붙여 넣어 보내 주세요.` : "복사하지 못했어요.");
+    window.open("https://center-pf.kakao.com/", "_blank", "noopener");
+  };
+
   return (
-    <div className="hc">
+    <div className={`hc${mOpen ? " m-open" : ""}`}>
       <div className="hc-kpis">
         {CARDS.map((c) => (
-          <button key={c.k} type="button" className={`hc-k${f === c.k ? " on" : ""}`} aria-pressed={f === c.k} onClick={() => { setF(c.k); setSel(null); }}>
+          <button key={c.k} type="button" className={`hc-k${f === c.k ? " on" : ""}`} aria-pressed={f === c.k} onClick={() => { setF(c.k); setSel(null); setChecked(new Set()); }}>
             <span className="n num">{rows ? cnt(c.k) : "-"}</span>
             <div><b>{c.l}</b><small>{c.k === "all" ? `남은 ${leftN}명` : c.s}</small></div>
           </button>
@@ -210,14 +263,38 @@ export default function HappyBoard({ branch, today, onCount }: { branch: string;
       {(err || legacy) && <p className="hc-err">{err || "서버 업데이트(038) 전이라 예전 목록으로 보여 줘요. 답장 기다림·태그는 업데이트 뒤에 저장돼요."}</p>}
 
       <section className="hc-card hc-list">
-        <div className="row h"><span /><span>고객</span><span>왜 지금 연락하나요</span><span>대상</span><span>담당</span></div>
+        {nChecked > 0 ? (
+          <div className="hc-bulk">
+            <label className="hc-ck" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={allOn} onChange={toggleAll} aria-label="전체 선택" /></label>
+            <b className="num">{nChecked}명 선택</b>
+            <div className="acts">
+              <button type="button" className="p" disabled={busy} onClick={bulkSend}>한 번에 보내기</button>
+              <button type="button" disabled={busy} onClick={() => recordMany("해당없음", ONSITE)}>현장에서 소통함</button>
+              <button type="button" disabled={busy} onClick={() => recordMany("답장대기")}>답장 기다림</button>
+              <button type="button" disabled={busy} onClick={() => recordMany("부재")}>부재</button>
+              <button type="button" disabled={busy} className={bulkNo ? "on" : ""} onClick={() => setBulkNo((v) => !v)}>안 함</button>
+              <button type="button" className="x" onClick={() => { setChecked(new Set()); setBulkNo(false); }}>선택 해제</button>
+            </div>
+            {bulkNo && (
+              <div className="hc-bulk-no">
+                {NO_REASONS.filter((x) => x.l !== ONSITE).map((x) => <button key={x.l} type="button" disabled={busy} onClick={() => recordMany(x.r, x.l)}>{x.l}</button>)}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="row h">
+            <label className="hc-ck" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={allOn} onChange={toggleAll} disabled={!openKeys.length} aria-label="전체 선택" /></label>
+            <span>고객</span><span>왜 지금 연락하나요</span><span>대상</span><span>담당</span>
+          </div>
+        )}
         {rows === null && <div className="hc-none">불러오는 중이에요.</div>}
         {rows && list.length === 0 && <div className="hc-none">{f === "all" ? "오늘 연락할 고객이 없어요." : "이 대상은 오늘 없어요."}</div>}
         {list.map((r) => (
-          <div key={nk(r)} className={`row${r.done ? " done" : ""}${curKey === nk(r) ? " hc-on" : ""}`} onClick={() => setSel(nk(r))}>
-            {r.done ? <span className="dot ok">✓</span> : <span className="dot" />}
+          <div key={nk(r)} className={`row${r.done ? " done" : ""}${curKey === nk(r) ? " hc-on" : ""}`} onClick={() => { setSel(nk(r)); setMOpen(true); }}>
+            {r.done ? <span className="dot ok">✓</span>
+              : <label className="hc-ck" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={checked.has(nk(r))} onChange={() => toggleOne(nk(r))} aria-label={`${r.name ?? "고객"} 선택`} /></label>}
             <div className="nm"><b>{r.name ?? "-"}</b><small>{[r.membership || (r.kind === "consult" ? "상담" : ""), r.phone].filter(Boolean).join(" · ")}</small></div>
-            <div className="why">{r.done ? doneWhy(r) : <>{r.why_a}{r.why_n && <em>{r.why_n}</em>}{r.why_b}</>}</div>
+            <div className="why">{r.done ? doneWhy(r) : <>{r.why_a}{r.why_n && <em>{whyN(r.why_n)}</em>}{r.why_b}</>}</div>
             <span>{r.done ? <span className="hc-tag g">완료</span> : <span className={`hc-tag ${TAG[r.kind].c}`}>{TAG[r.kind].l}</span>}</span>
             <span className="who">{r.assignee || r.manager || "-"}</span>
           </div>
@@ -226,6 +303,7 @@ export default function HappyBoard({ branch, today, onCount }: { branch: string;
 
       <aside className="hc-card hc-pane">
         <div className="hc-next">
+          <button type="button" className="hc-x" onClick={() => setMOpen(false)} aria-label="목록으로">✕ 목록</button>
           <button type="button" onClick={() => step(-1)} disabled={open.length < 2}>‹ 이전</button>
           <span className="num">{pos >= 0 ? pos + 1 : 0} / {open.length}명</span>
           <button type="button" onClick={() => step(1)} disabled={open.length < 2}>다음 ›</button>
@@ -244,7 +322,7 @@ export default function HappyBoard({ branch, today, onCount }: { branch: string;
               <div><b className="num">{md(cur.last_visit_on)}</b><small>최근 방문</small></div>
               <div><b className="num">{cur.next_rsv ?? "없음"}</b><small>다음 예약</small></div>
             </div>
-            <div className="reason">왜 지금: {cur.done ? doneWhy(cur) : `${cur.why_a}${cur.why_n}${cur.why_b}`}</div>
+            <div className="reason">왜 지금: {cur.done ? doneWhy(cur) : `${cur.why_a}${whyN(cur.why_n)}${cur.why_b}`}</div>
             <div>
               <div className="row2"><div className="lbl">보낼 문구 (상황에 맞게 자동 작성)</div>{consentNote}</div>
               <textarea value={text} onChange={(e) => setText(e.target.value)} aria-label="보낼 문구" />
