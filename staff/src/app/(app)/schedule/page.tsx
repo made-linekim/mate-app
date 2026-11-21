@@ -12,6 +12,7 @@ import {
 import RsvDrawer, { type Draft } from "./RsvDrawer";
 import Panel, { Ico } from "./Panel";
 import "./rsv3.css";
+import { useTopBranch } from "@/lib/branch";
 import Filter from "./Filter";
 
 type View = "day" | "week" | "mbrief" | "month" | "list";
@@ -32,7 +33,7 @@ const STATUS_TXT: Record<string, string> = { 완료: "결제 완료", 노쇼: "�
 export default function SchedulePage() {
   const me = useMe();
   const router = useRouter();
-  const [branch, setBranch] = useState(me.branch);
+  const [branch, setBranch] = useTopBranch(me);
   const [view, setView] = useState<View>("mbrief");
   const [day, setDay] = useState(todayKST());
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -289,12 +290,11 @@ export default function SchedulePage() {
               </div>
               {inM && brief && mobile && (
                 <div className="mg-chips num">
-                  {list.slice(0, 5).map((r) => {
+                  {list.map((r) => {
                     const p = progMap.get(r.program_id ?? "");
                     const off = r.status === "취소" || r.status === "노쇼";
                     return <div key={r.id} style={{ background: off ? "var(--bg-sub)" : tint(p?.color ?? "#8A8A8A", 22), color: off ? "var(--ink-4)" : undefined }}>{r.start_time.slice(0, 5)} {r.kind === "고객" ? r.customer_name : r.title || p?.short}</div>;
                   })}
-                  {list.length > 5 && <div className="mg-more">+{list.length - 5}</div>}
                 </div>
               )}
               {inM && !mobile && (
@@ -527,9 +527,6 @@ export default function SchedulePage() {
         <h1>예약</h1>
         <div className="sg">{PCV.map((v) => <button key={v.k} className={view === v.k ? "on" : ""} onClick={() => setView(v.k)}>{v.l}</button>)}</div>
         <div className="r">
-          {me.tier === "owner" && (
-            <Sel icon={Ico.home} label={branch} value={[branch]} single onChange={(v) => v[0] && setBranch(v[0])} opts={BRANCHES.map((b) => ({ v: b, l: b }))} />
-          )}
           <Sel icon={Ico.user} label="직원" value={fStaff} onChange={setFStaff} opts={[...staff.map((x) => ({ v: x.id, l: x.name })), { v: NO_STAFF, l: "담당 미정" }]} />
           <Sel icon={Ico.filter} label="상태" value={fSt} onChange={setFSt} opts={[{ v: "예약", l: "예약" }, { v: "완료", l: "방문 완료" }, { v: "노쇼", l: "노쇼" }, { v: "취소", l: "취소" }]} />
           <div className="sg">
