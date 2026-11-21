@@ -286,3 +286,19 @@ select.wv3-bsel{appearance:none;-webkit-appearance:none;cursor:pointer}
   .app .wr-f{order:3;width:100%}
   .app .wr-r{padding:12px}
 }
+/* 해피콜 PC 목록: 보유 회원권 · 유효기간 · 마지막 방문 · 연락 이력 1~4차 (091) */
+.app .hv3-tbl td.ms b{font-weight:600;color:#292929}
+.app .hv3-tbl td .left{margin-left:6px;font-size:12px;font-weight:700;color:#292929}
+.app .hv3-tbl td .left.low{color:var(--red)}
+.app .hv3-tbl td .nil{color:var(--ink-4)}
+.app .hv3-tbl td .soon{font-size:12px;font-weight:700;color:#965A00}
+.app .hv3-tbl td .ago{font-size:12px;font-weight:600;color:var(--ink-3)}
+.app .hv3-tbl td .ago.far{color:var(--red)}
+.app .hv3-tbl td.calls{white-space:nowrap}
+.app .ctag{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;margin-right:4px;border-radius:6px;font-size:12px;font-weight:700;background:#F4F4F6;color:#292929;border:1px solid var(--line)}
+.app .ctag i{font-style:normal;font-weight:600;color:var(--ink-3)}
+.app .ctag.amb{background:#FFF1DC;color:#965A00;border-color:#F3D9A8}
+.app .ctag.red{background:var(--red-50);color:var(--red);border-color:var(--red-200)}
+.app .ctag.grn{background:#E6F4EE;color:#107752;border-color:#BFE3D2}
+.app .ctag.amb i,.app .ctag.red i,.app .ctag.grn i{color:inherit;opacity:.75}
+.app .hv3-panel .box p.hist{display:flex;align-items:center;gap:8px;font-size:13px;color:#292929}.app .hv3-panel .box p.hist+p.hist{margin-top:6px}

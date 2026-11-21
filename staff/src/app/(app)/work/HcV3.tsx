@@ -14,9 +14,18 @@ type Kind = "norsv" | "new" | "low" | "consult" | "todo";
 type Row = {
   kind: Kind; item_id: string | null; customer_key: string; branch: string; name: string | null; phone: string | null;
   membership: string | null; min_remaining: number | null; last_visit_on: string | null; registered_on: string | null;
+  ends_on?: string | null;
   manager: string | null; assignee: string | null; why_a: string; why_n: string; why_b: string;
   done: boolean; result: string | null; result_note: string | null; log_id: string | null;
 };
+// PC 목록 추가 정보 (091 happycall_extra): 보유 회원권 · 유효기간 · 마지막 방문 · 연락 이력 1~4차
+type Call = { n: number; result: string; note: string | null; at: string; by: string | null };
+type Ext = { key: string; membership: string | null; min_remaining: number | null; ends_on: string | null; last_visit_on: string | null; calls: Call[] };
+const callTag = (c: Call) => c.note === "재방문 약속" ? { l: "재방문 약속", c: "grn" }
+  : c.result === "부재" ? { l: "부재", c: "amb" } : c.result === "거절" ? { l: "거절", c: "red" }
+  : c.result === "예약완료" ? { l: "예약", c: "grn" } : c.result === "답장대기" ? { l: "답장 대기", c: "" } : { l: "통화", c: "" };
+const dot = (d: string) => `${d.slice(2, 4)}.${d.slice(5, 7)}.${d.slice(8, 10)}`;
+const kAt = (t: string) => { const k = new Date(new Date(t).getTime() + 9 * 36e5).toISOString(); return `${Number(k.slice(5, 7))}.${k.slice(8, 10)}`; };
 // 단계 배지 (고객 단계 데이터가 생기기 전까지 해피콜 사유로 정해요)
 const STAGE: Record<Kind, { l: string; c: string }> = {
   norsv: { l: "위험", c: "red" }, todo: { l: "위험", c: "red" }, low: { l: "주의", c: "amb" }, new: { l: "신규", c: "grn" }, consult: { l: "상담", c: "" },
@@ -65,7 +74,7 @@ function fromList(r: HcRow, today: string): Row {
   return {
     kind, item_id: r.item_id, customer_key: r.customer_key, branch: r.branch, name: r.name, phone: r.phone,
     membership: r.membership, min_remaining: r.min_remaining, last_visit_on: r.last_visit_on, registered_on: r.registered_on,
-    manager: r.manager, assignee: r.assignee || r.manager, why_a: w[0], why_n: w[1], why_b: w[2],
+    ends_on: r.ends_on, manager: r.manager, assignee: r.assignee || r.manager, why_a: w[0], why_n: w[1], why_b: w[2],
     done: false, result: null, result_note: null, log_id: null,
   };
 }
@@ -105,6 +114,16 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
     setRows((l.data as HcRow[]).map((r) => fromList(r, today)).filter((r) => (seen.has(nk(r)) ? false : (seen.add(nk(r)), true))));
   }, [branch, today]);
   useEffect(() => { setRows(null); setSel(null); load(); }, [load]);
+  // PC 목록: 고객별 회원권·유효기간·연락 이력 (091 없으면 빈 칸, 목록은 그대로)
+  const [ext, setExt] = useState<Map<string, Ext>>(new Map());
+  const keysSig = useMemo(() => [...new Set((rows ?? []).map((r) => r.customer_key))].sort().join("|"), [rows]);
+  const loadExt = useCallback(async () => {
+    const keys = keysSig ? keysSig.split("|").slice(0, 500) : [];
+    if (!keys.length) return setExt(new Map());
+    const { data, error } = await sb.rpc("happycall_extra", { p_branch: branch, p_keys: keys });
+    if (!error && Array.isArray(data)) setExt(new Map((data as Ext[]).map((x) => [x.key, x])));
+  }, [branch, keysSig]);
+  useEffect(() => { loadExt(); }, [loadExt]);
 
   const all = useMemo(() => (rows ?? []).filter((r) => !(r.done && r.result === "해당없음")), [rows]);
   const doneN = all.filter((r) => r.done).length;
@@ -136,6 +155,7 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
     }
     const id = (data as string | null) ?? null;
     mark(nk(r), { done: true, result: res.r, result_note: res.n, log_id: id });
+    loadExt();
     setSel(null); setSheet(null); setMode("card");
     setToast({ row: r, label: res.l, id });
     if (tt.current) clearTimeout(tt.current);
@@ -146,6 +166,7 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
     const t = toast; setToast(null);
     if (t.id) { const { error } = await sb.rpc("happycall_undo", { p_id: t.id }); if (error) return setErr("되돌리지 못했어요."); }
     mark(nk(t.row), { done: false, result: null, result_note: null, log_id: null });
+    loadExt();
   };
   const book = (r: Row) => {
     try { sessionStorage.setItem("rsv:prefill", JSON.stringify({ customer_key: r.customer_key, customer_name: r.name ?? "" })); } catch { /* 저장소 없음 */ }
@@ -162,6 +183,21 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
     const ic = <svg className="i" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>;
     return d ? <a className="btn3 sm" href={`sms:${d}`} onClick={(e) => e.stopPropagation()}>{ic}문자</a>
       : <button className="btn3 sm" disabled onClick={(e) => e.stopPropagation()}>{ic}문자</button>;
+  };
+  const Info = ({ r, wide }: { r: Row; wide: boolean }) => {
+    const x = ext.get(r.customer_key);
+    const ms = x ? x.membership : r.membership, left = x ? x.min_remaining : r.min_remaining;
+    const ends = x ? x.ends_on : r.ends_on ?? null, last = x ? x.last_visit_on : r.last_visit_on;
+    const ago = last ? Math.round((Date.parse(today) - Date.parse(last)) / 864e5) : null;
+    const endLeft = ends ? Math.round((Date.parse(ends) - Date.parse(today)) / 864e5) : null;
+    return (
+      <>
+        <td className="ms">{ms ? <><b>{ms}</b>{left != null && <span className={`left num${left <= 2 ? " low" : ""}`}>남은 {left}회</span>}</> : <span className="nil">없음</span>}</td>
+        {wide && <td className="num">{ends ? <>{dot(ends)}{endLeft != null && endLeft >= 0 && endLeft <= 30 && <span className="soon"> · {endLeft}일 남음</span>}{endLeft != null && endLeft < 0 && <span className="soon"> · 지남</span>}</> : <span className="nil">-</span>}</td>}
+        <td className="num">{last ? <>{dot(last)} <span className={`ago${ago != null && ago >= 30 ? " far" : ""}`}>{ago}일 전</span></> : <span className="nil">방문 없음</span>}</td>
+        <td className="calls">{x && x.calls.length ? x.calls.map((c) => { const t = callTag(c); return <span key={c.n} className={`ctag ${t.c}`} title={`${kAt(c.at)} ${c.by ?? ""}${c.note && c.note !== "재방문 약속" ? ` · ${c.note}` : ""}`}><i className="num">{c.n}차</i>{t.l}</span>; }) : <span className="nil">{x ? "처음" : "-"}</span>}</td>
+      </>
+    );
   };
   const Stage = ({ r }: { r: Row }) => <span className={`bdg ${STAGE[r.kind].c}`}>{STAGE[r.kind].l}</span>;
   const Res = ({ r }: { r: Row }) => (r.done ? <span className="bdg">{resLabel(r)}</span> : null);
@@ -207,15 +243,14 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
           {list.length === 0 ? <p className="wv3-empty">{rows ? "오늘 연락할 고객이 없어요." : "불러오는 중이에요."}</p> : (
             <table>
               <thead><tr>
-                <th>이름</th>{!cur && <th>휴대전화</th>}<th>단계</th><th>왜 전화하는지</th><th>담당</th>{!cur && <th />}
+                <th>이름</th>{!cur && <th>휴대전화</th>}<th>보유 회원권</th>{!cur && <th>유효기간</th>}<th>마지막 방문</th><th>연락 이력</th><th>담당</th>{!cur && <th />}
               </tr></thead>
               <tbody>
                 {list.map((r) => (
                   <tr key={nk(r)} className={sel === nk(r) ? "on" : ""} onClick={() => open(r)}>
                     <td><b>{r.name ?? "-"}</b> <Res r={r} /></td>
                     {!cur && <td className="num">{r.phone ?? "-"}</td>}
-                    <td><Stage r={r} /></td>
-                    <td className="why">{why(r)}</td>
+                    <Info r={r} wide={!cur} />
                     <td>{r.assignee ?? "-"}</td>
                     {!cur && <td className="act"><Call r={r} cls="btn3 sm" /><Sms r={r} /></td>}
                   </tr>
@@ -247,6 +282,11 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
               <>
                 <div className="box"><label>왜 전화하는지</label><p>{why(cur)}</p></div>
                 <div className="box"><label>먼저 꺼낼 말</label><p>{opener(cur)}</p></div>
+                {(ext.get(cur.customer_key)?.calls.length ?? 0) > 0 && (
+                  <div className="box"><label>연락 이력</label>
+                    {ext.get(cur.customer_key)!.calls.map((c) => { const t = callTag(c); return <p key={c.n} className="hist"><span className={`ctag ${t.c}`}><i className="num">{c.n}차</i>{t.l}</span><span className="num">{kAt(c.at)} · {c.by ?? "직원"}{c.note && c.note !== "재방문 약속" ? ` · ${c.note}` : ""}</span></p>; })}
+                  </div>
+                )}
                 <div className="help">통화가 끝나면 아래에서 결과를 남겨요. 고객 앱에는 이 카드가 보이지 않아요.</div>
               </>
             ) : (
