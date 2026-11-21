@@ -9,6 +9,7 @@ import "./work.css";
 import "./work3.css";
 import { HcRow, LogDrawer, kst } from "./log-drawer";
 import HcV3 from "./HcV3";
+import WorkReq from "./WorkReq";
 
 // 오늘 할 일 (v3 확정 시안 U-PC-TODO-1~4 · U-MO-TODO-1~4): 해피콜 · 지난 마감 · 승인 대기 · 남은 업무
 // 데이터: work_today + happycall_list. 기록: work_item_done/assign/reopen/add(053) · task_check_set · rsv_work_memo_*(인수인계)
@@ -128,7 +129,7 @@ function Work() {
         )}
         {tab === "approval" && <ApprovalBoard branch={branch} />}
         {tab === "remaining" && (
-          <Remaining add={lead ? <AddWork branch={branch} staff={staff} onDone={(t) => { load(); say({ text: t }); }} /> : null} items={remaining} checks={checks} loaded={!!data} lead={lead} branch={branch} day={day} reload={load} say={say}
+          <Remaining staff={staff} add={lead ? <AddWork branch={branch} staff={staff} onDone={(t) => { load(); say({ text: t }); }} /> : null} items={remaining} checks={checks} loaded={!!data} lead={lead} branch={branch} day={day} reload={load} say={say}
             setChecks={(f) => setData((d) => d && { ...d, checklist: f(d.checklist) })} />
         )}
       </div>
@@ -279,8 +280,8 @@ function BranchSel({ tier, branch, set }: { tier: string; branch: string; set: (
 }
 
 /* ───────── 남은 업무 (U-PC-TODO-4 · 완료 · 직원 · 빈화면) + 인수인계 ───────── */
-function Remaining({ add, items, checks, loaded, lead, branch, day, reload, say, setChecks }: {
-  add: ReactNode; items: Item[]; checks: Check[]; loaded: boolean; lead: boolean; branch: string; day: string;
+function Remaining({ staff, add, items, checks, loaded, lead, branch, day, reload, say, setChecks }: {
+  staff: string[]; add: ReactNode; items: Item[]; checks: Check[]; loaded: boolean; lead: boolean; branch: string; day: string;
   reload: () => void; say: (t: Toast) => void; setChecks: (f: (c: Check[]) => Check[]) => void;
 }) {
   const me = useMe();
@@ -319,9 +320,10 @@ function Remaining({ add, items, checks, loaded, lead, branch, day, reload, say,
   const total = groups.reduce((a, [, rs]) => a + rs.length, 0);
   return (
     <>
-    <div className="wv3-capr rem"><span className="wv3-cap">{lead ? "오늘 근무에 남은 일을 확인하고 체크해요." : "내가 담당한 업무와 내 인수인계 메모만 보여요."}</span></div>
+    <div className="wv3-capr rem"><span className="wv3-cap">{lead ? "오늘 근무에 남은 일을 확인하고 체크해요." : "내가 담당했거나 요청한 일과 내 인수인계 메모만 보여요."}</span></div>
     <div className="wv3-rem">
       <div className="wv3-left">
+        <WorkReq branch={branch} staff={staff} lead={lead} say={say} />
         {total === 0 && <section className="card"><p className="wv3-empty">{loaded ? "오늘 남은 업무가 없어요." : "불러오는 중이에요."}</p></section>}
         {groups.map(([k, rs]) => (
           <div key={k}>

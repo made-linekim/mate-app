@@ -11,6 +11,7 @@ import {
 } from "@/lib/schedule";
 import RsvDrawer, { type Draft } from "./RsvDrawer";
 import Panel, { Ico } from "./Panel";
+import WorkMemo from "./WorkMemo";
 import "./rsv3.css";
 import { useTopBranch } from "@/lib/branch";
 import Filter from "./Filter";
@@ -50,11 +51,12 @@ export default function SchedulePage() {
   const [fStaff, setFStaff] = useState<string[]>([]);
   const [fProg, setFProg] = useState<string[]>([]);
   // 현황보드 열고 닫기 (기억해 둬요)
-  const [panel, setPanel] = useState(false);
-  useEffect(() => { try { if (localStorage.getItem("rsv.panel") === "1") setPanel(true); } catch {} }, []);
+  const [sideOff, setSideOff] = useState(false);
+  const [mMemo, setMMemo] = useState(false);
+  useEffect(() => { try { if (localStorage.getItem("rsv.side.closed") === "1") setSideOff(true); } catch {} }, []);
+  const foldSide = (off: boolean) => { setSideOff(off); try { localStorage.setItem("rsv.side.closed", off ? "1" : "0"); } catch {} };
   // 월 칸에 마우스를 올리면 뜨는 예약 정보
   const [hov, setHov] = useState<{ r: Rsv; x: number; y: number } | null>(null);
-  const togglePanel = () => { setPanel((v) => { try { localStorage.setItem("rsv.panel", v ? "0" : "1"); } catch {} return !v; }); };
   const [now, setNow] = useState(nowMin());
   // 예약 | 매출 보기 (시안 오른쪽 위). 매출을 못 보면 daySales = null
   const [mode, setMode] = useState<"rsv" | "sales">("rsv");
@@ -508,7 +510,14 @@ export default function SchedulePage() {
             <button className={view === "mbrief" ? "on" : ""} onClick={() => setView("mbrief")}>월</button>
           </div>
           <Filter label="직원" value={fStaff} onChange={setFStaff} opts={staff.map((x) => ({ v: x.id, l: x.name }))} />
+          <button className="btn t sm" style={{ marginLeft: "auto" }} onClick={() => setMMemo(true)}>업무 메모</button>
         </div>
+        {mMemo && (
+          <div className="rv3 rm-memo" role="dialog" aria-label="업무 메모">
+            <header><h2>업무 메모</h2><button className="btn3 sm" onClick={() => setMMemo(false)}>닫기</button></header>
+            <div className="bd"><WorkMemo branch={branch} /></div>
+          </div>
+        )}
         {err && <p style={{ color: "var(--red)", padding: "0 16px" }}>{err}</p>}
         {view === "week" ? mweek() : month(true)}
         {draft && (
@@ -536,8 +545,10 @@ export default function SchedulePage() {
         </div>
       </header>
       <div className="rv3-page">
-        <div className={`rv3-wrap ${draft ? "dock" : ""}`}>
-          <Panel branch={branch} day={view === "day" ? day : today} dayRows={view === "day" ? dayRows : rows.filter((r) => r.day === today)} staffName={staffName} />
+        <div className={`rv3-wrap ${draft ? "dock" : ""} ${sideOff ? "side-off" : ""}`}>
+          {sideOff
+            ? <button className="rv3-open" onClick={() => foldSide(false)} aria-label="왼쪽 패널 열기">{Ico.chev}<span>패널 열기</span></button>
+            : <Panel branch={branch} day={view === "day" ? day : today} dayRows={view === "day" ? dayRows : rows.filter((r) => r.day === today)} staffName={staffName} onFold={() => foldSide(true)} />}
           <section className="card rv3-cal">
             <div className="tool">
               {view === "day" ? (
