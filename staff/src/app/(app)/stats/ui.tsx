@@ -1,5 +1,7 @@
 "use client";
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { sb } from "@/lib/sb";
 import { BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { canSee, downloadCsv } from "@/lib/sales";
@@ -39,11 +41,7 @@ export function ExportBtns({ name, cols, rows, disabled }: { name: string; cols:
   if (!canSee(me, "export.excel")) return null;
   return (
     <div className="st-exp st-noprint">
-      <button className="btn sm" disabled={disabled} onClick={() => window.print()}>인쇄</button>
-      <button className="btn sm" disabled={disabled} onClick={() => { const t = tableCsv(cols, rows); downloadCsv(`${name}.csv`, t.head, t.body); }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
-        엑셀 다운
-      </button>
+      <button className="btn st3-xl" disabled={disabled} onClick={() => { const t = tableCsv(cols, rows); downloadCsv(`${name}.csv`, t.head, t.body); }}>엑셀 다운</button>
     </div>
   );
 }
@@ -58,7 +56,7 @@ export function BarChart({ rows, x, bars, names, unit }: { rows: Row[]; x: strin
     <div className="st-chart" onMouseLeave={() => setHov(null)}>
       <div className="st-legend">
         {bars.length > 1 && bars.map((b, i) => <span key={b}><i className={`s${i}`} />{names[i]}</span>)}
-        <em>단위 {u}</em>
+        <em>{u}</em>
       </div>
       <div className="st-plot" role="img" aria-label={`${names.join(", ")} 막대 차트`}>
         {rows.map((r, i) => (
@@ -102,7 +100,7 @@ export function DataTable({ cols, rows, total = true, totalLabel = "합계", noS
                 const v = r[k];
                 const neg = t !== "text" && Number(v) < 0;
                 const zero = t !== "text" && !Number(v);
-                return <td key={k} className={`${t === "text" ? "" : "r num"} ${neg ? "neg" : ""} ${zero ? "zero" : ""}`}>{typeof v === "string" && BADGE[v] ? <span className={`badge ${BADGE[v]}`}>{v}</span> : fmt(v, t)}</td>;
+                return <td key={k} className={`t-${t} ${t === "text" ? "" : "r num"} ${neg ? "neg" : ""} ${zero ? "zero" : ""}`}>{typeof v === "string" && BADGE[v] ? <span className={`badge ${BADGE[v]}`}>{v}</span> : fmt(v, t)}</td>;
               })}
             </tr>
           ))}
@@ -141,5 +139,93 @@ export function Empty({ text, sub }: { text: string; sub?: string }) {
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden><path d="M4 20h16M7 16.5V11M12 16.5V6M17 16.5v-8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
       <div><b>{text}</b>{sub && <span>{sub}</span>}</div>
     </div>
+  );
+}
+
+/* ── v3 머리 (시안 STAT-2~6): 흰 띠에 제목 · 지점 · 기간 ── */
+export function StTitle({ title, meta, back, right }: { title: string; meta: string; back?: boolean; right?: React.ReactNode }) {
+  return (
+    <div className="st3-title">
+      {back && <Link href="/stats" className="btn st3-back st-noprint">‹ 리포트 목록</Link>}
+      <h2>{title}</h2>
+      <span className="st-meta">{meta}</span>
+      {right && <div className="st3-tr">{right}</div>}
+    </div>
+  );
+}
+
+/* ── C2 조회 조건 카드: 직원 · 관리 · 구분 체크 + 조회 (시안 v3 C2) ── */
+export type C2Val = { staff: string[] | null; progs: string[] | null; groups: string[] | null };
+export const C2_ALL: C2Val = { staff: null, progs: null, groups: null };
+export const GROUPS = ["회원권", "관리", "제품"];
+export const GROUP_KINDS: Record<string, string[]> = { 회원권: ["회차회원권", "기간회원권"], 관리: ["관리", "노쇼"], 제품: ["제품판매"] };
+export const groupKinds = (g: string[] | null) => (g === null ? null : g.flatMap((x) => GROUP_KINDS[x] ?? []));
+export const c2Label = (v: string[] | null, all = "전체") => (v === null ? all : v.length === 1 ? v[0] : `${v.length}개`);
+
+let readyCache: boolean | null = null;
+/** 060 SQL 이 실행됐는지 (관리 · 구분 조건을 DB 가 받는지) */
+export function useFilterReady() {
+  const [ok, setOk] = useState<boolean | null>(readyCache);
+  useEffect(() => {
+    if (readyCache !== null) return;
+    sb.rpc("stats_filter_ready").then(({ error }) => { readyCache = !error; setOk(!error); });
+  }, []);
+  return ok;
+}
+
+export function C2Card({ value, onGo, ready }: { value: C2Val; onGo: (v: C2Val) => void; ready: boolean | null }) {
+  const me = useMe();
+  const { branch } = useStats();
+  const own = me.tier === "staff";
+  const [names, setNames] = useState<string[]>([]);
+  const [progs, setProgs] = useState<string[]>([]);
+  const [v, setV] = useState<C2Val>(value);
+  useEffect(() => { setV(value); }, [value]);
+  useEffect(() => {
+    if (own) return;
+    sb.rpc("stats_staff_names", { p_branch: branch }).then(({ data }) => setNames(((data as string[]) ?? []).filter((n) => n !== "미지정")));
+  }, [branch, own]);
+  useEffect(() => {
+    sb.rpc("rsv_program_list", { p_branch: branch ?? me.branch }).then(({ data }) => {
+      const l = ((data ?? []) as { name: string; hidden?: boolean }[]).filter((p) => !p.hidden).map((p) => p.name);
+      setProgs([...new Set(l)]);
+    });
+  }, [branch, me.branch]);
+  const togg = (list: string[] | null, all: string[], x: string) => {
+    const cur = list ?? all;
+    const next = cur.includes(x) ? cur.filter((y) => y !== x) : [...cur, x];
+    return next.length === all.length || !next.length ? null : next;
+  };
+  const Ck = ({ on, label, onClick, lock }: { on: boolean; label: string; onClick?: () => void; lock?: boolean }) => (
+    <button type="button" className={`st-ck2 ${on ? "on" : ""} ${lock ? "lock" : ""}`} aria-pressed={on} onClick={onClick} disabled={lock}><i aria-hidden />{label}</button>
+  );
+  const off = ready === false;
+  return (
+    <div className="st-c2 st-noprint">
+      <span className="st-c2-l">직원</span>
+      {own ? (<><Ck on lock label="나 (본인)" /><span className="st-c2-h">직원 권한은 본인 기록만</span></>) : (
+        <>
+          <Ck on={v.staff === null} label="전체" onClick={() => setV({ ...v, staff: null })} />
+          {names.map((n) => <Ck key={n} on={v.staff !== null && v.staff.includes(n)} label={n} onClick={() => setV({ ...v, staff: togg(v.staff ?? [], names, n) })} />)}
+        </>
+      )}
+      {progs.length > 0 && <span className="st-c2-l">관리</span>}
+      {progs.map((p) => <Ck key={p} on={v.progs === null || v.progs.includes(p)} label={p} lock={off} onClick={() => setV({ ...v, progs: togg(v.progs, progs, p) })} />)}
+      <span className="st-c2-l">구분</span>
+      {GROUPS.map((g) => <Ck key={g} on={v.groups === null || v.groups.includes(g)} label={g} onClick={() => setV({ ...v, groups: togg(v.groups, GROUPS, g) })} />)}
+      <button className="btn st-c2-go" onClick={() => onGo(v)}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="6" /><path d="M20 20l-4.5-4.5" /></svg>조회</button>
+      {off && <span className="st-c2-h st-c2-note">관리 고르기는 DB 060 실행 후 돼요</span>}
+    </div>
+  );
+}
+
+/* ── 작은 고르기 창 (항목 전체 · 직원 전체 · 열 고르기) ── */
+export function Pop({ label, children, cls = "" }: { label: React.ReactNode; children: React.ReactNode; cls?: string }) {
+  const [on, setOn] = useState(false);
+  return (
+    <span className={`st3-pop ${cls}`}>
+      <button type="button" className={`btn st3-box ${on ? "on" : ""}`} aria-expanded={on} onClick={() => setOn(!on)}>{label}</button>
+      {on && (<><span className="st3-pop-dim" onClick={() => setOn(false)} /><span className="st3-pop-bd" role="dialog">{children}</span></>)}
+    </span>
   );
 }

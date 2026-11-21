@@ -5,10 +5,9 @@ import { sb } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { canSee } from "@/lib/sales";
 import { CATS, REPORTS, type ReportDef, type Span } from "@/lib/stats";
-import { Info } from "./ui";
-import { Lock } from "@/lib/v3";
+import { Info, StTitle } from "./ui";
 
-const SPANS: (Span | "전체")[] = ["전체", "연간", "월간", "일간"];
+const SPANS: (Span | "전체" | "비교")[] = ["전체", "연간", "월간", "일간", "비교"];
 // 직원(일반 권한)은 본인 결제로 계산되는 리포트만 (049 SQL 과 같은 목록)
 const OWN_OK = ["sales_month", "sales_year", "sales_day", "sales_kind", "sales_method", "sales_staff", "sales_service", "receivable"];
 const DEF_FAV = ["sales_month", "cust_new", "rsv_status", "noshow_top"];
@@ -16,7 +15,7 @@ const DEF_FAV = ["sales_month", "cust_new", "rsv_status", "noshow_top"];
 export default function ReportList() {
   const me = useMe();
   const money = canSee(me, "sales.others") || canSee(me, "sales.own");
-  const [span, setSpan] = useState<Span | "전체">("전체");
+  const [span, setSpan] = useState<Span | "전체" | "비교">("전체");
   const [favs, setFavs] = useState<string[]>(DEF_FAV);
   const [saved, setSaved] = useState(true);
 
@@ -39,25 +38,21 @@ export default function ReportList() {
   }
 
   const own = me.tier === "staff";
-  const list = REPORTS.filter((r) => (money || !r.money) && (!own || OWN_OK.includes(r.id)) && (span === "전체" || r.span === span || r.span === "전체"));
+  const list = REPORTS.filter((r) => (money || !r.money) && (!own || OWN_OK.includes(r.id)) && (span === "전체" || (span === "비교" ? !!r.cmp : r.span === span || r.span === "전체")));
   const favList = favs.map((id) => list.find((r) => r.id === id)).filter(Boolean) as ReportDef[];
 
   return (
     <>
-      <div className="st-head">
-        <h2>리포트 <Info text="리포트를 누르면 표와 그래프로 봐요. 별을 누르면 맨 위 즐겨찾기에 모여요. 금액이 나오는 리포트는 매출 권한이 있는 직원에게만 보여요." /></h2>
-        {own && <Lock>직원 권한은 본인 기록만</Lock>}
-        <div className="seg st-noprint" role="tablist" aria-label="기간 종류">
-          {SPANS.map((s) => <button key={s} role="tab" aria-selected={span === s} className={span === s ? "on" : ""} onClick={() => setSpan(s)}>{s}</button>)}
-        </div>
-      </div>
-
-      {favList.length > 0 && (
-        <section className="st-sec">
-          <h3>즐겨찾기</h3>
-          <Grid items={favList} favs={favs} onStar={toggle} />
-        </section>
-      )}
+      <StTitle title="리포트" meta={me.tier === "owner" ? "전 지점 · 지점은 오른쪽 위에서" : me.branch}
+        right={
+          <div className="seg st3-spans st-noprint" role="tablist" aria-label="기간 종류">
+            {SPANS.map((s) => <button key={s} role="tab" aria-selected={span === s} className={span === s ? "on" : ""} onClick={() => setSpan(s)}>{s}</button>)}
+          </div>
+        } />
+      <p className="st3-fav">
+        즐겨찾기{favList.length ? favList.map((r) => <span key={r.id}> · <Link href={`/stats/r/${r.id}`}>{r.title}</Link></span>) : <span className="st-muted"> · 별을 누르면 여기 모여요</span>}
+        <Info text={`리포트를 누르면 표와 그래프로 봐요. 별을 누르면 즐겨찾기에 모여요.${own ? " 직원 권한은 본인 결제로 계산되는 리포트만 보여요." : ""}`} />
+      </p>
       {CATS.map((c) => {
         const items = list.filter((r) => r.cat === c);
         if (!items.length) return null;
@@ -68,6 +63,7 @@ export default function ReportList() {
           </section>
         );
       })}
+      {!list.length && <p className="st-muted">이 기간 종류에 맞는 리포트가 없어요.</p>}
     </>
   );
 }

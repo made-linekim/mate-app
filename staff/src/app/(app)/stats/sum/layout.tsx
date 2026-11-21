@@ -13,9 +13,9 @@ export default function SumLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   return (
     <>
-      <nav className="st-sub st-noprint" aria-label="집계 종류">
+      <div className="st3-band st3-band2 st-noprint"><nav className="st3-seg" aria-label="집계 종류">
         {SUB.map((s) => <Link key={s.href} href={s.href} className={path === s.href ? "on" : ""}>{s.label}</Link>)}
-      </nav>
+      </nav></div>
       {children}
     </>
   );

@@ -194,3 +194,104 @@
  .st-c2-go{width:100%;justify-content:center;margin-left:0}
 }
 .st-cond{background:none!important;border:0!important;padding:0!important;box-shadow:none!important}
+
+/* ───────── v3 시안 STAT-1~6 (흰 띠 머리 + 회색 본문) ───────── */
+.app .st3-band{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 32px;background:var(--bg);border-bottom:1px solid var(--line)}
+.app .st3-band2{margin:0 -32px}
+.app .st3-seg{display:inline-flex;gap:4px;padding:4px;background:#EDEDF0;border-radius:10px}
+.app .st3-seg a{height:32px;padding:0 14px;display:flex;align-items:center;border-radius:8px;font-size:14px;font-weight:500;color:var(--ink-2);white-space:nowrap;text-decoration:none}
+.app .st3-seg a.on{background:var(--red-50);color:var(--red);font-weight:700;box-shadow:inset 0 0 0 1px var(--red-200)}
+.app .st3-band .st-tools{margin-left:auto}
+.app .st3-page{padding:0 32px 48px}
+.app .st3-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:56px;margin:0 -32px 0;padding:8px 32px;background:var(--bg)}
+.app .st3-title h2{font-size:20px;line-height:28px;font-weight:700;margin:0}
+.app .st3-title .st-meta{font-size:13px;color:var(--ink-3)}
+.app .st3-tr{margin-left:auto}
+.app .st3-back{height:32px;padding:0 12px;font-size:13px;font-weight:600;background:var(--bg-sub);border-color:transparent}
+.app .st3-spans{height:36px;padding:3px;border-radius:10px}
+.app .st3-spans button{height:30px;padding:0 14px;font-size:13px}
+.app .st3-fav{display:flex;align-items:center;gap:0;flex-wrap:wrap;font-size:13px;font-weight:600;color:var(--ink-2);margin:12px 0 4px}
+.app .st3-fav a{color:var(--ink-2);text-decoration:none}
+.app .st3-fav a:hover{text-decoration:underline}
+.app .st3-fav .st-info{margin-left:6px}
+.app .st3-page .st-sec{margin-bottom:8px}
+.app .st3-page .st-sec h3{font-size:13px;font-weight:500;color:var(--ink-2);margin:0 0 8px;padding-top:6px}
+.app .st3-page .st-grid{gap:8px}
+.app .st3-page .st-tile-a{gap:4px;padding:11px 40px 12px 12px}
+.app .st3-page .st-tile-a .badge{height:22px;font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:2px}
+.app .st3-page .st-tile-a b{font-size:15px;line-height:22px}
+.app .st3-page .st-tile-d{font-size:13px;color:var(--ink-3)}
+.app .st3-page .st-star{top:6px;right:6px}
+
+/* 조회 줄 */
+.app .st3-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:48px;padding:0;margin-bottom:12px}
+.app .st3-l{font-size:13px;color:var(--ink-3)}
+.app .st3-help{font-size:13px;color:var(--ink-3)}
+.app .st3-box,.app .st3-go,.app .st3-xl,.app .st3-bar>.btn{height:32px;padding:0 12px;font-size:13px;font-weight:600;border-radius:8px}
+.app .st3-box{background:var(--bg)}
+.app .st3-box.on{border-color:var(--ink)}
+.app .st3-static{cursor:default}
+.app .st3-go{min-width:48px;justify-content:center}
+.app .st3-ym{height:40px;min-width:120px;width:auto;font-size:15px;border-radius:10px;background:var(--bg)}
+.app .st3-bar .seg{height:36px;background:none;padding:0;gap:2px}
+.app .st3-bar .seg button{height:30px;padding:0 12px;font-size:13px}
+.app .st3-bar .st-exp{display:flex;gap:6px}
+.app .st3-pop{position:relative;display:inline-flex}
+.app .st3-pop-dim{position:fixed;inset:0;z-index:30}
+.app .st3-pop-bd{position:absolute;top:38px;left:0;z-index:31;min-width:220px;max-width:calc(100vw - 32px);background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-overlay);padding:12px}
+.app .st3-bar .st-sp~.st3-pop .st3-pop-bd{left:auto;right:0}
+.app .st3-pop-list{display:flex;flex-direction:column;gap:2px}
+.app .st3-pop-list b{font-size:12px;color:var(--ink-3);font-weight:600;margin:6px 0 2px}
+.app .st3-pop-list b:first-child{margin-top:0}
+.app .st3-pop-list .ck{display:flex;align-items:center;gap:8px;min-height:32px;font-size:14px;cursor:pointer}
+.app .st3-pop-list .inp{height:36px}
+.app .st3-period .st-filter{margin:0;flex-wrap:wrap}
+.app .st3-note{font-size:13px;color:var(--ink-3);margin:10px 0 0}
+.app .st3-warn{margin:12px 0 0;background:#FFF3DF;border-radius:8px;padding:8px 12px;font-size:13px}
+.app .st3-chip{all:unset;cursor:pointer;height:26px;padding:0 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:600;color:var(--ink-2);background:var(--bg);display:inline-flex;align-items:center}
+.app .st3-chip.on{border-color:var(--amb);color:var(--amb);background:var(--amb-50)}
+
+/* C2 카드 · 표 카드 (붙어서) */
+.app .st3-page .st-c2{padding:7px 16px;margin-bottom:2px;gap:8px;min-height:48px}
+.app .st3-page .st-c2-l{margin-left:8px}
+.app .st3-page .st-c2-l:first-child{margin-left:0}
+.app .st3-page .st-ck2{height:32px;font-size:14px;font-weight:500}
+.app .st3-page .st-ck2.on{font-weight:700}
+.app .st3-page .st-c2-go{height:36px;border-radius:8px}
+.app .st-c2-note{flex-basis:100%}
+.app .st3-page .st-table{background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.app .st3-page .st-table table.t th{height:34px;background:var(--bg-soft);font-size:12px;font-weight:500;color:var(--ink-3);padding:0 8px;border-bottom:1px solid var(--line)}
+.app .st3-page .st-table table.t td{height:40px;font-size:14px;padding:0 8px}
+.app .st3-page .st-table table.t tfoot td{background:var(--bg-sub);font-weight:700}
+.app .st3-page .st-chart-card{border:1px solid var(--line);border-radius:12px;background:var(--bg);margin-bottom:12px;padding:12px 24px 8px}
+.app .st3-page .st-kpis{gap:12px;margin:0 0 12px}
+.app .st3-page .st-kpi{padding:14px 16px;gap:2px}
+.app .st3-page .st-kpi b{font-size:22px;line-height:30px}
+.app .st3-page .st-kpi span{font-size:13px}
+.app .st3-page .st-h3{font-size:13px;font-weight:500;color:var(--ink-2);margin:12px 0 8px;align-items:center}
+.app .st3-page .st-empty{background:var(--bg)}
+
+@media (max-width:767px){
+ .app .st3-band{padding:8px 16px;flex-wrap:wrap}
+ .app .st3-band2{margin:0 -16px}
+ .app .st3-page{padding:0 16px 32px}
+ .app .st3-title{margin:0 -16px;padding:8px 16px}
+ .app .st3-tr{margin-left:0;width:100%}
+ .app .st3-spans{display:flex;width:100%}
+ .app .st3-spans button{flex:1;justify-content:center;padding:0 4px}
+ .app .st3-bar{gap:6px}
+ .app .st3-bar .st-sp{flex-basis:100%;height:0}
+ .app .st3-page .st-c2-l{width:100%;margin-left:0}
+ .app .st3-page .st-table{border-radius:12px}
+ .app .st3-page .st-chart-card{padding:12px}
+}
+.app .st3-page .st-table table.t td.neg{color:inherit}
+.app .st3-page .st-table table.t td.zero:not(.t-won){color:inherit}
+.app .st3-page .st-tile-a{padding:10px 40px 10px 12px;gap:2px}
+.app .st3-page .st-tile-a .badge{height:20px;padding:0 7px;margin-bottom:4px}
+.app .st3-bar .st3-s32{height:32px;font-size:13px;font-weight:600;border-radius:8px;min-width:96px}
+.app .st3-page .st-plot{height:110px}
+.app .st3-page .st-bars span{flex-basis:8px;border-radius:3px 3px 0 0}
+.app .st3-page .st-legend em{margin-left:4px}
+.app .st3-page .st-legend{margin-bottom:12px}
+@media (max-width:767px){ .app .st3-page .st-table table.t td{height:auto;min-height:24px;padding:0 4px} }
