@@ -4,6 +4,7 @@ import { sb, type Staff } from "@/lib/sb";
 import Link from "next/link";
 import { useMe } from "@/lib/me";
 import PayModal from "./PayModal";
+import AlimtalkModal from "@/components/AlimtalkModal";
 import { RsvStatusAsk, sendRequest } from "@/lib/approval";
 import { type Program, type Rsv, SLOTS, toMin, usedAt, DAY_START, DAY_END, fmtDay, todayKST, DOW, dow } from "@/lib/schedule";
 
@@ -33,6 +34,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const canPay = me.tier !== "staff" || !!me.perms?.["schedule.pay"];
   const canPayCancel = me.tier === "owner" || !!me.perms?.["schedule.pay_cancel"];
   const [payOpen, setPayOpen] = useState(false);
+  const [atOpen, setAtOpen] = useState(false);
   type Paid = { gross: number; discount: number; received: number; unpaid: number; pay: Record<string, number>; detail: { sessions?: string }; created_by: string; created_at: string; canceled_at: string | null; new_membership: string | null };
   const [paid, setPaid] = useState<Paid | null>(null);
   const [cxReason, setCxReason] = useState("");
@@ -228,7 +230,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
                 <span className="num">{sum?.customer.phone ?? ""}</span>
                 <div style={{ flex: 1 }} />
                 <Link className="btn sm" href={`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(cust.key)}`}>고객 차트</Link>
-                <button className="btn sm" disabled title="문자 보내기는 준비 중이에요">문자</button>
+                <button className="btn sm" onClick={() => setAtOpen(true)}>알림톡</button>
                 {!ro && !editing && <button className="btn sm t" onClick={() => { setCust(null); setFound(null); }}>변경</button>}
               </div>
               <div className="rd-box rd-row">
@@ -472,6 +474,10 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
           </>
         )}
       </aside>
+      {atOpen && cust && (
+        <AlimtalkModal customerKey={cust.key} suggest={editing ? "RESERVE_REMIND" : undefined} onClose={() => setAtOpen(false)}
+          prefill={{ name: cust.name, reservation_date: day ? `${+day.slice(5, 7)}월 ${+day.slice(8, 10)}일` : "", reservation_time: time ?? "", program_name: prog?.name ?? "" }} />
+      )}
       {payOpen && draft.id && cust && (
         <PayModal branch={branch} programs={programs} onClose={() => setPayOpen(false)} onDone={() => { setPayOpen(false); onSaved(); }}
           rsv={{ id: draft.id, day: draft.day, start_time: draft.start_time, customer_key: cust.key, customer_name: cust.name, program_id: draft.program_id ?? null, staff_name: draft.staff_name ?? staffName ?? null }} />

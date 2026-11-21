@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { TIER_LABEL } from "@/lib/sb";
+import { TIER_LABEL, sb } from "@/lib/sb";
 import { Head, Info, Blocked, Modal, useMk, useRpc, rpc, when } from "../ui";
 import { type Rsv, atText, kst } from "../reserved";
 
@@ -12,6 +12,16 @@ type Info_ = { agreed: number; not_agreed: number; can_send: boolean; provider: 
 const bytes = (s: string) => [...s].reduce((a, c) => a + (c.charCodeAt(0) > 127 ? 2 : 1), 0);
 const kstNow = () => kst(new Date().toISOString());
 const isNight = () => { const h = +kstNow().slice(11, 13); return h >= 21 || h < 8; };
+// 실제 발송: 서버 /api/msg/sms (알리고 또는 NHN). 키·080·권한이 다 있어야 열려요.
+type MsgStatus = { send_no: boolean; optout_080: string | null; can_send: boolean; targets: number };
+async function sendSms(body: Record<string, unknown>) {
+  const { data: { session } } = await sb.auth.getSession();
+  const r = await fetch("/api/msg/sms", { method: "POST", headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error ?? "보내지 못했어요");
+  return j as { ok: number; fail: number };
+}
+
 function next8() {
   const k = new Date(Date.now() + 9 * 3600e3);
   if (k.getUTCHours() >= 8) k.setUTCDate(k.getUTCDate() + 1);
@@ -36,13 +46,22 @@ function Write() {
   const [pick, setPick] = useState<string | null>(null);
   const [check, setCheck] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [st, setSt] = useState<MsgStatus | null>(null);
+  const [keys, setKeys] = useState(false);
+  const [testNo, setTestNo] = useState("");
+  useEffect(() => {
+    sb.rpc("msg_status", { p_branch: branch }).then(({ data: d }) => setSt((d as MsgStatus) ?? null));
+    fetch("/api/msg/status").then((x) => x.json()).then((j) => setKeys(!!j.sms)).catch(() => setKeys(false));
+  }, [branch]);
+  const live = keys && !!st?.send_no && !!st?.optout_080 && !!st?.can_send;
   const tpls = data?.templates ?? [];
   useEffect(() => { if (!pick && tpls[0]) { setPick(tpls[0].id); setText(tpls[0].body); } }, [tpls, pick]);
   useEffect(() => { setPick(null); setText(""); setCheck(false); }, [branch]);
 
   const n = data?.agreed ?? 0;
   const no = data?.not_agreed ?? 0;
-  const foot = `(광고) 메이드라인 ${branch} · 무료수신거부 080-****-****`;
+  const optout = st?.optout_080 ? st.optout_080.replace(/\D/g, "") : "080-****-****";
+  const foot = `(광고) 메이드라인 ${branch} · 무료수신거부 ${optout}`;
   const full = `(광고) ${text}\n${foot}`;
   const night = isNight();
   const copy = async () => { try { await navigator.clipboard.writeText(full); return true; } catch { return false; } };
@@ -55,6 +74,10 @@ function Write() {
         const res = await rpc<{ id: string }>("mkt_sms_pick_send", { p_branch: branch, p_pick: null, p_audience: "all", p_body: text, p_at: next8() });
         await copy();
         router.push(`/marketing/sms?r=${res.id}`);
+      } else if (live) {
+        const res = await sendSms({ branch, text });
+        toast(`${res.ok.toLocaleString()}명에게 보냈어요${res.fail ? ` · ${res.fail}명 실패` : ""}`);
+        setCheck(false);
       } else {
         const ok = await copy();
         toast(ok ? "문자 업체 연결 전이라 문구를 복사했어요. 쓰던 문자 프로그램에 붙여 보내 주세요" : "복사하지 못했어요");
@@ -89,6 +112,19 @@ function Write() {
               {check && <>
                 <div className="note mx-in"><InfoI /><span>받는 {n.toLocaleString()}명은 모두 수신 동의한 고객입니다. 동의하지 않은 {no.toLocaleString()}명은 이 목록에 넣지 않았습니다.</span></div>
                 <div className="quiet">광고 문자는 21:00~08:00에 보낼 수 없어요.</div>
+                {live && !night && (
+                  <div className="field"><label htmlFor="sms-test">내 번호로 먼저</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input id="sms-test" className="inp" inputMode="tel" value={testNo} onChange={(e) => setTestNo(e.target.value)} placeholder="010-0000-0000" style={{ flex: 1, minWidth: 0 }} />
+                      <button className="btn" disabled={busy || testNo.replace(/\D/g, "").length < 10} onClick={async () => {
+                        setBusy(true);
+                        try { await sendSms({ branch, text, testNo }); toast("내 휴대폰으로 보냈어요"); } catch (e) { toast((e as Error).message); }
+                        setBusy(false);
+                      }}>테스트</button>
+                    </div>
+                  </div>
+                )}
+                {!live && <div className="quiet">문자 업체 연결이 끝나기 전이라 ‘발송’을 누르면 문구만 복사돼요.</div>}
                 {night && <div className="quiet">지금은 {kstNow().slice(11, 16)}입니다. 내일 08:00 예약으로 보내집니다.</div>}
               </>}
               <div className="pf">
