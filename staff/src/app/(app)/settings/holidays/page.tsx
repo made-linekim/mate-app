@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { sb } from "@/lib/sb";
 import { todayKST } from "@/lib/sales";
 import { friendly } from "../../membership/ui";
-import { Card, Chip, Confirm, Drawer, Field, HelpD, Msg, PageH, VRadio, md, useBranch, useLead, useSettings, val } from "../kit";
+import { Card, saveErr, Chip, Confirm, Drawer, Field, HelpD, Msg, PageH, VRadio, md, useBranch, useLead, useSettings, val } from "../kit";
 
 type Hol = { day: string; reason: string };
 type Off = { id: string; day: string; name: string; reason: string; status: string };
@@ -25,6 +25,8 @@ export default function HolidaysPage() {
   const [offs, setOffs] = useState<Off[]>([]);
   const [edit, setEdit] = useState<Edit | null>(null);
   const [msg, setMsg] = useState("");
+  const drawerOpen = !!edit;
+  useEffect(() => { if (drawerOpen) setMsg(""); }, [drawerOpen]);
   const [busy, setBusy] = useState(false);
   const [dec, setDec] = useState<Off | null>(null);
   const can = lead && !!data?.can_edit;
@@ -59,7 +61,7 @@ export default function HolidaysPage() {
       : await sb.rpc("staff_off_request", { p_branch: branch, p_day: edit.day, p_reason: edit.reason.trim() });
     if (!r.error && edit.orig && edit.orig !== edit.day) await sb.rpc("holiday_del", { p_branch: branch, p_day: edit.orig });
     setBusy(false);
-    if (r.error) return setMsg(friendly(r.error.message));
+    if (r.error) return setMsg(saveErr(r.error.message));
     setEdit(null); setMsg(edit.kind === "branch" ? "저장했어요" : "요청했어요"); load();
   }
 
@@ -137,7 +139,7 @@ export default function HolidaysPage() {
       </div>
       {dec && <Confirm title="휴무를 승인할까요?" lines={[`${dec.name} · ${md(dec.day)}`, dec.reason || "사유 없음"]} ok="승인" onOk={() => decide(true)} alt={{ label: "반려", on: () => decide(false) }} onClose={() => setDec(null)} />}
       {edit && (
-        <Drawer title={edit.orig ? "휴무 고치기" : "휴무 추가"} onClose={() => setEdit(null)} onOk={submit} ok={edit.kind === "branch" ? "저장" : "요청"} busy={busy}>
+        <Drawer title={edit.orig ? "휴무 고치기" : "휴무 추가"} err={msg} onClose={() => setEdit(null)} onOk={submit} ok={edit.kind === "branch" ? "저장" : "요청"} busy={busy}>
           {can && !edit.orig && <Field label="구분"><VRadio value={edit.kind} options={[{ v: "branch", l: "지점 임시 휴무" }, { v: "staff", l: "내 휴무" }]} onChange={(k) => setEdit({ ...edit, kind: k })} label="구분" /></Field>}
           <Field label="날짜"><input className="inp" type="date" value={edit.day} onChange={(e) => setEdit({ ...edit, day: e.target.value })} /></Field>
           <Field label="사유"><input className="inp" placeholder={edit.kind === "branch" ? "예: 센터 교육" : "예: 개인 사정"} maxLength={100} value={edit.reason} onChange={(e) => setEdit({ ...edit, reason: e.target.value })} /></Field>

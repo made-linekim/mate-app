@@ -238,14 +238,22 @@ export function Msg({ text }: { text: string }) {
 }
 
 /* 오른쪽 서랍 (시안 .drawer / .dhd / .dscroll / .dfoot) — 추가·수정 입력용 */
-export function Drawer({ title, onClose, onOk, ok = "저장", busy, children }: { title: string; onClose: () => void; onOk?: () => void; ok?: string; busy?: boolean; children: React.ReactNode }) {
+/* 저장 실패 문구 (서버 오류 글자를 그대로 보이지 않아요) */
+export function saveErr(m: string) {
+  if (/permission|denied|권한/i.test(m)) return "저장할 권한이 없어요. 대표관리자에게 물어봐 주세요";
+  if (/fetch|network|Failed/i.test(m)) return "인터넷 연결이 불안정해요. 잠시 뒤 다시 저장해 주세요";
+  return "저장하지 못했어요. 잠시 뒤 다시 저장해 주세요";
+}
+/* err: 서랍 안 저장 버튼 위에 빨간 글로 보여요 (서랍이 화면을 덮어서 머리 쪽 안내는 안 보여요) */
+export function Drawer({ title, onClose, onOk, ok = "저장", busy, err, children }: { title: string; onClose: () => void; onOk?: () => void; ok?: string; busy?: boolean; err?: string; children: React.ReactNode }) {
+  const bad = !!err && !/했어요$/.test(err);
   return (
     <>
       <div className="mask" onClick={onClose} />
       <div className="drawer" role="dialog" aria-label={title}>
         <div className="dhd"><b>{title}</b></div>
         <div className="dscroll">{children}</div>
-        <div className="dfoot"><div className="row" style={{ justifyContent: "flex-end" }}>
+        <div className="dfoot">{bad && <p className="derr" role="alert">{err}</p>}<div className="row" style={{ justifyContent: "flex-end" }}>
           <button type="button" className="btn" onClick={onClose}>닫기</button>
           {onOk && <button type="button" className="btn p" disabled={busy} onClick={onOk}>{ok}</button>}
         </div></div>

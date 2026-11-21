@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Drawer, Field, HelpD, Msg, NumInp, PageH, useBranch, useLead, useSettings, val } from "../kit";
 import type { Room } from "../defaults";
 
@@ -12,6 +12,8 @@ export default function RoomsPage() {
   const edit = lead && !!data?.can_edit;
   const [ed, setEd] = useState<{ i: number; r: Room } | null>(null);
   const [msg, setMsg] = useState("");
+  const drawerOpen = !!ed;
+  useEffect(() => { if (drawerOpen) setMsg(""); }, [drawerOpen]);
 
   async function put(list: Room[], note: string) { setMsg(await save("rooms", list, note) || "저장했어요"); }
   function move(i: number, d: number) {
@@ -65,7 +67,7 @@ export default function RoomsPage() {
         </HelpD>
       </div>
       {ed && (
-        <Drawer title={ed.i < 0 ? "관리실 추가" : "관리실 고치기"} onClose={() => setEd(null)} onOk={submit}>
+        <Drawer title={ed.i < 0 ? "관리실 추가" : "관리실 고치기"} err={msg} onClose={() => setEd(null)} onOk={submit}>
           <Field label="이름"><input className="inp" value={ed.r.name} maxLength={20} placeholder="예: 1번실" onChange={(e) => setEd({ ...ed, r: { ...ed.r, name: e.target.value } })} /></Field>
           <Field label="쓰는 관리"><input className="inp" value={ed.r.uses} maxLength={60} placeholder="예: 올케어 · 석션" onChange={(e) => setEd({ ...ed, r: { ...ed.r, uses: e.target.value } })} /></Field>
           <Field label="동시 인원"><NumInp value={ed.r.cap} width={80} onChange={(v) => setEd({ ...ed, r: { ...ed.r, cap: Math.max(1, Math.min(20, v)) } })} label="동시 인원" /></Field>
