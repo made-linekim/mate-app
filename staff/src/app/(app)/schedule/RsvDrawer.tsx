@@ -213,7 +213,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
                 <b>{cust.name}</b>
                 <span className="num">{sum?.customer.phone ?? ""}</span>
                 <div style={{ flex: 1 }} />
-                <Link className="btn sm" href={`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(cust.key)}`}>고객 차트</Link>
+                <Link className="btn sm" href={`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(cust.key)}&from=rsv&ctx=${encodeURIComponent([day, time, prog?.name].filter(Boolean).join("|"))}`}>고객 차트</Link>
                 <button className="btn sm" disabled title="문자 보내기는 준비 중이에요">문자</button>
                 {!ro && !editing && <button className="btn sm t" onClick={() => { setCust(null); setFound(null); }}>변경</button>}
               </div>

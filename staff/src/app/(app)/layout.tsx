@@ -97,7 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!me) return null;
   return (
     <MeCtx.Provider value={me}>
-      <div className={`app ${path.startsWith("/customers/chart") ? "nomtab" : ""}`}>
+      <div className="app">
         <aside className="side">
           <div className="logo"><span>M</span>MERA</div>
           <nav className="nav">
