@@ -1,49 +1,41 @@
 "use client";
 import "./settings.css";
+import "./s3.css";
+import "./s3x.css";
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
-import { ALL_OK, Ico, SET_NAV, SetCtx, SetIcon } from "./ui";
+import { SetCtx } from "./ui";
+import { navFor, V3i } from "./kit";
 
+/* 설정 (시안 SET_v3): 왼쪽 흰 카드 목록 20개 + 오른쪽 화면. 직원은 기본·예약표·업무시간·휴무·운영 기준만 보여요. */
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const me = useMe();
   const path = usePathname();
   const [branch, setBranch] = useState(me.branch || BRANCHES[0]);
-  const home = path === "/settings";
-  // PC에서 /settings 는 업무시간을 보여 줘요 (모바일에선 메뉴 목록)
-  const curHref = home ? "/settings/hours" : path;
-  const cur = SET_NAV.flatMap((g) => g.items).find((i) => i.href && curHref.startsWith(i.href));
-  const allOk = ALL_OK.some((h) => path.startsWith(h));
-  const owner = me.tier === "owner";
-  const shown = branch === "all" && !allOk ? me.branch || BRANCHES[0] : branch;
+  const groups = navFor(me.tier);
+  const cur = path === "/settings" ? "/settings/basic" : path;
 
   return (
-    <SetCtx.Provider value={{ branch: shown, setBranch }}>
-      <header className={`top st-top ${home ? "" : "sub"}`}>
-        <Link href="/settings" className="st-back" aria-label="설정 목록으로"><Ico n="back" s={20} /></Link>
-        <h1>설정</h1>
-        <span className="st-mt">{cur?.label}</span>
-        <select className="sel st-br" aria-label="지점" value={owner ? shown : me.branch} disabled={!owner} onChange={(e) => setBranch(e.target.value)}>
-          {owner && allOk && <option value="all">전 지점</option>}
-          {(owner ? BRANCHES : [me.branch]).map((b) => <option key={b} value={b}>{b}</option>)}
-        </select>
-      </header>
-      <div className={`st-wrap ${home ? "home" : ""}`}>
-        <nav className="st-nav" aria-label="설정 메뉴">
-          {SET_NAV.map((g) => (
-            <div key={g.group} style={{ display: "contents" }}>
-              <div className="g">{g.group}</div>
-              {g.items.map((i) => (
-                <Link key={i.label} href={i.href} className={cur === i ? "on" : ""}>
-                  <SetIcon n={i.icon} /><span className="st-l">{i.label}<small>{i.help}</small></span><span className="chev"><Ico n="chev" /></span>
-                </Link>
-              ))}
-            </div>
-          ))}
-        </nav>
-        <section className="st-body">{children}</section>
+    <SetCtx.Provider value={{ branch, setBranch }}>
+      <div className="s3">
+        <div className="st7">
+          <nav className="lnav" aria-label="설정 메뉴">
+            {groups.map((g) => (
+              <div key={g.g} style={{ display: "contents" }}>
+                <div className="gl">{g.g}</div>
+                {g.items.map((i) => (
+                  <Link key={i.href} href={i.href} className={cur.startsWith(i.href) ? "on" : ""} aria-current={cur.startsWith(i.href) ? "page" : undefined}>
+                    <V3i n={i.icon} />{i.label}
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </nav>
+          {children}
+        </div>
       </div>
     </SetCtx.Provider>
   );

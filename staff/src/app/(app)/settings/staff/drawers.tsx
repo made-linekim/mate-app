@@ -93,7 +93,9 @@ export function EditDrawer({ target, titles, presets, onDetail, onClose, onDone 
   const [f, setF] = useState({
     name: target.name, title: target.title ?? "", status: target.status, tier: target.tier,
     hired_on: target.hired_on ?? "", color: target.color ?? "#DDDDDD", branch: target.branch,
+    team: (target as Staff & { team?: string | null }).team ?? "", level: (target as Staff & { level?: number | null }).level ?? null,
   });
+  const t0 = target as Staff & { team?: string | null; level?: number | null };
   const [follow, setFollow] = useState(true);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -111,7 +113,10 @@ export function EditDrawer({ target, titles, presets, onDetail, onClose, onDone 
         ...(isSelf ? {} : { status: f.status }),
         ...(isOwner && !isSelf ? { tier: f.tier, branch: f.branch } : {}),
         ...(moved && follow ? { perms: presets.find((x) => x.name === newKey)?.perms ?? {} } : {}),
-      };
+        // 팀 · 레벨은 056 SQL 뒤에 생기는 칸이라 바꿨을 때만 보내요
+        ...((f.team.trim() || null) !== (t0.team ?? null) ? { team: f.team.trim() || null } : {}),
+        ...(f.level !== (t0.level ?? null) ? { level: f.level } : {}),
+      } as Partial<Staff>;
       const { error } = await sb.from("staff_accounts").update(row).eq("id", target.id);
       if (error) throw new Error(error.message);
       onDone();
@@ -166,6 +171,8 @@ export function EditDrawer({ target, titles, presets, onDetail, onClose, onDone 
               </select>
             </Row>
           )}
+          {target.tier !== "owner" && <Row label="팀" help="예: 의정부 오전"><input className="inp" maxLength={20} value={f.team} onChange={(e) => setF({ ...f, team: e.target.value })} /></Row>}
+          {target.tier !== "owner" && <Row label="레벨"><input className="inp num" type="number" min={1} max={10} value={f.level ?? ""} onChange={(e) => setF({ ...f, level: e.target.value ? +e.target.value : null })} style={{ width: 80 }} /></Row>}
           <Row label="입사일"><input className="inp" type="date" value={f.hired_on} onChange={(e) => setF({ ...f, hired_on: e.target.value })} /></Row>
           <Row label="예약표 색"><input type="color" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} className="inp" style={{ width: 80, padding: 4 }} /></Row>
           {!isSelf && (
