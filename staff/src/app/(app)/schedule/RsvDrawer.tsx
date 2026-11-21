@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMe } from "@/lib/me";
 import PayModal from "./PayModal";
 import AlimtalkModal from "@/components/AlimtalkModal";
+import { RsvStatusAsk, sendRequest } from "@/lib/approval";
 import { type Program, type Rsv, SLOTS, toMin, usedAt, DAY_START, DAY_END, fmtDay, todayKST, DOW, dow } from "@/lib/schedule";
 
 // 새 예약은 day/start_time/program_id 만, 기존 예약은 Rsv 전체
@@ -49,6 +50,17 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
     if (error) return setErr(error.message);
     onSaved();
   };
+  // 결제 취소 권한이 없으면 대표관리자에게 요청 (070 SQL)
+  const payCancelReq = async () => {
+    if (!cxReason.trim()) return setErr("취소 사유를 써 주세요.");
+    setBusy(true); setErr("");
+    const r = await sendRequest(me, { branch, kind: "pay_cancel", targetType: "reservation", targetId: String(draft.id), reason: cxReason.trim(),
+      amount: paid ? paid.gross - paid.discount : null, payload: { customer: draft.customer_name ?? "", when: `${draft.day} ${draft.start_time.slice(0, 5)}` } });
+    setBusy(false);
+    if (r.state === "need_sql") return setErr("결제 취소 요청은 서버 준비(070 SQL) 후에 돼요.");
+    if (r.error) return setErr(r.error);
+    setCxAsk(false); setDoneMsg("대표관리자에게 결제 취소를 요청했어요");
+  };
   const locked = editing && draft.status !== "예약";
   const [day, setDay] = useState(draft.day);
   const [time, setTime] = useState(draft.start_time);
@@ -64,6 +76,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [askReason, setAskReason] = useState<"취소" | "노쇼" | null>(null);
+  const [doneMsg, setDoneMsg] = useState("");
   // 새 예약 팝업: 일반 예약 / 일정 등록, 고객은 기존 검색 / 신규 입력
   const [mode, setMode] = useState<"rsv" | "work">(isWork(programs.find((p) => p.id === draft.program_id)) ? "work" : "rsv");
   const [custMode, setCustMode] = useState<"old" | "new">("old");
@@ -178,11 +191,12 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
     onSaved();
   };
 
+  const alertDone = (msg: string) => { setDoneMsg(msg); setTimeout(() => onSaved(), 900); };
   const ro = !canWrite || locked;
   const today = todayKST();
   const endTime = prog ? hm(toMin(time) + prog.minutes) : "";
   const last = (st: string) => sum?.visits.find((v) => v.status === st)?.day;
-  const lastVisit = sum?.customer.last_visit_on ?? sum?.visits.find((v) => v.status === "완료" || v.status === "방문")?.day;
+  const lastVisit = sum?.customer?.last_visit_on ?? sum?.visits.find((v) => v.status === "완료" || v.status === "방문")?.day;
   const active = (sum?.memberships ?? []).filter((m) => m.status === "사용중");
   const staffName = staff.find((s) => s.id === staffId)?.name;
 
@@ -390,12 +404,12 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
                   {paid.discount > 0 && <div className="r num"><span>할인</span><span>-{paid.discount.toLocaleString()}</span></div>}
                   {paid.unpaid > 0 && <div className="r num"><span>미수금</span><span style={{ color: "var(--red)" }}>{paid.unpaid.toLocaleString()}</span></div>}
                   <div className="r"><span>결제</span><span>{paid.created_by} · {new Date(paid.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "short", timeStyle: "short" })}</span></div>
-                  {canPayCancel && !cxAsk && <div className="cx"><div style={{ flex: 1 }} /><button className="btn sm" onClick={() => setCxAsk(true)}>결제 취소</button></div>}
+                  {!cxAsk && <div className="cx"><div style={{ flex: 1 }} /><button className="btn sm" onClick={() => setCxAsk(true)}>{canPayCancel ? "결제 취소" : "결제 취소 요청"}</button></div>}
                   {cxAsk && (
                     <div className="cx">
-                      <input className="inp" placeholder="취소 사유 (선택)" value={cxReason} onChange={(e) => setCxReason(e.target.value)} />
+                      <input className="inp" placeholder={canPayCancel ? "취소 사유 (선택)" : "취소 사유 (꼭 써 주세요)"} value={cxReason} onChange={(e) => setCxReason(e.target.value)} />
                       <button className="btn sm t" onClick={() => setCxAsk(false)}>돌아가기</button>
-                      <button className="btn sm danger" disabled={busy} onClick={payCancel}>결제 취소</button>
+                      <button className="btn sm danger" disabled={busy} onClick={canPayCancel ? payCancel : payCancelReq}>{canPayCancel ? "결제 취소" : "요청 보내기"}</button>
                     </div>
                   )}
                   {cxAsk && <span className="rd-dim">차감한 회차를 되돌리고 매출을 지워요. 예약은 다시 &apos;예약&apos; 상태가 돼요.</span>}
@@ -405,15 +419,15 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
           )}
 
           {askReason && (
-            <div className="card" style={{ marginTop: 16, background: "var(--bg-soft)" }}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>{askReason === "취소" ? "예약을 취소할까요?" : "노쇼로 처리할까요?"}</div>
-              <input className="inp" placeholder="사유 (선택)" value={reason} onChange={(e) => setReason(e.target.value)} />
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
-                <button className="btn sm t" onClick={() => setAskReason(null)}>돌아가기</button>
-                <button className="btn sm danger" disabled={busy} onClick={() => setStatus(askReason)}>{askReason === "취소" ? "예약 취소" : "노쇼 처리"}</button>
-              </div>
-            </div>
+            <RsvStatusAsk me={me} branch={branch} kind={askReason === "노쇼" ? "rsv_noshow" : "rsv_cancel"}
+              rsv={{ id: String(draft.id), customer: cust?.name ?? "고객", phone: sum?.customer?.phone ?? null, customerKey: cust?.key ?? null, when: `${fmtDay(day)} ${time.slice(0, 5)}`, program: prog?.name ?? "", staff: staffName ?? null }}
+              msName={active.find((x) => x.kind === "회차")?.name ?? null}
+              left={(() => { const m = active.find((x) => x.kind === "회차"); return m ? m.items.reduce((a, i) => a + i.total + (i.service ?? 0) - i.used, 0) : null; })()}
+              onBack={() => setAskReason(null)}
+              onDone={(msg) => { setAskReason(null); setErr(""); alertDone(msg); }}
+              fallback={async (why) => { const { error } = await sb.rpc("rsv_set_status", { p_id: draft.id, p_status: askReason, p_reason: why }); return error ? error.message : null; }} />
           )}
+          {doneMsg && <p className="ap-ok">{doneMsg}</p>}
           {err && <p style={{ color: "var(--red)", marginTop: 12 }}>{err}</p>}
         </div>
         {canWrite && (
@@ -441,8 +455,8 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             <div className="rd-clash" role="dialog">
               <i className="grab" />
               <b className="t">{clash.cust ? "이 고객은 이미 이 시간에 예약이 있어요" : "이 시간에 이미 예약이 있어요"}</b>
-              <p className="why">겹침은 같은 담당 또는 같은 고객이 같은 시간일 때예요. 겹친 채로는 저장하지 않아요.</p>
-              <div className="who">{clash.other.customer_name || clash.other.title || "일정"} · {fmtDay(clash.other.day)} {clash.other.start_time.slice(0, 5)} – {hm(toMin(clash.other.start_time) + (clash.other.minutes || 30))}{clash.other.staff_name ? ` · 담당 ${clash.other.staff_name}` : ""}</div>
+              <div className="nt"><ClashInfo /><p>겹침은 같은 담당 또는 같은 고객이 같은 시간일 때예요. 겹친 채로는 저장하지 않아요.</p></div>
+              <div className="who"><ClashInfo />{clash.other.customer_name || clash.other.title || "일정"} · {clash.other.day === kstToday() ? "오늘" : fmtDay(clash.other.day)} {clash.other.start_time.slice(0, 5)} – {hm(toMin(clash.other.start_time) + (clash.other.minutes || 30))}{(() => { const pn = programs.find((x) => x.id === clash.other.program_id); return pn ? ` · ${pn.short || pn.name}` : ""; })()}{clash.other.staff_name ? ` · 담당 ${clash.other.staff_name}` : ""}</div>
               <div className="lb">다른 시간</div>
               {clash.alts.length === 0 && <p className="why">이날 남은 빈 시간이 없어요. 날짜를 바꿔 주세요.</p>}
               {clash.alts.map((m) => (
@@ -451,7 +465,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
                   <span>{prog.name}{staffId ? ` · 담당 ${staff.find((x) => x.id === staffId)?.name ?? ""}` : ""} · 비어 있음</span>
                 </button>
               ))}
-              {alt == null && clash.alts.length > 0 && <p className="why">저장하려면 비어 있는 시간을 골라 주세요.</p>}
+              {clash.alts.length > 0 && <p className="why">저장하려면 비어 있는 시간을 골라 주세요.</p>}
               <div className="bt">
                 <button className="btn" onClick={() => setClash(null)}>닫기</button>
                 <button className="btn p" disabled={alt == null || busy} onClick={() => { if (alt != null) { setTime(hm(alt)); save(alt); } }}>이 시간으로 저장</button>
@@ -470,4 +484,10 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
       )}
     </>
   );
+}
+
+const kstToday = () => new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10);
+// 겹침 시트 안내 아이콘 (U-MO-RSV-1 v3)
+function ClashInfo() {
+  return <svg className="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>;
 }

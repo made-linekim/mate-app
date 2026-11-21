@@ -55,7 +55,7 @@ export default function StaffSettings() {
 
   return (
     <>
-      <Head title="직원" />
+      <Head title="직원" meta="직원 등록 · 직급" />
       <div className="st-bar">
         {FILTERS.map((k) => (
           <button key={k} className={`chip ${status === k ? "on" : ""}`} onClick={() => setStatus(k)}>

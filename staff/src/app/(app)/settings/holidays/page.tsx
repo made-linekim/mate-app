@@ -55,7 +55,7 @@ export default function HolidaysPage() {
 
   return (
     <>
-      <Head title="휴무"><Msg text={msg} />{ready && !canEdit && <span className="st-ro">보기만 할 수 있어요</span>}</Head>
+      <Head title="휴무" meta="지점 휴무일"><Msg text={msg} />{ready && !canEdit && <span className="st-ro">보기만 할 수 있어요</span>}</Head>
       <div className="st-bar">
         <div className="seg">
           <button className="on">지점 휴무</button>

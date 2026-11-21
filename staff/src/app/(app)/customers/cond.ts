@@ -1,8 +1,9 @@
 // 고객 검색조건 (뷰티사랑넷 흐름: 조건 하나 → 기간/회차 → 관리 선택 → 선택완료). 서버 customer_search 와 같은 모양.
 export type CondT =
   | "usage" | "rsv" | "birthday" | "first_visit" | "last_visit" | "dormant"
-  | "period_end" | "period_sold" | "period_hold" | "count_left" | "count_sold" | "count_used" | "member" | "new";
-export type Cond = { t: CondT; from?: string; to?: string; days?: number; min?: number; max?: number; programs?: string[] };
+  | "period_end" | "period_sold" | "period_hold" | "count_left" | "count_sold" | "count_used" | "member" | "new" | "initial";
+export type Cond = { t: CondT; from?: string; to?: string; days?: number; min?: number; max?: number; programs?: string[]; v?: string };
+export const INITIALS = ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
 
 export type Kind = "date" | "days" | "range" | "none";
 export const TYPES: { t: CondT; l: string; kind: Kind; progs?: boolean; off?: string }[] = [
@@ -57,6 +58,7 @@ export const DORMANT = [7, 14, 30, 60, 90, 180, 365];
 export function condText(c: Cond, progName?: (id: string) => string) {
   const l = typeOf(c.t)?.l ?? (c.t === "member" ? "보유고객" : c.t === "new" ? "신규 등록" : c.t);
   const p = c.programs?.length ? ` · ${c.programs.slice(0, 2).map((x) => progName?.(x) ?? x).join(", ")}${c.programs.length > 2 ? ` 외 ${c.programs.length - 2}` : ""}` : "";
+  if (c.t === "initial") return `초성 ${c.v}`;
   if (c.t === "dormant") return `${l} ${c.days ?? 60}일 이상`;
   if (c.t === "count_left") return `${l} ${c.min ?? 0}~${c.max ?? 99}회${p}`;
   if (c.from || c.to) return `${l} ${(c.from ?? "").slice(2).replaceAll("-", ".")}~${(c.to ?? "").slice(2).replaceAll("-", ".")}${p}`;

@@ -4,7 +4,7 @@ import { sb } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { TABS, tabOk, won, downloadCsv, todayKST, type Sale } from "@/lib/sales";
 import {
-  SalesTable, CondBar, FilterRows, filterSummary, useFilters, useSales, useExport, fetchAllSales, friendly, mdy, Z, Pager,
+  SalesTable, FilterRows, useFilters, useSales, useExport, fetchAllSales, friendly, mdy, Z, Pager, SlTool, rangeHelp,
 } from "../ui";
 
 type Agg = {
@@ -60,7 +60,7 @@ function ByCustomer() {
       g.npay += s.npay ?? 0; g.unpaid += s.unpaid ?? 0; g.sess += sessN(s.sessions);
       if (s.day > g.last) g.last = s.day;
     }
-    return [...m.values()].sort((a, b) => b.amount - a.amount);
+    return [...m.values()].sort((a, b) => (b.last > a.last ? 1 : b.last < a.last ? -1 : b.amount - a.amount));
   }, [rows]);
 
   const sum = useMemo(() => list.reduce((a, g) => ({
@@ -72,57 +72,51 @@ function ByCustomer() {
     ["지점", "고객", "담당자", "결제 건수", "결제 금액", "카드", "현금", "계좌이체", "NPay", "미수", "회차 차감", "최근 결제"],
     list.map((g) => [g.branch, g.name, g.staff, g.n, g.amount, g.card, g.cash, g.account, g.npay, g.unpaid, g.sess, g.last])) : null);
 
-  const showBranch = me.tier === "owner" && !branch;
-  const showNpay = sum.npay !== 0;
-  const view = list.slice(page * PAGE, page * PAGE + PAGE);
-  const sumRow = (
-    <tr className="sum">
-      <td>합계</td>{showBranch && <td />}<td />
-      <td className="r">{sum.n.toLocaleString()}</td><td className="r">{won(sum.amount)}</td>
-      <td className="r">{won(sum.card)}</td><td className="r">{won(sum.cash)}</td><td className="r">{won(sum.account)}</td>
-      {showNpay && <td className="r">{won(sum.npay)}</td>}
-      <td className="r">{won(sum.unpaid)}</td><td>{sum.sess}</td><td />
-    </tr>
-  );
+  const [qq, setQq] = useState("");
+  const shown = qq.trim() ? list.filter((g) => g.name.includes(qq.trim())) : list;
+  const view = shown.slice(page * PAGE, page * PAGE + PAGE);
+  const tot = shown.reduce((a, g) => ({ n: a.n + g.n, amount: a.amount + g.amount, card: a.card + g.card, cash: a.cash + g.cash, unpaid: a.unpaid + g.unpaid }), { n: 0, amount: 0, card: 0, cash: 0, unpaid: 0 });
+  void me; void sum;
 
   return (
-    <>
-      <CondBar summary={filterSummary(range, mode, f, [])}>
-        <FilterRows f={f} setF={setF} />
-      </CondBar>
+    <div className="sl3-led">
+      <SlTool help={rangeHelp(range, branch, !loading)}
+        cond={<FilterRows f={f} setF={setF} />}
+        right={<input className="inp sl3-q" placeholder="고객 이름 · 전화" value={qq} onChange={(e) => { setQq(e.target.value); setPage(0); }} onKeyDown={(e) => { if (e.key === "Enter") setF({ ...f, q: qq.trim() }); }} />} />
       {err && <p className="sl-err">{err}</p>}
-      <div className="sl-card">
+      <div className="sl3-card">
         <div className="sl-scroll">
-          <table className="sl-t">
+          <table className="sl3-t sl3-cust">
             <thead>
               <tr>
-                <th>고객</th>{showBranch && <th>지점</th>}<th>담당자</th><th className="r">결제 건수</th><th className="r">결제 금액</th>
-                <th className="r">카드</th><th className="r">현금</th><th className="r">계좌이체</th>{showNpay && <th className="r">NPay</th>}
-                <th className="r">미수</th><th>회차 차감</th><th>최근 결제</th>
+                <th>고객</th><th>담당</th><th className="r">건수</th><th className="r">결제 금액</th>
+                <th className="r">카드</th><th className="r">현금</th><th className="r">미수</th><th className="r">회차 차감</th><th>최근 결제</th>
               </tr>
-              {list.length > 0 && sumRow}
             </thead>
             <tbody>
               {view.map((g) => (
                 <tr key={g.id} className="go" onClick={() => setPick(g)} title="눌러서 결제 내역 보기">
-                  <td className="nm">{g.name}</td>{showBranch && <td>{g.branch}</td>}<td>{g.staff || "-"}</td>
+                  <td>{g.name}</td><td>{g.staff || "-"}</td>
                   <td className="r">{g.n}</td><td className="r"><Z n={g.amount} /></td>
-                  <td className="r"><Z n={g.card} /></td><td className="r"><Z n={g.cash} /></td><td className="r"><Z n={g.account} /></td>
-                  {showNpay && <td className="r"><Z n={g.npay} /></td>}
-                  <td className="r"><Z n={g.unpaid} /></td><td>{g.sess}</td><td>{mdy(g.last)}</td>
+                  <td className="r"><Z n={g.card} /></td><td className="r"><Z n={g.cash} /></td>
+                  <td className="r"><Z n={g.unpaid} /></td><td className="r">{g.sess ? `${g.sess}회` : <span className="sl-z">—</span>}</td><td>{mdy(g.last)}</td>
                 </tr>
               ))}
-              {!loading && list.length === 0 && !err && <tr><td colSpan={12} className="sl-empty">이 기간에 매출 기록이 없어요</td></tr>}
-              {loading && <tr><td colSpan={12} className="sl-empty">불러오는 중</td></tr>}
+              {!loading && shown.length === 0 && !err && <tr><td colSpan={9} className="sl-empty">이 기간에 매출 기록이 없어요</td></tr>}
+              {loading && <tr><td colSpan={9} className="sl-empty">불러오는 중</td></tr>}
             </tbody>
-            {view.length > 0 && <tfoot>{sumRow}</tfoot>}
+            {view.length > 0 && (
+              <tfoot>
+                <tr><td>합계 · {shown.length.toLocaleString()}명</td><td /><td className="r">{tot.n.toLocaleString()}</td><td className="r">{won(tot.amount)}</td>
+                  <td className="r">{won(tot.card)}</td><td className="r">{won(tot.cash)}</td><td className="r">{won(tot.unpaid)}</td><td /><td /></tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
-      {list.length > PAGE && <Pager page={page} pages={Math.ceil(list.length / PAGE)} onChange={setPage} />}
-      <p className="sl-note">고객을 누르면 이 기간 결제 내역이 열려요.</p>
+      {shown.length > PAGE && <Pager page={page} pages={Math.ceil(shown.length / PAGE)} onChange={setPage} />}
       {pick && <Detail who={{ name: pick.name, branch: pick.branch, key: pick.key }} onClose={() => setPick(null)} />}
-    </>
+    </div>
   );
 }
 

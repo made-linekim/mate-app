@@ -1,0 +1,155 @@
+/* 예약표 v3 확정 시안 (RSV_v3 U-PC-RSV-1_예약표대표 / 업무메모) — 값은 시안 HTML 그대로 */
+.app .rv3{--bg-soft:#FAFAFB;--bg-track:#ECECEF;--line:#E8E8EC;--line-strong:#D6D6DB;--ink:#292929;--ink-2:#4A4A4A;--ink-3:#5F5F5F;--ink-4:#6B6B6B;--red:#AE040F;--red-50:#FBEAEB;--red-200:#E9A3A8;--amb:#965A00;--amb-50:#FFF1DC;--grn:#107752;--grn-50:#E6F4EE;--ns-bg:#FFF3C4;--ns-ink:#6E5200;
+  background:#F4F4F6;min-height:100%;font-size:14px;line-height:20px;color:var(--ink);font-variant-numeric:tabular-nums}
+.app .rv3 svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* 하위 줄 (높이 60) */
+.app .rv3-sub{height:60px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 32px;gap:16px}
+.app .rv3-sub h1{font-size:20px;line-height:28px;font-weight:700;margin:0 8px 0 0;color:var(--ink)}
+.app .rv3-sub .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.app .rv3 .sg{display:flex;background:var(--bg-track);border-radius:12px;padding:4px;gap:4px}
+.app .rv3 .sg>button{height:32px;padding:0 16px;display:flex;align-items:center;gap:4px;border-radius:8px;font-weight:600;color:var(--ink-3);font-size:14px;background:transparent;border:0;cursor:pointer;white-space:nowrap}
+.app .rv3 .sg>button:hover{color:var(--ink)}
+.app .rv3 .sg>button.on{background:var(--red-50);color:var(--red);box-shadow:inset 0 0 0 1px var(--red-200)}
+.app .rv3 .sg .cn{display:inline-flex;align-items:center;justify-content:center;height:18px;min-width:18px;padding:0 4px;border-radius:999px;font-size:12px;font-weight:600;background:var(--red);color:#fff}
+.app .rv3 .rsel{position:relative}
+.app .rv3 .rsel>button{white-space:nowrap;height:40px;border:1px solid var(--line-strong);border-radius:8px;padding:0 12px;display:flex;align-items:center;gap:8px;background:#fff;font-weight:600;color:var(--ink-2);font-size:14px;cursor:pointer}
+.app .rv3 .rsel>button.on{border-color:var(--red);color:var(--red);background:var(--red-50)}
+.app .rv3 .rsel .pop{position:absolute;right:0;top:44px;z-index:30;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px;min-width:180px}
+.app .rv3 .rsel .pop label{display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;border-radius:8px;font-size:14px;cursor:pointer;white-space:nowrap}
+.app .rv3 .rsel .pop label:hover{background:var(--bg-soft)}
+/* 본문 */
+.app .rv3-page{padding:24px 32px 32px}
+.app .rv3-wrap{display:grid;grid-template-columns:264px minmax(0,1fr);gap:16px;align-items:start}
+.app .rv3-wrap.dock{grid-template-columns:264px minmax(0,1fr) 400px}
+.app .rv3 .card{padding:0;background:#fff;border:1px solid var(--line);border-radius:12px}
+.app .rv3 .cap{font-size:12px;line-height:16px;color:var(--ink-4)}
+.app .rv3 .bdg{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;line-height:16px;white-space:nowrap;background:#F4F4F6;color:var(--ink-3)}
+.app .rv3 .bdg.red{background:var(--red-50);color:var(--red)}
+.app .rv3 .bdg.amb{background:var(--amb-50);color:var(--amb)}
+.app .rv3 .bdg.grn{background:var(--grn-50);color:var(--grn)}
+.app .rv3 .bdg svg.i{width:12px;height:12px;stroke-width:2.2}
+.app .rv3 .cnt{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;background:#F4F4F6;color:var(--ink-3)}
+.app .rv3 .cnt.red{background:var(--red);color:#fff}
+.app .rv3 .btn3{height:40px;border-radius:8px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;border:1px solid var(--line-strong);background:#fff;color:var(--ink);white-space:nowrap;cursor:pointer}
+.app .rv3 .btn3.sm{height:32px;padding:0 12px;font-size:13px}
+.app .rv3 .btn3.t{border-color:transparent;background:transparent;color:var(--ink-2)}
+.app .rv3 .btn3.p{background:var(--red);border-color:var(--red);color:#fff}
+.app .rv3 .btn3:disabled{opacity:.5;cursor:default}
+/* 왼쪽 위젯 */
+.app .rv3-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.app .rv3-side>.sg>button{padding:0 8px;font-size:13px;flex:auto;justify-content:center;gap:4px}
+.app .rv3 .w{padding:16px}
+.app .rv3 .w .wt{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.app .rv3 .w .wt b{font-size:14px;font-weight:700}
+.app .rv3 .w .wt .r{margin-left:auto}
+.app .rv3 .w4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center}
+.app .rv3 .w4 .v{font-size:20px;line-height:28px;font-weight:700}
+.app .rv3 .w4 .l{font-size:12px;color:var(--ink-4)}
+.app .rv3 .wl{display:flex;align-items:center;height:32px;font-size:13px;color:var(--ink-2);text-decoration:none}
+.app .rv3 .wl .r{margin-left:auto}
+.app .rv3 .wc{display:flex;align-items:center;gap:8px;height:48px;padding:0 16px;width:100%;background:none;border:0;cursor:pointer;color:var(--ink);text-align:left;font:inherit}
+.app .rv3 .wc b{font-size:14px;font-weight:700}
+.app .rv3 .wc .r{margin-left:auto;display:flex;gap:8px;align-items:center;color:var(--ink-4)}
+.app .rv3 .wc .r b{color:var(--ink)}
+.app .rv3 .wfold{padding:0 16px 12px}
+.app .rv3 .big{font-size:20px;line-height:28px;font-weight:700}
+.app .rv3 .bar6{flex:1;height:6px;border-radius:999px;background:var(--bg-track)}
+.app .rv3 .bar6>i{display:block;height:100%;border-radius:999px;background:var(--ink)}
+/* 업무 메모 (U-PC-RSV-1_업무메모) */
+.app .rv3 .mnav{display:flex;align-items:center;gap:8px}
+.app .rv3 .mnav b{font-size:16px;font-weight:700;flex:1}
+.app .rv3 .mnav .ib{width:32px;height:32px}
+.app .rv3 .minfo{display:flex;flex-direction:column;gap:8px;padding:16px;font-size:13px;line-height:18px;color:var(--ink-3)}
+.app .rv3 .mc{padding:16px;display:flex;flex-direction:column;gap:8px}
+.app .rv3 .mc .when{font-size:12px;line-height:16px;color:var(--ink-4)}
+.app .rv3 .mc .mtxt{font-size:14px;line-height:20px;color:var(--ink);white-space:pre-wrap;word-break:keep-all}
+.app .rv3 .mempty{padding:24px 16px;text-align:center;font-size:13px;color:var(--ink-4)}
+.app .rv3 .mcal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:12px;text-align:center}
+.app .rv3 .mcal .hd{font-size:12px;color:var(--ink-4);height:24px;line-height:24px}
+.app .rv3 .mcal button{height:30px;border:0;background:none;border-radius:8px;font-size:13px;color:var(--ink-2);cursor:pointer;position:relative;font:inherit}
+.app .rv3 .mcal button.on{background:var(--red-50);color:var(--red);font-weight:700;box-shadow:inset 0 0 0 1px var(--red-200)}
+.app .rv3 .mcal button .dot{position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--red)}
+.app .rv3 .mwrite{padding:16px;display:flex;flex-direction:column;gap:8px}
+.app .rv3 .mwrite label{font-size:12px;font-weight:600;color:var(--ink-3)}
+.app .rv3 .mwrite textarea{width:100%;min-height:64px;border:1px solid var(--line-strong);border-radius:8px;padding:8px 12px;font:inherit;font-size:14px;resize:vertical;background:#fff;color:var(--ink)}
+.app .rv3 .mwrite .btn3{align-self:flex-start}
+/* 달력 카드 */
+.app .rv3-cal{min-width:0;overflow:hidden}
+.app .rv3-cal .tool{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.app .rv3-cal .tool h2{font-size:20px;line-height:28px;font-weight:700;margin:0 4px;white-space:nowrap}
+.app .rv3 .ib{width:32px;height:32px;border:1px solid var(--line-strong);border-radius:8px;display:grid;place-items:center;background:#fff;color:var(--ink-2);cursor:pointer;padding:0}
+.app .rv3-cal .leg{display:flex;gap:12px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);font-size:12px;color:var(--ink-3);flex-wrap:wrap}
+.app .rv3-cal .leg i{display:inline-block;width:10px;height:10px;border-radius:4px;margin-right:4px;vertical-align:-1px}
+.app .rv3 .mg3{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.app .rv3 .mh{height:36px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--ink-3);border-bottom:1px solid var(--line);background:var(--bg-soft)}
+.app .rv3 .mh.sat{color:#34507A}.app .rv3 .mh.sun{color:var(--red)}
+.app .rv3 .dc{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 6px 8px;min-height:120px;position:relative;min-width:0;cursor:pointer}
+.app .rv3 .dc:nth-child(7n){border-right:0}
+.app .rv3 .dc.dim{background:var(--bg-soft);cursor:default}
+.app .rv3 .dc.dim .dn{color:var(--ink-4);font-weight:400}
+.app .rv3 .dc.pick{background:#FDF5F5}
+.app .rv3 .dh{display:flex;align-items:center;gap:4px;height:24px;margin-bottom:4px}
+.app .rv3 .dn{font-size:14px;font-weight:700;width:24px;height:24px;display:grid;place-items:center;border-radius:50%}
+.app .rv3 .dc.today{box-shadow:inset 0 0 0 2px var(--red)}
+.app .rv3 .dc.today .dn{background:var(--red);color:#fff}
+.app .rv3 .dc .sm{margin-left:auto;font-size:12px;color:var(--ink-4);white-space:nowrap}
+.app .rv3 .blk{display:block;width:100%;height:20px;line-height:20px;font-size:12px;padding:0 4px;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;border:0;border-radius:0;text-align:left;cursor:pointer;font-family:inherit}
+.app .rv3 .blk.two{height:auto;line-height:16px;padding:2px 4px;white-space:normal}
+.app .rv3 .blk.two span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .rv3 .blk.cx{background:#F4F4F6;color:var(--ink-3)}
+.app .rv3 .blk .bt{font-size:12px;font-weight:600;padding:0 4px;border-radius:4px;margin-right:4px}
+.app .rv3 .blk .bt.cc{background:var(--red-50);color:var(--red)}
+.app .rv3 .blk .bt.ns{background:var(--ns-bg);color:var(--ns-ink)}
+.app .rv3 .blk.sale{background:#F4F4F6;color:var(--ink-2);display:flex;gap:4px}
+.app .rv3 .blk.sale b{margin-left:auto;font-weight:600;color:var(--ink)}
+/* 일간 (업무메모 시안의 직원별 시간표) */
+.app .rv3-cal .tool .d{font-size:20px;line-height:28px;font-weight:700;margin:0 4px}
+.app .rv3 .dg{display:grid;position:relative}
+.app .rv3 .dg-h{height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line);border-left:1px solid var(--line);font-size:14px;font-weight:600;background:#F4F4F6;white-space:nowrap;overflow:hidden}
+.app .rv3 .dg-h span{font-weight:400;color:var(--ink-3)}
+.app .rv3 .dg-axis{position:relative;background:#F4F4F6}
+.app .rv3 .dg-axis div{position:absolute;left:0;right:0;font-size:13px;color:var(--ink-3);padding:0 4px;line-height:16px;transform:translateY(-1px)}
+.app .rv3 .dg-col{position:relative;border-left:1px solid var(--line);background:#F4F4F6}
+.app .rv3 .dg-slot{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
+.app .rv3 .dg-slot.half{border-top:0}
+.app .rv3 .dg-now{position:absolute;left:0;right:0;border-top:2px solid var(--red);z-index:2;pointer-events:none}
+.app .rv3 .rb{position:absolute;background:#fff;border:1px solid #D6D6DB;border-radius:4px;padding:6px 8px;text-align:left;overflow:hidden;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;gap:0}
+.app .rv3 .rb b{font-size:14px;line-height:18px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .rv3 .rb span{font-size:12px;line-height:16px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .rv3 .rb.done b,.app .rv3 .rb.done span{color:#8A8A8A;font-weight:400}
+.app .rv3 .rb.off{background:#F4F4F6;border-style:dashed}
+.app .rv3 .rb.off b{color:var(--ink-3);font-weight:400}
+.app .rv3 .rb.sel{outline:2px solid var(--ink);outline-offset:-2px}
+/* 목록 */
+.app .rv3 table.lt{width:100%;border-collapse:collapse}
+.app .rv3 table.lt th{height:40px;background:var(--bg-soft);font-size:12px;font-weight:600;color:var(--ink-3);text-align:left;padding:0 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.app .rv3 table.lt td{height:52px;padding:0 12px;border-bottom:1px solid var(--line);font-size:14px;white-space:nowrap}
+.app .rv3 table.lt tr:last-child td{border-bottom:0}
+.app .rv3 table.lt tbody tr{cursor:pointer}
+.app .rv3 table.lt tbody tr:hover td{background:#FDF5F5}
+/* 오른쪽 예약 창 */
+.app .rv3 .rsv-dock{position:sticky;top:16px;max-height:calc(100vh - 120px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px}
+@media (max-width:1279px){
+  .app .rv3-wrap,.app .rv3-wrap.dock{grid-template-columns:240px minmax(0,1fr)}
+  .app .rv3-wrap.dock .rsv-dock{position:fixed;right:16px;top:80px;width:400px;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+  .app .rv3-sub{padding:0 16px;gap:10px}
+  .app .rv3-page{padding:16px}
+}
+.app .rv3 .rv3-toast,.app .rv3-toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%);background:var(--ink,#292929);color:#fff;border-radius:8px;padding:10px 16px;font-size:14px;z-index:60}
+/* 겹침 시트 v3 (U-MO-RSV-1 같은고객 · 시간겹침 · 시간선택) */
+.app .rd-clash{padding:8px 16px 16px;gap:8px;border-radius:16px 16px 0 0;box-shadow:none}
+.app .rd-clash .grab{margin-bottom:8px}
+.app .rd-clash .t{font-size:16px;line-height:24px;font-weight:700;color:#292929;margin-bottom:4px}
+.app .rd-clash .ci{width:16px;height:16px;flex:none;color:#6B6B6B}
+.app .rd-clash .nt{background:#fff;border:1px solid #E8E8EC;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.app .rd-clash .nt p{margin:0;font-size:13px;line-height:18px;color:#5F5F5F}
+.app .rd-clash .who{background:#fff;border:1px solid #E8E8EC;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:13px;line-height:18px;color:#5F5F5F}
+.app .rd-clash .lb{font-size:12px;line-height:16px;font-weight:600;color:#5F5F5F;margin-top:8px}
+.app .rd-clash .alt{border:1px solid #D6D6DB;border-radius:8px;padding:12px;gap:2px;background:#fff}
+.app .rd-clash .alt b{font-size:14px;line-height:20px;font-weight:600;color:#292929}
+.app .rd-clash .alt span{font-size:12px;line-height:16px;color:#5F5F5F}
+.app .rd-clash .alt.on{border-color:#292929;box-shadow:inset 0 0 0 1px #292929;background:#F4F4F6}
+.app .rd-clash .why{font-size:13px;line-height:18px;color:#5F5F5F}
+.app .rd-clash .bt{margin-top:8px}
+.app .rd-clash .bt .btn{height:40px;border-radius:8px;font-size:14px;font-weight:600}
+.app .rd-clash .bt .btn.p:disabled{background:#F4F4F6;border-color:#E8E8EC;color:#6B6B6B;opacity:1}

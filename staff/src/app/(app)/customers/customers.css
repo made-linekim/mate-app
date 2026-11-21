@@ -305,3 +305,67 @@
  .cs-cnt{text-align:center}
  .cs-btns .btn{flex:1}
 }
+
+/* ── v3b 고객 목록 (U-PC-CUS-1 클릭형): 저장 조건 칩마다 고치기·지우기, 초성 바, 줄마다 통화·문자 ── */
+.c-lab{font-size:var(--fs-sm);color:var(--ink-3);margin-right:4px;white-space:nowrap}
+.c-chips>.chip{background:var(--bg)}
+.c-chips>.chip.on{background:var(--red-50);color:var(--red);border-color:var(--red)}
+.c-chips>.chip.on .c-chip-i{border-left-color:var(--red-200);color:var(--red)}
+.c-chips .c-chip-i{width:26px;border-left:0;color:var(--ink-3)}
+.c-chips .c-chip-i:first-of-type{border-left:1px solid var(--line);margin-left:2px}
+.c-chips .c-chip-i.del{color:var(--ink-3)}
+.c-chips .c-chip-i:hover{color:var(--red)}
+.c-chips .chip.add{background:transparent}
+.c-chips .edit{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.c-ini{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-4px 0 16px}
+.c-ini button{all:unset;cursor:pointer;box-sizing:border-box;min-width:36px;height:32px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
+.c-ini button:hover{border-color:var(--line-strong)}
+.c-ini button.on{background:var(--red-50);color:var(--red);border-color:var(--red-200)}
+.c-tot{font-size:var(--fs-sm);color:var(--ink-3);white-space:nowrap}
+.c-tot b{color:var(--ink);font-weight:700}
+.c-tbl{background:var(--bg)}
+.c-tbl .c-act-h{text-align:center}
+.c-tbl td.c-act{text-align:right;white-space:nowrap}
+.c-act .btn,.c-cd-act .btn{display:inline-flex;align-items:center;gap:6px;background:var(--bg)}
+.c-act .btn+.btn{margin-left:6px}
+.c-act .c-menu{margin-left:6px}
+.c-act .c-menu>.btn{min-width:0}
+.c-cols{min-width:150px}
+.c-cols label{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:var(--fs-sm);cursor:pointer}
+.c-cols input{accent-color:var(--red);width:16px;height:16px;margin:0}
+.btn.ink{background:var(--ink);color:#fff;border-color:var(--ink)}
+.c-toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%);z-index:60;background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:var(--fs-sm)}
+.c-new{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:400px;max-width:calc(100vw - 32px);background:var(--bg);border-radius:var(--r-overlay);box-shadow:var(--shadow-overlay);padding:20px 24px;display:flex;flex-direction:column;gap:12px}
+.c-new h2{margin:0 0 4px;font-size:var(--fs-xl)}
+.c-new label{display:flex;flex-direction:column;gap:6px;font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
+.c-new-err{margin:0;color:var(--red);font-size:var(--fs-sm)}
+.c-new-ft{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.c-new-b{align-self:flex-start}
+@media (max-width:767px){
+ .c-lab{width:100%}
+ .c-ini{gap:4px}
+ .c-ini .c-lab{display:none}
+ .c-ini button{min-width:0;flex:1 0 calc((100% - 28px)/8);height:34px;padding:0}
+ .c-cd-card{grid-template-columns:28px 1fr auto}
+ .c-cd-act{grid-column:2/4;display:flex;gap:8px}
+ .c-cd-act .btn{flex:1;justify-content:center;height:40px}
+ .c-top .c-right .c-menu{display:none}
+ .c-top .c-right .btn.ink{height:40px}
+}
+@media (max-width:767px){
+ .c-top .c-right .btn.ink{display:none}
+ .c-top h1+.sub.c-m-only{display:inline;color:var(--ink-3);font-size:var(--fs-md)}
+ .c-page{display:flex;flex-direction:column}
+ .c-page>*{order:4}
+ .c-page>.c-ini{order:1;display:grid;grid-template-columns:auto repeat(14,minmax(0,1fr));gap:3px;margin:0 0 12px}
+ .c-ini button{min-width:0;height:32px;padding:0;font-size:12px;border-radius:6px}
+ .c-ini button:first-of-type{padding:0 6px}
+ .c-page>.c-tools{order:2}
+ .c-page>.c-chips{order:3}
+ .c-chips>.c-lab,.c-chips>.edit{display:none}
+ .c-chips:not(.open)>.chip:nth-of-type(n+6):not(.add):not(.c-mchip-more){display:none}
+ .c-chips .c-mchip-more{display:inline-flex;padding:0 14px}
+ .c-cards{border-top:0}
+ .c-cd-card{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);padding:14px 12px;margin-bottom:8px}
+ .c-cd-act{display:none!important}
+}
