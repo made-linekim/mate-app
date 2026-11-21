@@ -1,4 +1,5 @@
 "use client";
+import { useFollowTop } from "@/lib/branch";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { InfoIco, Lock } from "@/lib/v3";
 import { sb, BRANCHES } from "@/lib/sb";
@@ -83,6 +84,7 @@ export const useMk = () => useContext(MkCtx)!;
 export function useMkState() {
   const me = useMe();
   const [branch, setBranch] = useState(me.branch || BRANCHES[0]);
+  useFollowTop(me, setBranch);
   const [period, setPeriod] = useState<PeriodKey>("week");
   const [msg, setMsg] = useState<string | null>(null);
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(null), 2400); return () => clearTimeout(t); }, [msg]);
@@ -103,11 +105,6 @@ export function Head({ title, meta, children, period = true }: { title: string; 
       <span className="sub">{meta}{meta ? " · " : ""}{branch}</span>
       <span className="sp" />
       <div className="act">
-        {me.tier === "owner" && (
-          <select className="sel sm" aria-label="지점" value={branch} onChange={(e) => setBranch(e.target.value)}>
-            {BRANCHES.map((b) => <option key={b}>{b}</option>)}
-          </select>
-        )}
         {period && (
           <select className="sel sm" aria-label="기간" value={p} onChange={(e) => setPeriod(e.target.value as PeriodKey)}>
             {PERIODS.map((x) => <option key={x.k} value={x.k}>{x.l}</option>)}

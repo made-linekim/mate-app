@@ -1,4 +1,5 @@
 "use client";
+import { useFollowTop } from "@/lib/branch";
 // 대시보드 (시안 1120 U-PC-DASH-1~4): 한눈에 · 목표 · 직원 성장 · 팀전
 // 데이터는 dash_* RPC (043_대시보드.sql). 매출 숫자는 서버가 권한 있는 사람에게만 보내요.
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
@@ -35,6 +36,7 @@ function Dashboard() {
   const router = useRouter();
   const tab: TabK = (TABS.find((t) => t.k === sp.get("tab"))?.k) ?? "glance";
   const [branch, setBranch] = useState(me.branch);
+  useFollowTop(me, setBranch);
   const rich = tab === "glance" && me.tier !== "staff";
   const go = (k: TabK) => router.replace(k === "glance" ? "/dashboard" : `/dashboard?tab=${k}`, { scroll: false });
 
@@ -50,11 +52,6 @@ function Dashboard() {
         </nav>
         <div className="v3-right">
           {rich && <Lock title="결제 때 고른 담당 직원 기준이에요">매출 순위는 대표관리자 · 관리자만</Lock>}
-          {me.tier === "owner" && tab !== "team" && (
-            <select className="sel ds-br" aria-label="지점" value={branch} onChange={(e) => setBranch(e.target.value)}>
-              {BRANCHES.map((b) => <option key={b}>{b}</option>)}
-            </select>
-          )}
         </div>
       </header>
       <div className={`page ds ${rich ? "ds3-rich" : ""}`}>

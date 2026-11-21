@@ -1,4 +1,5 @@
 "use client";
+import { useFollowTop } from "@/lib/branch";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,6 +22,7 @@ export default function MembershipLayout({ children }: { children: React.ReactNo
   const path = usePathname();
   const cur = TABS.find((t) => path === t.href) ?? TABS[2];
   const [branch, setBranch] = useState(useBranchPick());
+  useFollowTop(me, setBranch);
   const [q, setQ] = useState("");
   const [rev, setRev] = useState(0);
   const ctx = useMemo(() => ({ branch, setBranch, q, setQ, rev }), [branch, q, rev]);
@@ -46,9 +48,6 @@ export default function MembershipLayout({ children }: { children: React.ReactNo
           {TABS.map((t) => <Link key={t.href} href={t.href} className={t === cur ? "on" : ""}>{t.label}</Link>)}
         </nav>
         <div className="mb-tools">
-          <select className="sel" aria-label="지점" disabled={me.tier !== "owner"} value={branch} onChange={(e) => setBranch(e.target.value)}>
-            {(me.tier === "owner" ? BRANCHES : [branch]).map((b) => <option key={b} value={b}>{b}</option>)}
-          </select>
           {holdings && (
             <label className="mb-search">
               <SearchIcon />

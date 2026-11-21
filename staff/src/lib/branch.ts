@@ -27,3 +27,9 @@ export function useTopBranch(me: Pick<Staff, "tier" | "branch">): [string, (b: s
   }, [me]);
   return [b, setTopBranch];
 }
+
+/** 화면 안의 지점 값이 상단바 지점을 따라가게 해요 (처음 열 때 + 바꿀 때마다) */
+export function useFollowTop(me: Pick<Staff, "tier" | "branch">, set: (b: string) => void) {
+  const [top] = useTopBranch(me);
+  useEffect(() => { set(top); }, [top]); // eslint-disable-line react-hooks/exhaustive-deps
+}

@@ -58,7 +58,6 @@ export default function SalesLayout({ children }: { children: React.ReactNode })
           )}
         </div>
         {legacy && <div className="sl-tools">
-          <BranchSelect />
           <MonthSelect disabled={noMonth} />
           {canSee(me, "export.excel") && (
             <button className="btn" disabled={!exporter || busy} onClick={download}>

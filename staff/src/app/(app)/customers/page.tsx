@@ -1,4 +1,5 @@
 "use client";
+import { useFollowTop } from "@/lib/branch";
 import "./customers.css";
 import "./list.css";
 import { useCallback, useEffect, useState } from "react";
@@ -39,6 +40,7 @@ export default function Customers() {
   const [deleted, setDeleted] = useState(false); // 삭제 고객 탭
   const [active, setActive] = useState<Chip>(() => builtinChips()[0]);
   const [branch, setBranch] = useState<string | null>(me.branch || null);
+  useFollowTop(me, setBranch);
   const [mgr, setMgr] = useState("");
   const [mgrs, setMgrs] = useState<string[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
@@ -294,14 +296,6 @@ export default function Customers() {
           <Link href="/membership">회원권</Link>
         </nav>
         <div className="cl-r">
-          {me.tier === "owner" && (
-            <label className="cl-bsel"><Ico n="home" />
-              <select value={branch ?? ""} onChange={(e) => setBranch(e.target.value || null)} aria-label="지점">
-                <option value="">전 지점</option>
-                {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select><Ico n="chev" />
-            </label>
-          )}
           <button className="btn cl-pc" onClick={() => setColsOpen(true)}><Ico n="cols" />항목 편집</button>
           <button className="btn cl-pc" onClick={() => (canExcel ? excel() : setToast("엑셀 다운은 대표관리자가 허락한 직원만 돼요"))}><Ico n="down" />엑셀 다운</button>
           <button className="btn dk cl-pc" onClick={() => setNewCust(true)}><Ico n="plus" />신규 고객</button>

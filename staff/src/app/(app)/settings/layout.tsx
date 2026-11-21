@@ -1,4 +1,5 @@
 "use client";
+import { useFollowTop } from "@/lib/branch";
 import "./settings.css";
 import "./s3.css";
 import "./s3x.css";
@@ -15,6 +16,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const me = useMe();
   const path = usePathname();
   const [branch, setBranch] = useState(me.branch || BRANCHES[0]);
+  useFollowTop(me, setBranch);
   const groups = navFor(me.tier);
   const cur = path === "/settings" ? "/settings/basic" : path;
 
