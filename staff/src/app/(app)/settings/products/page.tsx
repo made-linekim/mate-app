@@ -4,7 +4,7 @@ import { sb } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { canSee, won } from "@/lib/sales";
 import { friendly } from "../../membership/ui";
-import { Head, Ico, IconBtn, Msg, Switch, periodLabel, useSetBranch } from "../ui";
+import { Head, Ico, IconBtn, Msg, periodLabel, useSetBranch, UseRadio } from "../ui";
 
 type It = { program_id: string; program?: string; count: number; unit_price?: number };
 type P = { id: string; branch: string; name: string; kind: string; valid_days: number | null; price: number | null; face_amount: number | null; share_ok: boolean; app_visible: boolean; on_sale: boolean; items: It[]; sort: number; sold?: number };
@@ -45,7 +45,7 @@ export default function ProductSettings() {
 
   return (
     <>
-      <Head title="회원권 상품"><Msg text={msg} />{!editable && <span className="st-ro">보기만 할 수 있어요</span>}</Head>
+      <Head title="회원권 상품" meta="판매 상품"><Msg text={msg} />{!editable && <span className="st-ro">보기만 할 수 있어요</span>}</Head>
       <div className="st-bar">
         <div className="seg">{KINDS.map((k) => <button key={k} className={kind === k ? "on" : ""} onClick={() => setKind(k)}>{k}권 <span className="num" style={{ marginLeft: 4, color: "var(--ink-4)" }}>{count(k)}</span></button>)}</div>
         {editable && <div className="st-right"><button className="btn p" onClick={() => setEdit({ ...NEW })}><Ico n="plus" />회원권 상품 추가</button></div>}
@@ -126,7 +126,7 @@ export default function ProductSettings() {
               <div className="field"><label>옵션</label>
                 <div style={{ display: "grid", gap: 10 }}>
                   {([["share_ok", "가족 나눠쓰기 가능"], ["app_visible", "고객앱에 보이기"], ["on_sale", "판매 중"]] as const).map(([k, l]) => (
-                    <div key={k} className="row"><Switch on={edit[k]} label={l} onChange={(v) => setEdit({ ...edit, [k]: v })} /><span>{l}</span></div>
+                    <div key={k} className="row"><UseRadio on={!!edit[k]} label={l} onChange={(v) => setEdit({ ...edit, [k]: v })} /><span>{l}</span></div>
                   ))}
                 </div>
               </div>

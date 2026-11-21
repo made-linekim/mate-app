@@ -160,7 +160,7 @@ function Glance({ branch }: { branch: string }) {
       {d.show_sales && (
         <div className={d.show_rank ? "ds-g2 v3-82" : ""}>
           <section className="card ds-card">
-            <h2>월 매출 <small>{branch} · 단위 만 원</small>{!d.show_rank && <span className="v3-r"><Lock>매출 권한</Lock></span>}</h2>
+            <h2>월 매출 <small>{branch} · 단위 만 원</small><span className="v3-r ds-leg2"><span><i className="k" />올해</span><span><i className="l" />작년</span><span><i className="p" />진행 중</span>{!d.show_rank && <Lock>매출 권한</Lock>}</span></h2>
             <MonthChart rows={d.monthly ?? []} />
           </section>
           {d.show_rank && (
@@ -204,7 +204,7 @@ function Glance({ branch }: { branch: string }) {
             <LineList empty="이탈 위험 고객이 없어요." rows={(d.risk_list ?? []).map((r) => ({
               key: r.key, href: r.action === "해피콜" ? "/work?tab=happycall" : chartHref(branch, r.key),
               lead: <span className="v3-av">{r.customer.slice(0, 1)}</span>, name: r.customer, sub: r.reason,
-              end: <span className="btn sm">{r.action}</span>,
+              end: <span className="btn sm ds-act">{r.action === "해피콜" ? ICO_CALL : ICO_RE}{r.action}</span>,
             }))} />
           </section>
         </div>
@@ -246,18 +246,22 @@ function LineList({ rows, empty }: { empty: string; rows: { key: string; href: s
   );
 }
 
+const ico = (d: string) => <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>;
+const ICO_CALL = ico("M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2");
+const ICO_RE = ico("M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4");
+
 function MonthChart({ rows }: { rows: { m: number; this: number; last: number }[] }) {
   const max = Math.max(1, ...rows.flatMap((r) => [r.this, r.last]));
+  const cur = new Date(Date.now() + 9 * 3600e3).getUTCMonth() + 1;
   const none = rows.every((r) => !r.this && !r.last);
   if (none) return <div className="ds-none">자료 없음 — 아직 결제 기록이 없어요. 결제를 입력하면 여기에 쌓여요.</div>;
   return (
     <>
-      <div className="ds-leg"><span><i className="k" />올해 (만 원)</span><span><i className="l" />작년</span></div>
       <div className="ds-chart">
         {rows.map((r) => (
           <div key={r.m} className="col" title={`${r.m}월 · 올해 ${man(r.this)} · 작년 ${man(r.last)}`}>
             <div className="bars">
-              <i className="k" style={{ height: `${Math.max(2, (100 * r.this) / max)}%` }} />
+              <i className={`k ${r.m === cur ? "p" : ""}`} style={{ height: `${Math.max(2, (100 * r.this) / max)}%` }} />
               <i className="l" style={{ height: `${Math.max(2, (100 * r.last) / max)}%` }} />
             </div>
             <span>{r.m}월</span>

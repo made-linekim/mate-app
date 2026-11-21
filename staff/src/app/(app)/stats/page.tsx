@@ -6,8 +6,11 @@ import { useMe } from "@/lib/me";
 import { canSee } from "@/lib/sales";
 import { CATS, REPORTS, type ReportDef, type Span } from "@/lib/stats";
 import { Info } from "./ui";
+import { Lock } from "@/lib/v3";
 
 const SPANS: (Span | "전체")[] = ["전체", "연간", "월간", "일간"];
+// 직원(일반 권한)은 본인 결제로 계산되는 리포트만 (049 SQL 과 같은 목록)
+const OWN_OK = ["sales_month", "sales_year", "sales_day", "sales_kind", "sales_method", "sales_staff", "sales_service", "receivable"];
 const DEF_FAV = ["sales_month", "cust_new", "rsv_status", "noshow_top"];
 
 export default function ReportList() {
@@ -35,13 +38,15 @@ export default function ReportList() {
     try { localStorage.setItem("stats:favs", JSON.stringify(next)); } catch {}
   }
 
-  const list = REPORTS.filter((r) => (money || !r.money) && (span === "전체" || r.span === span || r.span === "전체"));
+  const own = me.tier === "staff";
+  const list = REPORTS.filter((r) => (money || !r.money) && (!own || OWN_OK.includes(r.id)) && (span === "전체" || r.span === span || r.span === "전체"));
   const favList = favs.map((id) => list.find((r) => r.id === id)).filter(Boolean) as ReportDef[];
 
   return (
     <>
       <div className="st-head">
         <h2>리포트 <Info text="리포트를 누르면 표와 그래프로 봐요. 별을 누르면 맨 위 즐겨찾기에 모여요. 금액이 나오는 리포트는 매출 권한이 있는 직원에게만 보여요." /></h2>
+        {own && <Lock>직원 권한은 본인 기록만</Lock>}
         <div className="seg st-noprint" role="tablist" aria-label="기간 종류">
           {SPANS.map((s) => <button key={s} role="tab" aria-selected={span === s} className={span === s ? "on" : ""} onClick={() => setSpan(s)}>{s}</button>)}
         </div>
