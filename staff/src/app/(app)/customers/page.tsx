@@ -6,24 +6,14 @@ import { useRouter } from "next/navigation";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 
-type Row = {
-  key: string; branch: string; customer_no: string | null; name: string; phone: string | null; manager: string | null;
-  registered_on: string | null; last_visit_on: string | null; membership: string | null; has_membership: boolean | null;
-  min_remaining: number | null; ends_on: string | null; source: string | null; tags: string | null; total: number;
-};
-// 서버(customer_list)가 아는 조건만 칩으로 둬요
-type Filter = "all" | "member" | "expiring" | "dormant";
-const FILTERS: { k: Filter; l: string; help: string }[] = [
-  { k: "all", l: "전체", help: "모든 고객" },
-  { k: "member", l: "보유 고객", help: "회원권을 가진 고객" },
-  { k: "expiring", l: "만료 임박", help: "회원권 잔여 2회 이하이거나 7일 안에 끝나는 고객" },
-  { k: "dormant", l: "미방문 60일 이상", help: "60일 넘게 오지 않은 고객" },
-];
-// 내가 만든 칩: 이 기기에만 저장 (조건 = 서버 칩 하나 + 검색어)
-type Saved = { id: string; name: string; filter: Filter; q: string };
-const SAVE_KEY = "mera.cust.chips";
-const loadSaved = (): Saved[] => { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); } catch { return []; } };
-const storeSaved = (v: Saved[]) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(v)); } catch { /* 저장 못 해도 화면은 그대로 */ } };
+import { Cond, Chip, builtinChips, condText } from "./cond";
+import CondModal from "./CondModal";
+import { searchCustomers, type Row } from "./search";
+
+// 저장한 칩: 서버(cust_filters)에 저장해 지점이 같이 써요. 서버 표가 아직 없으면 이 기기에만 저장.
+const SAVE_KEY = "mera.cust.chips2";
+const loadLocal = (): Chip[] => { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); } catch { return []; } };
+const storeLocal = (v: Chip[]) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(v)); } catch { /* 저장 못 해도 화면은 그대로 */ } };
 
 const PAGE = 20;
 const kst = () => new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10);
@@ -46,8 +36,7 @@ export default function Customers() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
-  const [savedOn, setSavedOn] = useState<string | null>(null);
+  const [active, setActive] = useState<Chip>(() => builtinChips()[0]);
   const [branch, setBranch] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
@@ -58,53 +47,57 @@ export default function Customers() {
   const [more, setMore] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<string | null>(null);
-  const [cond, setCond] = useState(false);
-  const [saved, setSaved] = useState<Saved[]>([]);
+  const [cond, setCond] = useState<null | { chip?: Chip }>(null);
+  const [saved, setSaved] = useState<Chip[]>([]);
+  const [server, setServer] = useState(true); // cust_filters 표가 있는지
   const [editing, setEditing] = useState(false);
+  const builtins = builtinChips();
+  const chipBranch = branch ?? me.branch;
 
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("q");
     if (v) { setQ(v); setQuery(v); }
-    setSaved(loadSaved());
   }, []);
 
-  // 목록 (20명씩, 더보기는 이어 붙임)
-  const fetchPage = useCallback(async (offset: number) => {
-    const { data, error } = await sb.rpc("customer_list", { p_q: query || null, p_branch: branch, p_filter: filter, p_limit: PAGE, p_offset: offset });
-    setErr(error ? error.message : "");
-    const list = (data ?? []) as Row[];
-    setTotal(list[0]?.total ?? (offset === 0 ? 0 : total));
-    return list;
-  }, [query, branch, filter, total]);
+  // 저장한 칩 불러오기 (서버 → 없으면 이 기기)
+  const loadChips = useCallback(async () => {
+    const { data, error } = await sb.rpc("cust_filter_list", { p_branch: chipBranch || null });
+    if (error) { setServer(false); setSaved(loadLocal()); return; }
+    setServer(true);
+    setSaved(((data ?? []) as { id: string; name: string; conds: Cond[] }[]).map((d) => ({ id: d.id, name: d.name, conds: d.conds ?? [] })));
+  }, [chipBranch]);
+  useEffect(() => { loadChips(); }, [loadChips]);
 
+  const conds = active.conds;
+  const condKey = JSON.stringify(conds);
+  const showErr = (e: string) => setErr(e === "NEED_SQL" ? "이 조건은 서버 준비(039 SQL 실행) 후에 찾을 수 있어요." : e);
+
+  // 목록 (20명씩, 더보기는 이어 붙임)
   useEffect(() => {
     let on = true;
     setLoading(true); setPicked(new Set());
-    sb.rpc("customer_list", { p_q: query || null, p_branch: branch, p_filter: filter, p_limit: PAGE, p_offset: 0 }).then(({ data, error }) => {
+    searchCustomers(JSON.parse(condKey), query, branch, PAGE, 0).then(({ data, error }) => {
       if (!on) return;
-      setErr(error ? error.message : "");
-      const list = (data ?? []) as Row[];
-      setRows(list); setTotal(list[0]?.total ?? 0); setLoading(false);
+      showErr(error);
+      setRows(data); setTotal(data[0]?.total ?? 0); setLoading(false);
     });
     return () => { on = false; };
-  }, [query, filter, branch]);
+  }, [query, condKey, branch]);
 
   // 칩 숫자: 같은 함수로 1명만 받아 total 을 읽어요 (이름·번호는 쓰지 않음)
+  const chipsKey = JSON.stringify(saved.map((c) => [c.id, c.conds]));
   useEffect(() => {
     let on = true;
-    const qs: [string, Filter, string][] = [
-      ...FILTERS.map((f) => [f.k, f.k, query] as [string, Filter, string]),
-      ...saved.map((s) => [s.id, s.filter, s.q] as [string, Filter, string]),
-    ];
-    Promise.all(qs.map(([, f, qq]) => sb.rpc("customer_list", { p_q: qq || null, p_branch: branch, p_filter: f, p_limit: 1, p_offset: 0 })))
-      .then((res) => {
-        if (!on) return;
-        const c: Record<string, number | null> = {};
-        res.forEach((r, i) => { c[qs[i][0]] = r.error ? null : ((r.data ?? []) as Row[])[0]?.total ?? 0; });
-        setCounts(c);
-      });
+    const all = [...builtinChips(), ...saved];
+    Promise.all(all.map((c) => searchCustomers(c.conds, query, branch, 1, 0))).then((res) => {
+      if (!on) return;
+      const c: Record<string, number | null> = {};
+      res.forEach((r, i) => { c[all[i].id] = r.error ? null : r.data[0]?.total ?? 0; });
+      setCounts(c);
+    });
     return () => { on = false; };
-  }, [query, branch, saved]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, branch, chipsKey]);
 
   // 연락할 고객 = 해피콜 대상 수 (숫자만 셈)
   useEffect(() => {
@@ -114,18 +107,34 @@ export default function Customers() {
 
   const loadMore = async () => {
     setMore(true);
-    const list = await fetchPage(rows.length);
-    setRows((r) => [...r, ...list]); setMore(false);
+    const { data, error } = await searchCustomers(conds, query, branch, PAGE, rows.length);
+    showErr(error);
+    setRows((r) => [...r, ...data]); setMore(false);
   };
 
   const id = (r: Row) => `${r.branch}:${r.key}`;
   const toggle = (r: Row) => setPicked((p) => { const n = new Set(p); if (n.has(id(r))) n.delete(id(r)); else n.add(id(r)); return n; });
   const allOn = rows.length > 0 && rows.every((r) => picked.has(id(r)));
   const toggleAll = () => setPicked(allOn ? new Set() : new Set(rows.map(id)));
-  const pickFilter = (f: Filter) => { setFilter(f); setSavedOn(null); };
-  const pickSaved = (s: Saved) => { setFilter(s.filter); setQ(s.q); setQuery(s.q); setSavedOn(s.id); };
-  const removeSaved = (sid: string) => { const v = saved.filter((s) => s.id !== sid); setSaved(v); storeSaved(v); if (savedOn === sid) pickFilter("all"); };
-  const chipLabel = savedOn ? saved.find((s) => s.id === savedOn)?.name : FILTERS.find((f) => f.k === filter)?.l;
+
+  const saveChip = async (name: string, cs: Cond[], editId?: string): Promise<Chip | null> => {
+    if (server) {
+      const { data, error } = await sb.rpc("cust_filter_save", { p_branch: chipBranch || null, p_name: name, p_conds: cs, p_id: editId ?? null });
+      if (!error) { await loadChips(); return { id: String(data), name, conds: cs }; }
+      if (!/cust_filter|function|schema cache/i.test(error.message)) { alert(error.message); return null; }
+      setServer(false);
+    }
+    const c: Chip = { id: editId ?? `l${Date.now()}`, name, conds: cs };
+    const v = editId ? loadLocal().map((x) => (x.id === editId ? c : x)) : [...loadLocal(), c];
+    storeLocal(v); setSaved(v); return c;
+  };
+  const removeChip = async (c: Chip) => {
+    if (!confirm(`'${c.name}' 칩을 지울까요?`)) return;
+    if (server) await sb.rpc("cust_filter_del", { p_id: c.id }); else storeLocal(loadLocal().filter((x) => x.id !== c.id));
+    if (active.id === c.id) setActive(builtins[0]);
+    if (server) loadChips(); else setSaved(loadLocal());
+  };
+  const chipLabel = active.name;
   const branchLabel = branch ?? (me.tier === "owner" ? "전 지점" : me.branch);
   const showBranch = me.tier === "owner" && !branch;
   const n = (k: string) => (counts[k] == null ? "" : counts[k]!.toLocaleString());
@@ -149,26 +158,32 @@ export default function Customers() {
         <Link href="/happycall">연락할 고객 <span className="n">{contact ?? ""}</span></Link>
       </nav>
       <div className="page">
-        <div className="c-chips">
-          {FILTERS.map((f) => (
-            <button key={f.k} title={f.help} className={`chip ${!savedOn && filter === f.k ? "on" : ""}`} onClick={() => pickFilter(f.k)}>
-              {f.l} <b>{n(f.k)}</b>
-            </button>
+        <div className={`c-chips ${editing ? "editing" : ""}`}>
+          {[...builtins, ...saved].map((c) => (
+            <span key={c.id} className={`chip ${active.id === c.id ? "on" : ""}`}>
+              <button className="c-chip-b" onClick={() => setActive(c)} title={c.conds.map((x) => condText(x)).join(" · ") || "모든 고객"}>
+                {c.name} <b>{counts[c.id] == null ? "" : counts[c.id]!.toLocaleString()}</b>
+              </button>
+              {editing && !c.builtin && (
+                <>
+                  <button className="c-chip-i" aria-label={`${c.name} 고치기`} onClick={() => setCond({ chip: c })}>✎</button>
+                  <button className="c-chip-i del" aria-label={`${c.name} 지우기`} onClick={() => removeChip(c)}>🗑</button>
+                </>
+              )}
+            </span>
           ))}
-          {saved.map((s) => (
-            <button key={s.id} className={`chip ${savedOn === s.id ? "on" : ""}`} onClick={() => pickSaved(s)}>
-              {s.name} <b>{n(s.id)}</b>
-              {editing && <span className="x" role="button" aria-label="칩 지우기" onClick={(e) => { e.stopPropagation(); removeSaved(s.id); }}>×</span>}
-            </button>
-          ))}
-          <button className="chip add" onClick={() => setCond(true)}>+ 조건 추가</button>
-          {saved.length > 0 && <button className="edit" onClick={() => setEditing(!editing)}>{editing ? "완료" : "편집"}</button>}
+          {!builtins.some((b) => b.id === active.id) && !saved.some((c) => c.id === active.id) && (
+            <span className="chip on"><button className="c-chip-b" onClick={() => setCond({ chip: active })}>{active.name} <b>{total.toLocaleString()}</b></button>
+              <button className="c-chip-i" aria-label="조건 지우기" onClick={() => setActive(builtins[0])}>×</button></span>
+          )}
+          <button className="chip add" onClick={() => setCond({})}>+ 추가</button>
+          {saved.length > 0 && <button className={`edit ${editing ? "on" : ""}`} onClick={() => setEditing(!editing)}>{editing ? "✓ 편집완료" : "편집모드"}</button>}
         </div>
 
-        <form className="c-tools" onSubmit={(e) => { e.preventDefault(); setSavedOn(null); setQuery(q.trim()); }}>
+        <form className="c-tools" onSubmit={(e) => { e.preventDefault(); setQuery(q.trim()); }}>
           <input className="inp c-q" placeholder="이름 · 뒤 4자리 · 고객번호" value={q} onChange={(e) => setQ(e.target.value)} enterKeyHint="search" />
-          {query && <button type="button" className="btn t" onClick={() => { setQ(""); setQuery(""); setSavedOn(null); }}>지우기</button>}
-          <button type="button" className="btn" onClick={() => setCond(true)}><span className="c-pc-only">검색조건 만들기</span><span className="c-m-only">조건 만들기</span></button>
+          {query && <button type="button" className="btn t" onClick={() => { setQ(""); setQuery(""); }}>지우기</button>}
+          <button type="button" className="btn" onClick={() => setCond({})}><span className="c-pc-only">검색조건 만들기</span><span className="c-m-only">조건 만들기</span></button>
         </form>
 
         {picked.size > 0 && (
@@ -261,103 +276,18 @@ export default function Customers() {
       </div>
 
       {cond && (
-        <CondDrawer
-          branch={branch} initFilter={filter} initQ={query}
-          onClose={() => setCond(false)}
-          onApply={(f, qq) => { setFilter(f); setQ(qq); setQuery(qq); setSavedOn(null); setCond(false); }}
-          onSave={(s) => { const v = [...saved, s]; setSaved(v); storeSaved(v); setFilter(s.filter); setQ(s.q); setQuery(s.q); setSavedOn(s.id); setCond(false); }}
+        <CondModal
+          branch={branch ?? (me.tier === "owner" ? null : me.branch)} q={query} chip={cond.chip}
+          onClose={() => setCond(null)}
+          onApply={async (cs, name) => {
+            setCond(null); setEditing(false);
+            const editId = cond.chip && !cond.chip.builtin && saved.some((x) => x.id === cond.chip!.id) ? cond.chip.id : undefined;
+            if (name) { const c = await saveChip(name, cs, editId); if (c) setActive(c); }
+            else setActive({ id: "tmp", name: cs.map((x) => condText(x)).join(" · ") || "전체고객", conds: cs });
+          }}
         />
       )}
     </>
   );
 }
 
-// 검색조건 만들기 (P11 · M04). 서버가 아는 조건만 고를 수 있어요.
-type CondK = "member" | "expiring" | "dormant" | "q";
-const COND: Record<CondK, { k: string; v: string }> = {
-  member: { k: "회원권 보유고객", v: "사용 중인 회원권이 있는 고객" },
-  expiring: { k: "회차회원권 잔여수", v: "잔여 2회 이하 또는 7일 안 만료" },
-  dormant: { k: "미방문일", v: "60일 이상" },
-  q: { k: "이름 · 연락처", v: "" },
-};
-const MENU: { g: string; items: { l: string; k?: CondK }[] }[] = [
-  { g: "방문 · 예약", items: [{ l: "미방문일 (60일 이상)", k: "dormant" }, { l: "이용관리" }, { l: "예약일" }, { l: "처음방문일" }, { l: "최종방문일" }] },
-  { g: "회원권", items: [{ l: "회차회원권 잔여수", k: "expiring" }, { l: "기간회원권 보유고객", k: "member" }, { l: "기간회원권 만료일" }, { l: "기간회원권 판매일" }, { l: "회차회원권 판매일" }] },
-  { g: "고객", items: [{ l: "이름 · 연락처 · 고객번호", k: "q" }, { l: "생일" }, { l: "잔여포인트" }, { l: "담당자" }, { l: "고객등급" }] },
-];
-
-function CondDrawer({ branch, initFilter, initQ, onClose, onApply, onSave }: {
-  branch: string | null; initFilter: Filter; initQ: string;
-  onClose: () => void; onApply: (f: Filter, q: string) => void; onSave: (s: Saved) => void;
-}) {
-  const [conds, setConds] = useState<CondK[]>(() => [...(initFilter !== "all" ? [initFilter] : []), ...(initQ ? ["q" as const] : [])]);
-  const [qq, setQq] = useState(initQ);
-  const [name, setName] = useState("");
-  const [menu, setMenu] = useState(conds.length === 0);
-  const [cnt, setCnt] = useState<number | null>(null);
-  const f: Filter = (conds.find((c) => c !== "q") as Filter | undefined) ?? "all";
-  const qv = conds.includes("q") ? qq.trim() : "";
-
-  useEffect(() => {
-    let on = true;
-    const t = setTimeout(() => {
-      sb.rpc("customer_list", { p_q: qv || null, p_branch: branch, p_filter: f, p_limit: 1, p_offset: 0 })
-        .then(({ data, error }) => { if (on) setCnt(error ? null : ((data ?? []) as Row[])[0]?.total ?? 0); });
-    }, 250);
-    return () => { on = false; clearTimeout(t); };
-  }, [f, qv, branch]);
-
-  const hasFilter = conds.some((c) => c !== "q");
-  const add = (k: CondK) => { setConds((c) => [...c, k]); setMenu(false); };
-  const canAdd = (k?: CondK) => !!k && !conds.includes(k) && (k === "q" || !hasFilter);
-
-  return (
-    <>
-      <div className="dim" style={{ zIndex: 40 }} onClick={onClose} />
-      <div className="drawer lg c-cd" style={{ zIndex: 41 }} role="dialog" aria-label="검색조건 만들기">
-        <div className="hd">검색조건 만들기<button className="c-x" onClick={onClose} aria-label="닫기">×</button></div>
-        <div className="bd">
-          <label className="c-cd-row"><span>칩 이름</span>
-            <input className="inp" placeholder="예: 잔여 2회 이하" value={name} onChange={(e) => setName(e.target.value)} maxLength={20} />
-          </label>
-          <div className="c-cd-row"><span>조건 맞추기</span><span className="c-help" style={{ display: "block" }}>모두 만족 · 회원권·방문 조건은 한 번에 하나만 고를 수 있어요</span></div>
-          {conds.map((c) => (
-            <div key={c} className="c-cond">
-              <span className="k">{COND[c].k}</span>
-              {c === "q"
-                ? <input className="inp" style={{ flex: 1, minWidth: 160 }} placeholder="이름 · 뒤 4자리 · 고객번호" value={qq} onChange={(e) => setQq(e.target.value)} autoFocus />
-                : <span className="v">{COND[c].v}</span>}
-              <button className="c-x" aria-label="조건 빼기" onClick={() => setConds((x) => x.filter((y) => y !== c))}>×</button>
-            </div>
-          ))}
-          <button className="c-add" onClick={() => setMenu(!menu)}>+ 조건 추가 ▾</button>
-          {menu && (
-            <div className="c-addmenu">
-              {MENU.map((g) => (
-                <div key={g.g} className="col">
-                  <div className="g">{g.g}</div>
-                  {g.items.map((it) => (
-                    <button key={it.l} disabled={!canAdd(it.k)} onClick={() => it.k && add(it.k)}>
-                      {it.l}{!it.k && <em>준비 중</em>}
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="c-help" style={{ margin: 0 }}>‘준비 중’ 조건은 서버 검색이 생기면 열려요. 칩은 이 기기에만 저장돼요.</p>
-        </div>
-        <div className="ft">
-          <span className="cnt">조건에 맞는 고객<b className="num">{cnt == null ? "-" : `${cnt.toLocaleString()}명`}</b></span>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn" onClick={() => onApply(f, qv)}>
-              <span className="c-pc-only">조회만</span><span className="c-m-only">조회 {cnt == null ? "" : `${cnt.toLocaleString()}명`}</span>
-            </button>
-            <button className="btn p" disabled={!name.trim() || conds.length === 0}
-              onClick={() => onSave({ id: `s${Date.now()}`, name: name.trim(), filter: f, q: qv })}>칩으로 저장</button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
