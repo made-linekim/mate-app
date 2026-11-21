@@ -1,4 +1,5 @@
 "use client";
+import { createPortal } from "react-dom";
 // 결제 창 — 시안 01-07 (왼쪽: 관리 결제 · 회차권 판매 · 기간권 판매 · 제품 판매 / 오른쪽: 결제 수단 · 받을 금액)
 import { useEffect, useMemo, useState } from "react";
 import "./pay-v3.css";
@@ -218,7 +219,8 @@ export default function PayModal({ branch, rsv, programs, onClose, onDone, head 
   ];
   const goLabel = busy ? "저장 중…" : fail ? `다시 결제 · ${won(due)}원` : `결제 완료${sessions ? ` · ${sessions}` : ""}`;
 
-  return (
+  const host = typeof document !== "undefined" ? document.querySelector(".app") : null;
+  const ui = (
     <>
       <div className="dim" style={{ zIndex: 50 }} onClick={onClose} />
       <div className="pv" role="dialog" aria-label="결제하기">
@@ -349,4 +351,5 @@ export default function PayModal({ branch, rsv, programs, onClose, onDone, head 
       </div>
     </>
   );
+  return host ? createPortal(ui, host) : ui;
 }
