@@ -49,6 +49,11 @@ const dt = (iso: string) => { const k = new Date(Date.parse(iso) + 9 * 36e5).toI
 const addDays = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * 864e5).toISOString().slice(0, 10);
 const STATUS_BADGE: Record<string, string> = { 완료: "ok", 방문: "ok", 예약: "", 노쇼: "warn", 취소: "em" };
 
+function SellLink() {
+  const sp = useSearchParams();
+  return <Link href={`/membership?sell=1&b=${encodeURIComponent(sp.get("b") ?? "")}&k=${encodeURIComponent(sp.get("k") ?? "")}`}>회원권 판매</Link>;
+}
+
 function remainCount(m: Membership) {
   const t = m.items.reduce((s, i) => s + (i.total ?? 0) + (i.service ?? 0), 0);
   const u = m.items.reduce((s, i) => s + (i.used ?? 0), 0);
@@ -268,7 +273,7 @@ function Memberships({ c }: { c: Chart }) {
   };
   return (
     <>
-      <div className="c-msh"><h2>보유 회원권</h2><span>잔여 회차 · 남은 일수 따로</span><Link href="/membership">회원권 판매</Link></div>
+      <div className="c-msh"><h2>보유 회원권</h2><span>잔여 회차 · 남은 일수 따로</span><SellLink /></div>
       {list.length === 0 ? <div className="c-empty">사용 중인 회원권이 없어요</div> : (
         <>
           <table className="c-mst">
