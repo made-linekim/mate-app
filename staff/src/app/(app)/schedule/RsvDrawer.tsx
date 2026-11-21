@@ -287,7 +287,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
         <>
           <div className="h">
             <i className="ok" aria-hidden>✓</i>
-            <b className="num">결제 완료 · {new Date(paid.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).replace(/\. /g, ".").replace(/\.(?=\s|$)/, "")}</b>
+            <b className="num">결제 완료 · {(() => { const k = new Date(new Date(paid.created_at).getTime() + 9 * 3600e3).toISOString(); return `${Number(k.slice(5, 7))}.${k.slice(8, 10)} ${k.slice(11, 16)}`; })()}</b>
             <span className="sp" />
             {canPayCancel && !cxAsk && <button className="btn sm" onClick={() => setCxAsk(true)}>결제 취소</button>}
           </div>
@@ -353,11 +353,11 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
       {!docked && <div className="dim" style={{ zIndex: 20 }} onClick={onClose} />}
       <aside className={docked ? "rd rd-docked" : editing ? "drawer rd" : "drawer rd rd-modal"} style={docked ? undefined : { zIndex: 21 }} role="dialog" aria-label={editing ? "예약 수정" : "새 예약"}>
         <div className="hd">
-          <b className="rn-title">{editing ? "예약 수정" : "새 예약"}</b>
+          <b className="rn-title">{editing ? (draft.status === "완료" ? "예약 상세" : "예약 수정") : "새 예약"}</b>
           {editing && <span className="rd-sub num">{md(day)} ({DOW[dow(day)]}) {time}</span>}
           {editing && draft.status !== "예약" && (
             <span className={`badge ${draft.status === "완료" ? "ok" : draft.status === "노쇼" ? "warn" : "em"}`} style={{ marginLeft: 8 }}>
-              {draft.status === "완료" ? "결제 완료" : draft.status}
+              {draft.status}
             </span>
           )}
           <div style={{ flex: 1 }} />
