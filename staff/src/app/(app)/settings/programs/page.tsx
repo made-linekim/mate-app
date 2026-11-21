@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sb, BRANCHES } from "@/lib/sb";
 import { friendly } from "../../membership/ui";
-import { Drawer, Help, HelpD, Logs, Msg, NumInp, ORow, PageH, Sw, UseR, requestChange, useBranch, useLead, useSettings, val, won } from "../kit";
+import { Drawer, saveErr, Help, HelpD, Logs, Msg, NumInp, ORow, PageH, Sw, UseR, requestChange, useBranch, useLead, useSettings, val, won } from "../kit";
 import type { ProgFlags } from "../defaults";
 
 type G = { id: string; name: string; short: string; grp: string; color: string; minutes: number; unit_price: number; capacity: number; branches: string[]; sort: number; active: boolean };
@@ -21,6 +21,8 @@ export default function Programs() {
   const [edit, setEdit] = useState<G | null>(null);
   const [req, setReq] = useState<{ id: string; to: number } | null>(null);
   const [msg, setMsg] = useState("");
+  const drawerOpen = !!edit;
+  useEffect(() => { if (drawerOpen) setMsg(""); }, [drawerOpen]);
   const flags = val<ProgFlags>(data, "prog_flags", {});
   const fl = (id: string) => flags[id] ?? { disc: true, point: true };
 
@@ -40,7 +42,7 @@ export default function Programs() {
   async function save(g: G, close = true) {
     if (!g.name.trim()) return setMsg("이름을 적어 주세요");
     const { error } = await sb.rpc("program_save", { p: g });
-    if (error) return setMsg(friendly(error.message));
+    if (error) return setMsg(saveErr(error.message));
     if (close) setEdit(null);
     setMsg("저장했어요"); load();
   }
@@ -112,7 +114,7 @@ export default function Programs() {
       </div>
 
       {edit && (
-        <Drawer title={edit.id ? "관리 항목 고치기" : "관리 항목 추가"} onClose={() => setEdit(null)} onOk={() => save(edit)}>
+        <Drawer title={edit.id ? "관리 항목 고치기" : "관리 항목 추가"} err={msg} onClose={() => setEdit(null)} onOk={() => save(edit)}>
             <div className="st-form">
               <div className="field"><label>이름</label><input className="inp" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></div>
               <div className="two">

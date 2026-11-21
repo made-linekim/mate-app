@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Confirm, Drawer, Field, HelpD, Logs, Msg, PageH, useBranch, useLead, useSettings, val } from "../kit";
 import type { Terminal } from "../defaults";
 
@@ -15,6 +15,8 @@ export default function TerminalsPage() {
   const [ask, setAsk] = useState<number | null>(null);
   const [add, setAdd] = useState<Terminal | null>(null);
   const [msg, setMsg] = useState("");
+  const drawerOpen = !!add;
+  useEffect(() => { if (drawerOpen) setMsg(""); }, [drawerOpen]);
 
   async function put(l: Terminal[], note: string) { setMsg(await save("terminals", l, note) || "저장했어요"); }
   async function off() {
@@ -56,7 +58,7 @@ export default function TerminalsPage() {
       </div>
       {ask != null && <Confirm title="이 단말기를 해제할까요?" lines={[`${list[ask].place} · ${mask(list[ask].no)}`, "해제하면 이 단말기로는 결제할 수 없어요.", "해제한 시각은 기록에 남아요."]} ok="해제" onOk={off} onClose={() => setAsk(null)} />}
       {add && (
-        <Drawer title="단말기 추가" onClose={() => setAdd(null)} onOk={submit}>
+        <Drawer title="단말기 추가" err={msg} onClose={() => setAdd(null)} onOk={submit}>
           <Field label="위치"><input className="inp" value={add.place} maxLength={20} placeholder="예: 앞 데스크" onChange={(e) => setAdd({ ...add, place: e.target.value })} /></Field>
           <Field label="기기 번호"><input className="inp" value={add.no} maxLength={40} onChange={(e) => setAdd({ ...add, no: e.target.value })} /></Field>
           <HelpD>기기 번호는 목록에서 가려 보여요.</HelpD>

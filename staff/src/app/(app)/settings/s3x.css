@@ -36,6 +36,8 @@
 .s3 .toast{z-index:70}
 .s3 .mask{z-index:60}
 .s3 .modal{z-index:61}
+/* 서랍도 어두운 막(60) 위에 — 아래에 있으면 저장을 눌러도 막이 받아 서랍만 닫혀요 */
+.s3 .drawer{z-index:61}
 @media (max-width:767px){
  .s3 .st7{flex-direction:column;align-items:stretch}
  .s3 .ct{min-width:0;width:100%}
@@ -179,3 +181,6 @@
  .s3 .ct.pmm .tbl td.c[data-l]:before{content:attr(data-l);font-size:11px;color:var(--ink-4);margin-right:4px}
  .s3 .ct.pmm .tbl td:first-child{width:100%;font-weight:600}
 }
+/* 서랍 저장 실패 안내 — 저장 버튼 바로 위, 읽기 쉽게 크게 */
+.s3 .derr{margin:0;padding:10px 12px;border-radius:8px;background:var(--red-50);color:var(--red);font-size:var(--fs-14, 14px);line-height:20px;font-weight:600}
+.s3 .inp.bad{border-color:var(--red)}

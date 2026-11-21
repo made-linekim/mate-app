@@ -4,7 +4,7 @@ import { sb } from "@/lib/sb";
 import { has } from "@/lib/perm";
 import { friendly } from "../../membership/ui";
 import { periodLabel } from "../ui";
-import { Chip, Drawer, Help, HelpD, Logs, Msg, NumInp, ORow, PageH, UseR, requestChange, useBranch, useLead, useSettings, won } from "../kit";
+import { Chip, Drawer, saveErr, Help, HelpD, Logs, Msg, NumInp, ORow, PageH, UseR, requestChange, useBranch, useLead, useSettings, won } from "../kit";
 
 type It = { program_id: string; program?: string; count: number; unit_price?: number };
 type P = { id: string; branch: string; name: string; kind: string; valid_days: number | null; price: number | null; face_amount: number | null; share_ok: boolean; app_visible: boolean; on_sale: boolean; items: It[]; sort: number; sold?: number };
@@ -23,6 +23,8 @@ export default function ProductSettings() {
   const [edit, setEdit] = useState<P | null>(null);
   const [req, setReq] = useState<{ id: string; to: number } | null>(null);
   const [msg, setMsg] = useState("");
+  const [derr, setDerr] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const [a, b] = await Promise.all([sb.rpc("membership_products", { p_branch: branch, p_kind: null }), sb.rpc("program_admin_list")]);
@@ -32,11 +34,17 @@ export default function ProductSettings() {
   useEffect(() => { setMsg(""); load(); }, [load]);
 
   async function save() {
-    if (!edit?.name.trim()) return setMsg("이름을 적어 주세요");
-    const p = { ...edit, items: edit.items.filter((i) => i.program_id).map(({ program_id, count, unit_price }) => ({ program_id, count, unit_price: unit_price ?? 0 })) };
-    const { error } = await sb.rpc("product_save", { p });
-    if (error) return setMsg(friendly(error.message));
-    setEdit(null); setMsg("저장했어요"); load();
+    if (!edit || busy) return;
+    if (!edit.name.trim()) return setDerr("회원권명을 적어 주세요");
+    if (edit.kind === "회차" && !edit.items.some((i) => i.program_id && i.count > 0)) return setDerr("회차권은 포함 관리를 하나 이상 골라 주세요 (관리 더하기 → 관리와 회차)");
+    if (edit.kind === "금액" && !(edit.face_amount && edit.face_amount > 0)) return setDerr("충전 금액을 적어 주세요");
+    if (!(edit.valid_days && edit.valid_days > 0)) return setDerr("유효기간을 1일 이상으로 적어 주세요");
+    const p = { ...edit, name: edit.name.trim(), items: edit.kind === "금액" ? [] : edit.items.filter((i) => i.program_id && i.count > 0).map(({ program_id, count, unit_price }) => ({ program_id, count, unit_price: unit_price ?? 0 })) };
+    setBusy(true); setDerr("");
+    const { error } = await sb.rpc("product_save", { p }).then((r) => r, (e) => ({ error: { message: String(e?.message ?? e) } }));
+    setBusy(false);
+    if (error) { console.error("product_save", error); return setDerr(saveErr(error.message)); }
+    setEdit(null); setMsg(`${p.name} 저장했어요`); load();
   }
   async function sendReq() {
     const p = rows.find((x) => x.id === req?.id); if (!p || !req) return;
@@ -50,14 +58,14 @@ export default function ProductSettings() {
   const progNames = (p: P) => (p.kind === "금액" ? `충전 ${won(p.face_amount)}` : p.items.map((i) => i.program).filter(Boolean).join(", ") || "—");
   const counts = (p: P) => (p.kind === "회차" && p.items.length ? p.items.map((i) => `${i.count}회`).join(" · ") : "—");
   const cur = rows.find((x) => x.id === req?.id);
-  const open = (p: P) => setEdit({ ...p, items: p.items.map((i) => ({ ...i })) });
+  const open = (p: P) => { setDerr(""); setEdit({ ...p, items: p.items.map((i) => ({ ...i })) }); };
 
   return (
     <div className="ct">
       <PageH title="회원권 상품" sub={`${branch} · ${req ? "금액 변경 요청" : "회차권 · 기간권 · 금액권"}`}>
         <Msg text={msg} />
         {req ? <button className="btn p sm" onClick={sendReq}>변경 요청</button>
-          : editable && <button className="btn p sm" onClick={() => setEdit({ ...NEW })}>회원권 추가</button>}
+          : editable && <button className="btn p sm" onClick={() => { setDerr(""); setEdit({ ...NEW, items: [] }); }}>회원권 추가</button>}
       </PageH>
       {pick}
       <div className="body">
@@ -99,9 +107,9 @@ export default function ProductSettings() {
       </div>
 
       {edit && (
-        <Drawer title={edit.id ? "회원권 상품 고치기" : "회원권 추가"} onClose={() => setEdit(null)} onOk={save}>
+        <Drawer title={edit.id ? "회원권 상품 고치기" : "회원권 추가"} onClose={() => setEdit(null)} onOk={save} busy={busy} ok={busy ? "저장 중…" : "저장"} err={derr}>
             <div className="st-form">
-              <div className="field"><label>회원권명</label><input className="inp" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></div>
+              <div className="field"><label>회원권명</label><input className={`inp ${derr && !edit.name.trim() ? "bad" : ""}`} value={edit.name} placeholder="예: 바디라인 10회" onChange={(e) => { setDerr(""); setEdit({ ...edit, name: e.target.value }); }} /></div>
               <div className="field"><label>종류</label>
                 <div className="reasons">{KINDS.map((k) => <Chip key={k} on={edit.kind === k} onClick={() => setEdit({ ...edit, kind: k })}>{k}권</Chip>)}</div>
               </div>
