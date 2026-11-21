@@ -33,7 +33,8 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const editing = !!draft.id;
   const me = useMe();
   const canPay = me.tier !== "staff" || !!me.perms?.["schedule.pay"];
-  const canPayCancel = me.tier === "owner" || !!me.perms?.["schedule.pay_cancel"];
+  // 결제 취소는 대표관리자만 바로 해요. 나머지는 모두 요청 → 승인 (070)
+  const canPayCancel = me.tier === "owner";
   const [payOpen, setPayOpen] = useState(false);
   const [atOpen, setAtOpen] = useState(false);
   type Paid = { gross: number; discount: number; received: number; unpaid: number; pay: Record<string, number>; detail: { sessions?: string }; created_by: string; created_at: string; canceled_at: string | null; new_membership: string | null };
