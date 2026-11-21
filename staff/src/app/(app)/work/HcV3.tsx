@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sb } from "@/lib/sb";
 import type { HcRow } from "./log-drawer";
+import CareBoard, { type CareKind } from "./CareBoard";
 
 // 해피콜 — 메라 v3 확정 시안 (U-PC-TODO-1 · S2-CALL 해피콜카드 · S2-CALL-RESULT 통화결과 · U-MO-TODO-1 · MO 통화결과)
 // 목록: 이름 · 휴대전화 · 단계 · 왜 전화하는지 · 먼저 꺼낼 말 · 담당 · 전화하기/문자
@@ -77,6 +78,17 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
   const [q, setQ] = useState("");
   const [who, setWho] = useState("");
   const [grp, setGrp] = useState<Grp | null>(null);
+  // 식단 케어 · 운동 케어 (CareBoard) — 해피콜 종류 칩 옆에 항상 보여요
+  const [care, setCare] = useState<CareKind | null>(null);
+  const [careN, setCareN] = useState<Record<CareKind, number | null>>({ diet: null, ex: null });
+  useEffect(() => {
+    let on = true;
+    (["diet", "ex"] as const).forEach(async (k) => {
+      const { data, error } = await sb.rpc("care_board", { p_branch: branch, p_kind: k });
+      if (on && !error && Array.isArray(data)) setCareN((s) => ({ ...s, [k]: (data as { grp: string; done_today: boolean }[]).filter((r) => r.grp === "linked" && !r.done_today).length }));
+    });
+    return () => { on = false; };
+  }, [branch]);
   const [sel, setSel] = useState<string | null>(null);
   const [mode, setMode] = useState<"card" | "result">("card");
   const [sheet, setSheet] = useState<string | null>(null); // 모바일 통화 결과
@@ -154,6 +166,29 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
   const Stage = ({ r }: { r: Row }) => <span className={`bdg ${STAGE[r.kind].c}`}>{STAGE[r.kind].l}</span>;
   const Res = ({ r }: { r: Row }) => (r.done ? <span className="bdg">{resLabel(r)}</span> : null);
 
+  const CARE: { k: CareKind; l: string }[] = [{ k: "diet", l: "식단 케어" }, { k: "ex", l: "운동 케어" }];
+  const chips = (
+    <div className="hv3-grp" role="tablist" aria-label="해피콜 종류">
+      {!care && shownG.length === 0 && rows && <span className="hv3-none">전화 해피콜 대상 없음</span>}
+      {shownG.map((x) => (
+        <button key={x.k} role="tab" aria-selected={!care && g?.k === x.k} className={!care && g?.k === x.k ? "on" : ""} onClick={() => { setCare(null); setGrp(x.k); setSel(null); }}>
+          {x.l}<span className="num">{cnt(x.k)}</span>
+        </button>
+      ))}
+      {CARE.map((x) => (
+        <button key={x.k} role="tab" aria-selected={care === x.k} className={`care${care === x.k ? " on" : ""}`} onClick={() => { setCare(x.k); setSel(null); }}>
+          {x.l}<span className="num">{careN[x.k] ?? "-"}</span>
+        </button>
+      ))}
+    </div>
+  );
+  if (care) return (
+    <div className="hv3-carewrap">
+      <div className="hv3-carechips">{chips}</div>
+      <CareBoard key={care} kind={care} branch={branch} today={today} onCount={(n) => setCareN((s) => ({ ...s, [care]: n }))} />
+    </div>
+  );
+
   return (
     <div className={`hv3${cur ? " open" : ""}`}>
       <div className="hv3-left">
@@ -166,15 +201,7 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
           </select>
           <button className="btn3 r" onClick={() => router.push("/customers")}>연락할 고객</button>
         </div>
-        {shownG.length > 0 && (
-          <div className="hv3-grp" role="tablist" aria-label="해피콜 종류">
-            {shownG.map((x) => (
-              <button key={x.k} role="tab" aria-selected={g?.k === x.k} className={g?.k === x.k ? "on" : ""} onClick={() => { setGrp(x.k); setSel(null); }}>
-                {x.l}<span className="num">{cnt(x.k)}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        {chips}
         {g && <div className="hv3-say"><b>먼저 꺼낼 말</b><span>{g.say}</span></div>}
         <section className="card hv3-tbl">
           {list.length === 0 ? <p className="wv3-empty">{rows ? "오늘 연락할 고객이 없어요." : "불러오는 중이에요."}</p> : (
