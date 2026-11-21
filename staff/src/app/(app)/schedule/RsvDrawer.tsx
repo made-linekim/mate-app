@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { sb, type Staff } from "@/lib/sb";
 import Link from "next/link";
+import { useMe } from "@/lib/me";
+import PayModal from "./PayModal";
 import { type Program, type Rsv, SLOTS, toMin, usedAt, DAY_START, DAY_END, fmtDay, todayKST, DOW, dow } from "@/lib/schedule";
 
 // 새 예약은 day/start_time/program_id 만, 기존 예약은 Rsv 전체
@@ -26,6 +28,25 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   onClose: () => void; onSaved: () => void;
 }) {
   const editing = !!draft.id;
+  const me = useMe();
+  const canPay = me.tier !== "staff" || !!me.perms?.["schedule.pay"];
+  const canPayCancel = me.tier === "owner" || !!me.perms?.["schedule.pay_cancel"];
+  const [payOpen, setPayOpen] = useState(false);
+  type Paid = { gross: number; discount: number; received: number; unpaid: number; pay: Record<string, number>; detail: { sessions?: string }; created_by: string; created_at: string; canceled_at: string | null; new_membership: string | null };
+  const [paid, setPaid] = useState<Paid | null>(null);
+  const [cxReason, setCxReason] = useState("");
+  const [cxAsk, setCxAsk] = useState(false);
+  useEffect(() => {
+    if (!draft.id || draft.status !== "완료") return;
+    sb.rpc("pay_get", { p_id: draft.id }).then(({ data }) => setPaid((data as Paid) ?? null));
+  }, [draft.id, draft.status]);
+  const payCancel = async () => {
+    setBusy(true); setErr("");
+    const { error } = await sb.rpc("pay_cancel", { p_id: draft.id, p_reason: cxReason });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    onSaved();
+  };
   const locked = editing && draft.status !== "예약";
   const [day, setDay] = useState(draft.day);
   const [time, setTime] = useState(draft.start_time);
@@ -356,6 +377,31 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             </div>
           )}
 
+          {editing && draft.status === "완료" && (
+            <div className="rd-paid">
+              {paid ? (
+                <>
+                  <div className="t"><span>결제 내용</span><b className="num">{(paid.gross - paid.discount).toLocaleString()}원</b></div>
+                  {paid.detail?.sessions && <div className="r"><span>회원권 차감</span><span>{paid.detail.sessions}</span></div>}
+                  {paid.new_membership && <div className="r"><span>회원권 판매</span><span>{paid.new_membership}</span></div>}
+                  <div className="r num"><span>받은 금액</span><span>{[["card", "카드"], ["cash", "현금"], ["account", "계좌"], ["local", "지역화폐"]].filter(([k]) => (paid.pay?.[k] ?? 0) > 0).map(([k, l]) => `${l} ${paid.pay[k].toLocaleString()}`).join(" · ") || "0"}</span></div>
+                  {paid.discount > 0 && <div className="r num"><span>할인</span><span>-{paid.discount.toLocaleString()}</span></div>}
+                  {paid.unpaid > 0 && <div className="r num"><span>미수금</span><span style={{ color: "var(--red)" }}>{paid.unpaid.toLocaleString()}</span></div>}
+                  <div className="r"><span>결제</span><span>{paid.created_by} · {new Date(paid.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "short", timeStyle: "short" })}</span></div>
+                  {canPayCancel && !cxAsk && <div className="cx"><div style={{ flex: 1 }} /><button className="btn sm" onClick={() => setCxAsk(true)}>결제 취소</button></div>}
+                  {cxAsk && (
+                    <div className="cx">
+                      <input className="inp" placeholder="취소 사유 (선택)" value={cxReason} onChange={(e) => setCxReason(e.target.value)} />
+                      <button className="btn sm t" onClick={() => setCxAsk(false)}>돌아가기</button>
+                      <button className="btn sm danger" disabled={busy} onClick={payCancel}>결제 취소</button>
+                    </div>
+                  )}
+                  {cxAsk && <span className="rd-dim">차감한 회차를 되돌리고 매출을 지워요. 예약은 다시 &apos;예약&apos; 상태가 돼요.</span>}
+                </>
+              ) : <span className="rd-dim">결제 기록이 없어요 (이전 프로그램에서 완료된 예약)</span>}
+            </div>
+          )}
+
           {askReason && (
             <div className="card" style={{ marginTop: 16, background: "var(--bg-soft)" }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>{askReason === "취소" ? "예약을 취소할까요?" : "노쇼로 처리할까요?"}</div>
@@ -382,7 +428,9 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             <div style={{ flex: 1 }} />
             {repDone ? <button className="btn p" onClick={onSaved}>닫기</button>
               : !locked && <button className={editing ? "btn" : "btn p"} disabled={busy} onClick={() => save()}>{editing ? "저장" : rep ? `반복 예약 ${repN}건 등록` : "예약 등록"}</button>}
-            {editing && !work && <button className="btn p" disabled title="결제 화면은 준비 중이에요">결제</button>}
+            {editing && !work && draft.status === "예약" && cust && (
+              <button className="btn p" disabled={!canPay} title={canPay ? undefined : "결제 권한이 없어요"} onClick={() => setPayOpen(true)}>결제</button>
+            )}
           </div>
         )}
         {clash && prog && (
@@ -410,6 +458,10 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
           </>
         )}
       </aside>
+      {payOpen && draft.id && cust && (
+        <PayModal branch={branch} programs={programs} onClose={() => setPayOpen(false)} onDone={() => { setPayOpen(false); onSaved(); }}
+          rsv={{ id: draft.id, day: draft.day, start_time: draft.start_time, customer_key: cust.key, customer_name: cust.name, program_id: draft.program_id ?? null, staff_name: draft.staff_name ?? staffName ?? null }} />
+      )}
     </>
   );
 }
