@@ -1,6 +1,6 @@
 "use client";
 // 대시보드 (시안 1120 U-PC-DASH-1~4): 한눈에 · 목표 · 직원 성장 · 팀전
-// 데이터는 dash_* RPC (041_대시보드.sql). 매출 숫자는 서버가 권한 있는 사람에게만 보내요.
+// 데이터는 dash_* RPC (043_대시보드.sql). 매출 숫자는 서버가 권한 있는 사람에게만 보내요.
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -66,7 +66,7 @@ function useRpc<T>(fn: string, args: Record<string, unknown>) {
   const load = useCallback(() => {
     setErr("");
     sb.rpc(fn, JSON.parse(key)).then(({ data, error }) => {
-      if (error) { setErr(notReady(error.message) ? "대시보드 데이터 연결 전이에요. (DB 041 실행 후 보여요)" : error.message); setData(null); }
+      if (error) { setErr(notReady(error.message) ? "대시보드 데이터 연결 전이에요. (DB 043 실행 후 보여요)" : error.message); setData(null); }
       else setData(data as T);
     });
   }, [fn, key]);
