@@ -1,6 +1,6 @@
 // 광고 문자 보내기 (서버 전용). 권한·지점·밤시간·수신동의는 DB 함수 msg_sms_begin 이 검사해요.
 import { NextResponse } from "next/server";
-import { NHN, ready, sbAs, sendAdSms, errText } from "@/lib/server/nhn";
+import { NHN, ready, sbAs, sendAdSms, sendAdSmsAligo, smsVia, errText } from "@/lib/server/nhn";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   }
   const to = ((t.data ?? []) as { phone: string }[]).map((x) => x.phone);
   let r;
-  try { r = await sendAdSms({ sendNo: job.send_no, title: job.title, body: job.body, to }); }
+  try { r = await (smsVia() === "aligo" ? sendAdSmsAligo : sendAdSms)({ sendNo: job.send_no, title: job.title, body: job.body, to }); }
   catch (e) { r = { ok: 0, fail: to.length, requestId: null, error: (e as Error).message }; }
   await sb.rpc("msg_finish", { p_id: job.id, p_secret: NHN.serverSecret(), p_ok: r.ok, p_fail: r.fail, p_request_id: r.requestId, p_error: r.error });
   if (r.ok === 0) return NextResponse.json({ error: `보내지 못했어요. (${r.error ?? "업체 응답 없음"})` }, { status: 502 });

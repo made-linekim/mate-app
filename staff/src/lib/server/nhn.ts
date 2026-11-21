@@ -9,9 +9,13 @@ export const NHN = {
   atSecret: () => env("NHN_ALIMTALK_SECRETKEY"),
   atSender: () => env("NHN_ALIMTALK_SENDERKEY"),
   serverSecret: () => env("MSG_SERVER_SECRET"),
+  aligoKey: () => env("ALIGO_API_KEY"),
+  aligoUser: () => env("ALIGO_USER_ID"),
 };
+/** 광고 문자 업체: 알리고 키가 있으면 알리고(충전식, 장문 저렴), 없으면 NHN */
+export const smsVia = () => (NHN.aligoKey() && NHN.aligoUser() ? "aligo" : "nhn");
 export const ready = () => ({
-  sms: !!(NHN.smsApp() && NHN.smsSecret() && NHN.serverSecret()),
+  sms: !!(((NHN.aligoKey() && NHN.aligoUser()) || (NHN.smsApp() && NHN.smsSecret())) && NHN.serverSecret()),
   alimtalk: !!(NHN.atApp() && NHN.atSecret() && NHN.atSender() && NHN.serverSecret()),
 });
 
@@ -55,6 +59,24 @@ export async function sendAdSms(p: { sendNo: string; title: string; body: string
     if (!j?.header?.isSuccessful) { fail += part.length; error = `${j?.header?.resultCode ?? ""} ${j?.header?.resultMessage ?? "발송 실패"}`.trim(); continue; }
     requestId ??= j.body?.data?.requestId ?? null;
     for (const x of j.body?.data?.sendResultList ?? []) (x.resultCode === 0 ? ok++ : fail++);
+  }
+  return { ok, fail, requestId, error };
+}
+
+/** 알리고 광고 문자: 같은 내용 1,000명씩. 90바이트 넘으면 LMS. */
+export async function sendAdSmsAligo(p: { sendNo: string; title: string; body: string; to: string[] }): Promise<Result> {
+  const long = euckrBytes(p.body) > 90;
+  let ok = 0, fail = 0, requestId: string | null = null, error: string | null = null;
+  for (const part of chunk(p.to, 1000)) {
+    const f = new URLSearchParams({
+      key: NHN.aligoKey(), user_id: NHN.aligoUser(), sender: p.sendNo, receiver: part.join(","),
+      msg: p.body, msg_type: long ? "LMS" : "SMS", ...(long ? { title: p.title } : {}),
+    });
+    const r = await fetch("https://apis.aligo.in/send/", { method: "POST", body: f, cache: "no-store" });
+    const j = await r.json().catch(() => ({ result_code: -999, message: `HTTP ${r.status}` }));
+    if (Number(j.result_code) !== 1) { fail += part.length; error = `${j.result_code} ${j.message ?? "발송 실패"}`; continue; }
+    ok += Number(j.success_cnt ?? 0); fail += Number(j.error_cnt ?? 0);
+    requestId ??= j.msg_id != null ? String(j.msg_id) : null;
   }
   return { ok, fail, requestId, error };
 }
