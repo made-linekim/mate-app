@@ -6,7 +6,7 @@ import { sb, TIER_LABEL, type Staff } from "@/lib/sb";
 import { MeCtx } from "@/lib/me";
 import { SET_NAV, SetIcon } from "./settings/ui";
 
-// 메뉴: 실제로 쓰는 것만 보여요. 통계·마케팅은 만들면 여기에 넣어요.
+// 메뉴: 실제로 쓰는 것만 보여요. 통계는 만들면 여기에 넣어요.
 type Item = { href?: string; label: string; icon: keyof typeof ICONS };
 const NAV: { group: string; items: Item[] }[] = [
   { group: "업무", items: [
@@ -17,6 +17,7 @@ const NAV: { group: string; items: Item[] }[] = [
   { group: "성과", items: [
     { href: "/dashboard", label: "대시보드", icon: "grid" },
     { href: "/sales", label: "매출", icon: "won" },
+    { href: "/marketing", label: "마케팅", icon: "mega" },
   ] },
   { group: "관리", items: [
     { href: "/settings", label: "설정", icon: "gear" },
@@ -62,7 +63,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     let raf = 0;
     const label = () => {
       raf = 0;
-      document.querySelectorAll(".sl-scroll table, .mb-scroll table").forEach((t) => {
+      document.querySelectorAll(".sl-scroll table, .mb-scroll table, .mk-card table").forEach((t) => {
         const hs = [...t.querySelectorAll("thead th")].map((th) => th.textContent?.trim() ?? "");
         t.querySelectorAll("tbody tr, tfoot tr").forEach((tr) => {
           let i = 0;
@@ -151,6 +152,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
               <Link href="/dashboard" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.grid}</svg><span>대시보드<small>오늘 현황 · 목표 · 직원 성장 · 팀전</small></span></Link>
               <Link href="/membership" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.card}</svg><span>회원권<small>고객이 가진 회원권 · 잔여</small></span></Link>
+              <Link href="/marketing" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.mega}</svg><span>마케팅<small>광고 · 채널 · 제안 · 문자 · 제휴</small></span></Link>
               <div className="mm-g">설정{me.tier === "staff" ? " (보기만)" : ""}</div>
               {SET_NAV.flatMap((g) => g.items).map((i) => (
                 <Link key={i.href} href={i.href} className="mm-row"><SetIcon n={i.icon} s={22} /><span>{i.label}<small>{i.help}</small></span></Link>
