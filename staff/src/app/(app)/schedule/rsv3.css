@@ -222,3 +222,61 @@
 .app .rm-memo .bd{flex:1;overflow:auto;padding:12px 16px 32px}
 .app .rm-memo .wm-c{background:#fff;border:1px solid var(--line);border-radius:12px}
 .app .rm-memo .mempty{background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px 16px;text-align:center;font-size:13px;color:var(--ink-4)}
+
+/* 현황보드 위젯 (092 board_widget) — 굵고 진하게, 가로 스크롤 없음 */
+.app .rv3 .wb .wt b{font-size:15px;font-weight:800;color:var(--ink)}
+.app .rv3 .wb .wt .cap,.app .rv3 .wb .wt a.cap{font-weight:600;color:var(--ink-3);text-decoration:none}
+.app .rv3 .wseg{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}
+.app .rv3 .wseg>button{height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--line-strong);background:#fff;font-size:12px;font-weight:700;color:var(--ink-3);cursor:pointer;white-space:nowrap}
+.app .rv3 .wseg>button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.app .rv3 .wgrid{display:grid;gap:2px;text-align:center;background:var(--bg-soft);border-radius:8px;padding:8px 2px}
+.app .rv3 .wgrid .v{font-size:17px;line-height:24px;font-weight:800;color:var(--ink)}
+.app .rv3 .wgrid .l{font-size:11px;line-height:14px;font-weight:600;color:var(--ink-3);word-break:keep-all}
+.app .rv3 .wb .wl{font-weight:600;color:var(--ink-2);min-width:0}
+.app .rv3 .wb .wl b{font-weight:800;color:var(--ink);margin-right:1px}
+.app .rv3 .wb .wl .dot{width:8px;height:8px;border-radius:2px;margin-right:6px;flex:none}
+.app .rv3 .wsum{margin-top:8px;border-top:1px dashed var(--line);padding-top:4px}
+.app .rv3 .wsum .wl{height:28px}
+.app .rv3 .wtot{display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-top:8px;border-top:1px solid var(--line);font-size:13px;font-weight:700;color:var(--ink-2)}
+.app .rv3 .wtot b{font-size:18px;font-weight:800;color:var(--ink)}
+.app .rv3 .wchart svg{display:block;width:100%;height:auto}
+.app .rv3 .wleg{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;font-size:11px;font-weight:600;color:var(--ink-3)}
+.app .rv3 .wleg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.app .rv3 .wnone{padding:12px 0;text-align:center;font-size:13px;font-weight:600;color:var(--ink-4)}
+.app .rv3 .wstack{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--bg-track);margin-bottom:6px;gap:1px}
+.app .rv3 .wrank{display:flex;flex-direction:column;gap:4px}
+.app .rv3 .wr{position:relative;display:flex;align-items:center;gap:6px;height:28px;padding:0 6px;font-size:13px;font-weight:600;color:var(--ink-2);min-width:0}
+.app .rv3 .wr>i{position:absolute;left:0;top:0;bottom:0;background:var(--red-50);border-radius:6px;z-index:0}
+.app .rv3 .wr>span{position:relative;z-index:1}
+.app .rv3 .wr .no{width:16px;font-weight:800;color:var(--ink)}
+.app .rv3 .wr .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .rv3 .wr .vv{font-weight:800;color:var(--ink)}
+.app .rv3 .wgrp{margin-bottom:8px}
+.app .rv3 .wgrp .gh{display:flex;align-items:center;justify-content:space-between;height:28px;font-size:13px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line)}
+.app .rv3 .wrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:6px;align-items:center;min-height:28px;font-size:12px;font-weight:600;color:var(--ink-2)}
+.app .rv3 .wrow .t{font-weight:800;color:var(--ink)}
+.app .rv3 .wrow .c{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.app .rv3 .wrow .p{max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-3);text-align:right}
+.app .rv3 .wbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.app .rv3 .wedit{outline:2px dashed var(--red-200);outline-offset:2px;border-radius:12px}
+.app .rv3 .wbar{display:flex;align-items:center;gap:4px;padding:6px 8px;font-size:12px}
+.app .rv3 .wbar b{flex:1;min-width:0;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .rv3 .wbar button{height:26px;min-width:28px;padding:0 8px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;font-weight:700;font-size:12px;cursor:pointer}
+.app .rv3 .wbar button:disabled{opacity:.4;cursor:default}
+.app .rv3 .wbar .del{color:var(--red);border-color:var(--red-200)}
+.app .wadd-dim{position:fixed;inset:0;background:var(--dim);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px}
+.app .wadd{width:min(440px,100%);max-height:min(640px,calc(100vh - 32px));background:#fff;border-radius:16px;box-shadow:var(--shadow-overlay);display:flex;flex-direction:column;overflow:hidden}
+.app .wadd .hd{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 8px}
+.app .wadd .hd b{font-size:17px;font-weight:800}
+.app .wadd .wcats{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px;border-bottom:1px solid var(--line)}
+.app .wadd .wcats button{height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--line-strong);background:#fff;font-size:13px;font-weight:700;color:var(--ink-3);cursor:pointer}
+.app .wadd .wcats button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.app .wadd .bd{overflow-y:auto;overflow-x:hidden;padding:12px 16px 16px;display:flex;flex-direction:column;gap:8px}
+.app .wadd .wi{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font:inherit}
+.app .wadd .wi.used{border-color:var(--grn);background:var(--grn-50)}
+.app .wadd .wi .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.app .wadd .wi .tx b{font-size:14px;font-weight:800;color:var(--ink)}
+.app .wadd .wi .tx>.cap{word-break:keep-all}
+.app .wadd .bdg{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:6px;font-size:12px;font-weight:700;background:#F4F4F6;color:var(--ink-3);white-space:nowrap}
+.app .wadd .bdg.grn{background:var(--grn);color:#fff}
+.app .wadd .cap{font-size:12px;line-height:16px;color:var(--ink-4)}
