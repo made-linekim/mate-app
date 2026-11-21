@@ -302,3 +302,51 @@ select.wv3-bsel{appearance:none;-webkit-appearance:none;cursor:pointer}
 .app .ctag.grn{background:#E6F4EE;color:#107752;border-color:#BFE3D2}
 .app .ctag.amb i,.app .ctag.red i,.app .ctag.grn i{color:inherit;opacity:.75}
 .app .hv3-panel .box p.hist{display:flex;align-items:center;gap:8px;font-size:13px;color:#292929}.app .hv3-panel .box p.hist+p.hist{margin-top:6px}
+/* 해피콜 업무 카드: 지점 · 대상 · 시도 · 완료율 · 1차~4차 · 완료 · 거절 · 제외 */
+.app .hv3-body{flex:1;display:grid;grid-template-columns:248px minmax(0,1fr);gap:16px;padding-left:32px;align-items:start}
+.app .hv3.open .hv3-body{grid-template-columns:minmax(0,1fr);padding-left:0}
+.app .hv3-main{min-width:0;display:flex;flex-direction:column;min-height:100%}
+.app .hv3-body .hv3-grp{padding-left:0}
+.app .hv3-body .hv3-say{margin-left:0}
+.app .hv3-body .hv3-tbl{margin-left:0}
+.app .hv3.open .hv3-body .hv3-grp{padding-left:32px}
+.app .hv3.open .hv3-body .hv3-say,.app .hv3.open .hv3-body .hv3-tbl{margin-left:32px}
+.app .hv3-fun{padding:16px!important;display:flex;flex-direction:column;gap:10px;position:sticky;top:16px}
+.app .hv3-fun .fh{display:flex;align-items:center;gap:6px;min-width:0}
+.app .hv3-fun .fh>i{width:24px;height:24px;border-radius:999px;background:#FFF1DC;color:#965A00;font-style:normal;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+.app .hv3-fun .fh b{font-size:15px;font-weight:700;color:#292929;white-space:nowrap}
+.app .hv3-fun .fh span{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .hv3-fun .fh em{margin-left:auto;font-style:normal;font-size:15px;font-weight:700;color:#292929;flex:none}
+.app .hv3-fun .fs{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-3)}
+.app .hv3-fun .fs b{color:#292929;font-weight:700;margin-left:2px}
+.app .hv3-fun .bar{height:6px;border-radius:999px;background:#F0F0F3;overflow:hidden}
+.app .hv3-fun .bar i{display:block;height:100%;background:#107752;border-radius:999px}
+.app .hv3-fun .fl{display:flex;flex-direction:column;border-top:1px solid var(--line);margin-top:2px}
+.app .hv3-fun .fl button{display:flex;align-items:center;gap:8px;height:48px;border:0;border-bottom:1px solid var(--line);background:transparent;padding:0 2px;cursor:pointer;font-family:inherit;color:#292929}
+.app .hv3-fun .fl button:last-child{border-bottom:0}
+.app .hv3-fun .fl button:hover{background:#F8F8FA}
+.app .hv3-fun .fl button.on{background:var(--red-50);box-shadow:inset 3px 0 0 var(--red)}
+.app .hv3-fun .fl b{margin-left:auto;font-size:16px;font-weight:700}
+.app .hv3-fun .fl .i{width:14px;height:14px;color:var(--ink-4)}
+.app .hv3-fun .st{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:700;background:#F4F4F6;color:var(--ink-3)}
+.app .hv3-fun .st.y{background:#FFF1DC;color:#965A00}
+.app .hv3-fun .st.g{background:#E6F4EE;color:#107752}
+.app .hv3-fun .st.k{background:#292929;color:#fff}
+.app .hv3-fun .clr{border:0;background:transparent;font-size:12px;font-weight:700;color:var(--red);cursor:pointer;padding:4px 0;font-family:inherit;align-self:flex-start}
+@media (max-width:1279px){
+  .app .hv3-body{padding-left:16px;grid-template-columns:220px minmax(0,1fr)}
+  .app .hv3.open .hv3-body .hv3-grp{padding-left:16px}
+  .app .hv3.open .hv3-body .hv3-say,.app .hv3.open .hv3-body .hv3-tbl{margin-left:16px}
+}
+@media (max-width:767px){
+  .app .hv3-body{display:block;padding:0}
+  .app .hv3-body .hv3-grp{padding-left:16px}
+  .app .hv3-body .hv3-say{margin-left:16px}
+  .app .hv3-fun{position:static;margin:0 16px 12px;gap:8px}
+  .app .hv3-fun .fl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;border:0}
+  .app .hv3-fun .fl button{flex-direction:column;justify-content:center;gap:2px;height:56px;border:1px solid var(--line);border-radius:8px;padding:0}
+  .app .hv3-fun .fl button:last-child{border-bottom:1px solid var(--line)}
+  .app .hv3-fun .fl button.on{box-shadow:inset 0 0 0 1px var(--red);border-color:var(--red)}
+  .app .hv3-fun .fl b{margin:0;font-size:15px}
+  .app .hv3-fun .fl .i{display:none}
+}
