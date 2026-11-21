@@ -126,7 +126,7 @@ function Work() {
       <div className="wv3-page">
         {err && <p className="wv3-err">{err}</p>}
         {tab === "today" && <TodayCare branch={branch} today={day} onTotal={setTodayN} />}
-        {tab === "happycall" && <HcV3 key={sp.get("care") ?? ""} branch={branch} today={day} onCount={onCount} initCare={sp.get("care") === "diet" || sp.get("care") === "ex" ? (sp.get("care") as "diet" | "ex") : null} />}
+        {tab === "happycall" && <HcV3 key={`${sp.get("care") ?? ""}|${sp.get("grp") ?? ""}`} branch={branch} today={day} onCount={onCount} initGrp={sp.get("grp")} initCare={sp.get("care") === "diet" || sp.get("care") === "ex" ? (sp.get("care") as "diet" | "ex") : null} />}
         {tab === "overdue" && (
           <Overdue branchSel={<BranchSel tier={me.tier} branch={branch} set={setBranch} />} items={overdue} hc={hcOverMine} loaded={!!data} lead={lead} staff={staff} day={day}
             onHc={(row) => setOpen({ row, preset: "" })} reload={load} say={say} />

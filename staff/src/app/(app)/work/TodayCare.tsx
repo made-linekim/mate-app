@@ -9,15 +9,21 @@ import { useMe } from "@/lib/me";
 // 서버: happycall_board(038) · care_board(080) · work_exlog_today(094) · work_req_list(055) · mkt_partners(045)
 // 다이어트 미션은 데이터(미션·챌린지 기록)가 아직 없어서 숨겨요.
 
-type Item = { key: string; name: string; why: string; meta?: string; href?: string };
-type Sec = { k: string; title: string; hint: string; items: Item[] | null; more: string; moreL: string; tone?: "red" };
-type Hc = { kind: string; customer_key: string; branch: string; name: string | null; why_a: string; why_n: string; why_b: string; assignee: string | null; done: boolean; result: string | null };
+type Item = { key: string; name: string; why: string; meta?: string; href?: string; kind?: string; at?: string };
+type Sec = { k: string; title: string; hint: string; items: Item[] | null; more: string; moreL: string; tone?: "red"; top?: number; kinds?: { l: string; n: number; href: string }[] };
+type Hc = { kind: string; customer_key: string; branch: string; name: string | null; why_a: string; why_n: string; why_b: string; assignee: string | null; done: boolean; result: string | null; ended_on?: string | null; last_visit_on?: string | null };
 type Care = { customer_key: string; branch: string; name: string | null; grp: string; done_today: boolean; days7: number; last_day: string | null; manager: string | null };
 type Ex = { customer_key: string; name: string | null; start_time: string; program: string | null; staff_name: string | null; status: string };
 type Req = { id: string; title: string; assignee: string | null; requester: string; status: string; due_day: string | null };
 type Partner = { id: string; name: string; industry: string | null; owner: string | null; last: string | null };
 
-const GRP: Record<string, string> = { norsv: "다음 예약 없음", todo: "다음 예약 없음", consult: "상담 후 미등록", new: "신규 등록", low: "회원권 곧 끝남" };
+const GRP: Record<string, string> = { norsv: "다음 예약 없음", todo: "다음 예약 없음", ended: "회원권 종료 후 미등록", consult: "상담 후 미등록", new: "신규 등록", low: "만료 임박" };
+// 해피콜 급한 순: 만료 임박 → 회원권 종료 후 미등록 → 다음 예약 없음 → 상담 후 미등록 → 신규 → 예전 할 일
+const HC_ORD = ["low", "ended", "norsv", "todo", "consult", "new"];
+const HC_K: { k: string[]; l: string; q: string }[] = [
+  { k: ["norsv", "todo"], l: "다음 예약 없음", q: "risk" }, { k: ["ended"], l: "회원권 종료 후 미등록", q: "ended" },
+  { k: ["consult"], l: "상담 후 미등록", q: "consult" }, { k: ["new"], l: "신규 등록", q: "new" }, { k: ["low"], l: "만료 임박", q: "low" },
+];
 const md = (d: string) => `${Number(d.slice(5, 7))}.${d.slice(8, 10)}`;
 const chart = (b: string, k: string, tab: string) => `/customers/chart?b=${encodeURIComponent(b)}&k=${encodeURIComponent(k)}&tab=${tab}`;
 
@@ -39,10 +45,12 @@ export default function TodayCare({ branch, today, onTotal }: { branch: string; 
     sb.rpc("happycall_board", { p_branch: branch }).then(({ data, error }) => {
       if (!on) return;
       if (error || !Array.isArray(data)) return hide("hc");
-      setHc((data as Hc[]).filter((r) => !r.done).map((r) => ({
+      const cut30 = new Date(Date.parse(today) - 30 * 864e5).toISOString().slice(0, 10); // 회원권 종료 후 미등록은 최근 30일만 (해피콜 · 연락할 고객과 같은 기준)
+      setHc((data as Hc[]).filter((r) => !r.done && (r.kind !== "ended" || (r.ended_on ?? "") >= cut30)).map((r) => ({
         key: `${r.branch}|${r.customer_key}`, name: r.name ?? "-", why: GRP[r.kind] ?? "해피콜",
         meta: `${r.why_a}${r.why_n}${r.why_b}`.trim() + (r.assignee ? ` · ${r.assignee}` : ""), href: chart(r.branch, r.customer_key, "call"),
-      })));
+        kind: r.kind, at: r.ended_on ?? r.last_visit_on ?? "",
+      })).sort((a, b) => HC_ORD.indexOf(a.kind) - HC_ORD.indexOf(b.kind) || b.at.localeCompare(a.at)));
     });
     (["diet", "ex"] as const).forEach((k) => {
       sb.rpc("care_board", { p_branch: branch, p_kind: k }).then(({ data, error }) => {
@@ -85,7 +93,8 @@ export default function TodayCare({ branch, today, onTotal }: { branch: string; 
   }, [branch, today, lead, me.name]);
 
   const secs: Sec[] = [
-    { k: "hc", title: "해피콜", hint: "전화로 안부 · 재방문 안내", items: hc, more: "/work?tab=happycall", moreL: "해피콜 열기", tone: "red" },
+    { k: "hc", title: "해피콜", hint: "급한 순 5명", items: hc, more: "/work?tab=happycall", moreL: "해피콜 열기", tone: "red", top: 5,
+      kinds: hc ? HC_K.map((x) => ({ l: x.l, n: hc.filter((it) => x.k.includes(it.kind ?? "")).length, href: `/work?tab=happycall&grp=${x.q}` })).filter((x) => x.n > 0) : undefined },
     { k: "diet", title: "식단 케어", hint: "올린 식단에 오늘 한마디", items: diet, more: "/work?tab=happycall&care=diet", moreL: "식단 케어 열기" },
     { k: "ex", title: "운동 케어", hint: "걸음 · 운동 기록에 오늘 한마디", items: ex, more: "/work?tab=happycall&care=ex", moreL: "운동 케어 열기" },
     { k: "log", title: "운동일지 쓸 고객", hint: "오늘 수업 회원 중 아직 안 쓴 고객", items: log, more: "/schedule", moreL: "예약표 열기" },
@@ -119,17 +128,22 @@ export default function TodayCare({ branch, today, onTotal }: { branch: string; 
               <Link className="go" href={s.more}>{s.moreL} ›</Link></div>
             {s.items === null ? <p className="tc-empty">불러오는 중이에요.</p>
               : s.items.length === 0 ? <p className="tc-empty">오늘은 없어요.</p>
-              : (
+              : (<>
+                {s.kinds && s.kinds.length > 0 && (
+                  <div className="tc-kinds">
+                    {s.kinds.map((x) => <Link key={x.l} href={x.href}>{x.l}<b className="num">{x.n}</b></Link>)}
+                  </div>
+                )}
                 <ul>
-                  {s.items.slice(0, 6).map((it) => (
+                  {s.items.slice(0, s.top ?? 6).map((it) => (
                     <li key={it.key}>
                       {it.href ? <Link href={it.href}><b>{it.name}</b><span className="w">{it.why}</span>{it.meta && <span className="m">{it.meta}</span>}</Link>
                         : <div><b>{it.name}</b><span className="w">{it.why}</span>{it.meta && <span className="m">{it.meta}</span>}</div>}
                     </li>
                   ))}
-                  {s.items.length > 6 && <li className="more"><Link href={s.more}>나머지 {s.items.length - 6}{s.k === "req" || s.k === "ptn" ? "건" : "명"} 더 보기 ›</Link></li>}
+                  {s.items.length > (s.top ?? 6) && <li className="more"><Link href={s.more}>나머지 {s.items.length - (s.top ?? 6)}{s.k === "req" || s.k === "ptn" ? "건" : "명"} 더 보기 ›</Link></li>}
                 </ul>
-              )}
+              </>)}
           </section>
         ))}
       </div>

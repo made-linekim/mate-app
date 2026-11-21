@@ -158,10 +158,17 @@ export default function Customers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, branch, chipsKey, tick]);
 
-  // 연락할 고객 = 해피콜 대상 수 (숫자만 셈)
+  // 연락할 고객 = 해피콜에서 아직 연락 안 한 고객 수. 해피콜 · 오늘 케어와 같은 기준 (회원권 종료 후 미등록은 최근 30일만)
   useEffect(() => {
-    sb.rpc("happycall_list", { p_branch: branch ?? (me.tier === "owner" ? null : me.branch) })
-      .then(({ data, error }) => setContact(error ? null : (data ?? []).length));
+    const b = branch ?? (me.tier === "owner" ? null : me.branch);
+    const cut30 = new Date(Date.now() + 9 * 36e5 - 30 * 864e5).toISOString().slice(0, 10);
+    sb.rpc("happycall_board", { p_branch: b }).then(({ data, error }) => {
+      if (!error && Array.isArray(data)) {
+        const xs = data as { kind: string; done: boolean; ended_on?: string | null }[];
+        return setContact(xs.filter((r) => !r.done && (r.kind !== "ended" || (r.ended_on ?? "") >= cut30)).length);
+      }
+      sb.rpc("happycall_list", { p_branch: b }).then((r) => setContact(r.error ? null : (r.data ?? []).length));
+    });
   }, [branch, me.tier, me.branch]);
 
   const id = (r: Row) => `${r.branch}:${r.key}`;
