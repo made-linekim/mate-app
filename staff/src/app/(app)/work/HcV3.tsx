@@ -88,7 +88,7 @@ function fromList(r: HcRow, today: string): Row {
   };
 }
 
-export default function HcV3({ branch, today, onCount }: { branch: string; today: string; onCount: (left: number, done: number, total: number) => void }) {
+export default function HcV3({ branch, today, onCount, initCare = null }: { branch: string; today: string; onCount: (left: number, done: number, total: number) => void; initCare?: CareKind | null }) {
   const router = useRouter();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [legacy, setLegacy] = useState(false);
@@ -97,7 +97,7 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
   const [who, setWho] = useState("");
   const [grp, setGrp] = useState<Grp | null>(null);
   // 식단 케어 · 운동 케어 (CareBoard) — 해피콜 종류 칩 옆에 항상 보여요
-  const [care, setCare] = useState<CareKind | null>(null);
+  const [care, setCare] = useState<CareKind | null>(initCare);
   const [careN, setCareN] = useState<Record<CareKind, number | null>>({ diet: null, ex: null });
   useEffect(() => {
     let on = true;

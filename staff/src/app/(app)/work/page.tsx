@@ -10,6 +10,7 @@ import "./work3.css";
 import { HcRow, LogDrawer, kst } from "./log-drawer";
 import HcV3 from "./HcV3";
 import WorkReq from "./WorkReq";
+import TodayCare from "./TodayCare";
 
 // 오늘 할 일 (v3 확정 시안 U-PC-TODO-1~4 · U-MO-TODO-1~4): 해피콜 · 지난 마감 · 승인 대기 · 남은 업무
 // 데이터: work_today + happycall_list. 기록: work_item_done/assign/reopen/add(053) · task_check_set · rsv_work_memo_*(인수인계)
@@ -27,9 +28,9 @@ type Today = {
   remaining: Item[];
   checklist: Check[];
 };
-type Tab = "happycall" | "overdue" | "approval" | "remaining";
+type Tab = "today" | "happycall" | "overdue" | "approval" | "remaining";
 const TAB_LIST: { k: Tab; l: string }[] = [
-  { k: "happycall", l: "해피콜" }, { k: "overdue", l: "지난 마감" }, { k: "approval", l: "승인 대기" }, { k: "remaining", l: "남은 업무" },
+  { k: "today", l: "오늘 케어" }, { k: "happycall", l: "해피콜" }, { k: "overdue", l: "지난 마감" }, { k: "approval", l: "승인 대기" }, { k: "remaining", l: "남은 업무" },
 ];
 type Toast = { text: string; undo?: () => Promise<void> | void };
 
@@ -58,7 +59,7 @@ function Work() {
   const me = useMe();
   const router = useRouter();
   const sp = useSearchParams();
-  const tab: Tab = (TAB_LIST.find((t) => t.k === sp.get("tab"))?.k) ?? "happycall";
+  const tab: Tab = (TAB_LIST.find((t) => t.k === sp.get("tab"))?.k) ?? "today";
   const go = (t: Tab) => router.replace(`/work?tab=${t}`, { scroll: false });
   const lead = me.tier === "owner" || me.tier === "manager";
 
@@ -69,6 +70,7 @@ function Work() {
   const [apN, setApN] = useState<number | null>(null);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<{ row: HcRow; preset: string } | null>(null);
+  const [todayN, setTodayN] = useState<number | null>(null);
   const [prog, setProg] = useState<{ left: number; done: number; total: number } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const tt = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,6 +100,7 @@ function Work() {
   const remaining = mineOnly(data?.remaining ?? []);
   const checks = data?.checklist ?? [];
   const counts: Record<Tab, number | null> = {
+    today: todayN,
     happycall: prog ? prog.left : hc ? hc.length : null,
     overdue: data ? overdue.length + hcOverMine.length : null,
     approval: apN,
@@ -109,7 +112,7 @@ function Work() {
       <header className="wv3-sub">
         <div className="wv3-mrow">
           <h1>오늘 할 일</h1>
-          {(tab === "overdue" || tab === "happycall") && <BranchSel tier={me.tier} branch={branch} set={setBranch} />}
+          {(tab === "overdue" || tab === "happycall" || tab === "today") && <BranchSel tier={me.tier} branch={branch} set={setBranch} />}
           {tab === "remaining" && lead && <AddWork branch={branch} staff={staff} onDone={(t) => { load(); say({ text: t }); }} />}
         </div>
         <div className="sg">
@@ -122,7 +125,8 @@ function Work() {
       </header>
       <div className="wv3-page">
         {err && <p className="wv3-err">{err}</p>}
-        {tab === "happycall" && <HcV3 branch={branch} today={day} onCount={onCount} />}
+        {tab === "today" && <TodayCare branch={branch} today={day} onTotal={setTodayN} />}
+        {tab === "happycall" && <HcV3 key={sp.get("care") ?? ""} branch={branch} today={day} onCount={onCount} initCare={sp.get("care") === "diet" || sp.get("care") === "ex" ? (sp.get("care") as "diet" | "ex") : null} />}
         {tab === "overdue" && (
           <Overdue branchSel={<BranchSel tier={me.tier} branch={branch} set={setBranch} />} items={overdue} hc={hcOverMine} loaded={!!data} lead={lead} staff={staff} day={day}
             onHc={(row) => setOpen({ row, preset: "" })} reload={load} say={say} />
