@@ -158,3 +158,26 @@
  .st-lunch-m .sel{flex:1}
 }
 .st-hrow{display:flex;align-items:center;gap:var(--sp-3);min-height:64px;padding:10px 0;border-bottom:1px solid var(--line)}
+
+/* 11/21 메뉴 가독성: 아이콘 + 진한 글씨 + 한 줄 설명 */
+.st-nav a{height:auto;min-height:48px;padding:8px 12px;gap:10px;color:var(--ink);font-weight:600}
+.st-nav a svg{flex:none;color:var(--ink-2)}
+.st-nav a.on svg{color:var(--red)}
+.st-nav .st-l{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.st-nav .st-l small{font-size:var(--fs-xs);font-weight:400;color:var(--ink-3);margin-top:2px}
+.st-nav .g{font-size:var(--fs-sm);font-weight:700;color:var(--ink-2)}
+@media (max-width:767px){
+ .st-nav a{min-height:64px;height:auto;padding:10px 0;font-size:var(--fs-lg);font-weight:600;gap:14px}
+ .st-nav a.on{font-weight:600}
+ .st-nav a svg{width:24px;height:24px}
+ .st-nav .st-l small{font-size:var(--fs-sm)}
+}
+.st-pm-pick{display:none}
+@media (max-width:767px){
+ .st-nav a.on svg,.st-nav a.on .chev{color:var(--ink-2)}
+ .st-pm-pick{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:var(--fs-sm);font-weight:600;color:var(--ink-2)}
+ .st-pm-pick .sel{flex:1}
+ .st-perm .m-hide{display:none}
+ .st-perm td:first-child,.st-perm th:first-child{min-width:0;position:static}
+ .st-perm table{width:100%}
+}

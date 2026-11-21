@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
-import { ALL_OK, Ico, SET_NAV, SetCtx } from "./ui";
+import { ALL_OK, Ico, SET_NAV, SetCtx, SetIcon } from "./ui";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const me = useMe();
@@ -35,10 +35,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           {SET_NAV.map((g) => (
             <div key={g.group} style={{ display: "contents" }}>
               <div className="g">{g.group}</div>
-              {g.items.map((i) => i.href ? (
-                <Link key={i.label} href={i.href} className={cur === i ? "on" : ""}>{i.label}<span className="chev"><Ico n="chev" /></span></Link>
-              ) : (
-                <span key={i.label} className="off" title="준비 중이에요">{i.label}<em>준비 중</em></span>
+              {g.items.map((i) => (
+                <Link key={i.label} href={i.href} className={cur === i ? "on" : ""}>
+                  <SetIcon n={i.icon} /><span className="st-l">{i.label}<small>{i.help}</small></span><span className="chev"><Ico n="chev" /></span>
+                </Link>
               ))}
             </div>
           ))}

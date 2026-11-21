@@ -18,6 +18,7 @@ export default function PermsPage() {
   const [perms, setPerms] = useState<Perm[]>([]);
   const [draft, setDraft] = useState<Draft>({});
   const [msg, setMsg] = useState("");
+  const [mcol, setMcol] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -76,6 +77,9 @@ export default function PermsPage() {
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   }
 
+  // 모바일: 직원 한 명씩 골라서 봐요 (가로 스크롤 없이)
+  const mcolId = cols.some((s) => s.id === mcol) ? mcol : cols[0]?.id ?? "";
+
   return (
     <>
       <Head title="권한">
@@ -83,14 +87,21 @@ export default function PermsPage() {
         {changed.length > 0 && <span className="st-ro">{changed.length}명 바뀜</span>}
         {isAdmin && <button className="btn p" disabled={busy || changed.length === 0} onClick={save}>{busy ? "저장 중…" : "저장"}</button>}
       </Head>
+      {cols.length > 0 && (
+        <label className="st-pm-pick">직원 고르기
+          <select className="sel" value={mcolId} onChange={(e) => setMcol(e.target.value)}>
+            {cols.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.title || "직원"})</option>)}
+          </select>
+        </label>
+      )}
       <div className="st-tbl st-perm">
         <table className="t">
           <thead>
             <tr>
               <th>할 수 있는 일</th>
-              <th className="c"><span className="who">대표관리자</span></th>
-              <th className="c"><span className="who">관리자</span></th>
-              {cols.map((s) => <th key={s.id} className="c"><span className="who">{s.name}<small>{s.title || "직원"}</small></span></th>)}
+              <th className="c m-hide"><span className="who">대표관리자</span></th>
+              <th className="c m-hide"><span className="who">관리자</span></th>
+              {cols.map((s) => <th key={s.id} className={`c ${s.id === mcolId ? "" : "m-hide"}`}><span className="who">{s.name}<small>{s.title || "직원"}</small></span></th>)}
             </tr>
           </thead>
           <tbody>
@@ -99,10 +110,10 @@ export default function PermsPage() {
               ...ps.map((x) => (
                 <tr key={x.key} className={rowChanged(x) ? "chg" : ""}>
                   <td>{x.label}{x.owner_only && <span className="badge">대표관리자만</span>}</td>
-                  <td className="c"><Check on fixed label={`대표관리자 ${x.label}`} /></td>
-                  <td className="c"><Check on={!x.owner_only} fixed label={`관리자 ${x.label}`} /></td>
+                  <td className="c m-hide"><Check on fixed label={`대표관리자 ${x.label}`} /></td>
+                  <td className="c m-hide"><Check on={!x.owner_only} fixed label={`관리자 ${x.label}`} /></td>
                   {cols.map((s) => (
-                    <td key={s.id} className="c">
+                    <td key={s.id} className={`c ${s.id === mcolId ? "" : "m-hide"}`}>
                       <Check on={!!draft[s.id]?.[x.key]} disabled={!canEdit(s) || locked(x)} label={`${s.name} ${x.label}`}
                         onChange={(v) => toggle(s, x.key, v)} />
                     </td>

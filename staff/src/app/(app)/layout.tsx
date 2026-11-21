@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { sb, TIER_LABEL, type Staff } from "@/lib/sb";
 import { MeCtx } from "@/lib/me";
+import { SET_NAV, SetIcon } from "./settings/ui";
 
-// 메라 시안(P01) 메뉴 묶음: 업무 · 성과 · 관리. href 가 없는 항목은 아직 준비 중.
+// 메뉴: 실제로 쓰는 것만 보여요. 대시보드·통계·마케팅은 만들면 여기에 넣어요.
 type Item = { href?: string; label: string; icon: keyof typeof ICONS };
 const NAV: { group: string; items: Item[] }[] = [
   { group: "업무", items: [
@@ -14,10 +15,7 @@ const NAV: { group: string; items: Item[] }[] = [
     { href: "/customers", label: "고객", icon: "user" },
   ] },
   { group: "성과", items: [
-    { label: "대시보드", icon: "grid" },
     { href: "/sales", label: "매출", icon: "won" },
-    { label: "통계", icon: "bar" },
-    { label: "마케팅", icon: "mega" },
   ] },
   { group: "관리", items: [
     { href: "/settings", label: "설정", icon: "gear" },
@@ -57,6 +55,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [more, setMore] = useState(false);
   const [bye, setBye] = useState(false);
   useEffect(() => { setMore(false); setBye(false); }, [path]);
+
+  // 모바일에서 표를 카드로 보여 줄 때 칸 이름(data-label)을 머리줄에서 붙여 줘요 (가로 스크롤 없이)
+  useEffect(() => {
+    let raf = 0;
+    const label = () => {
+      raf = 0;
+      document.querySelectorAll(".sl-scroll table, .mb-scroll table").forEach((t) => {
+        const hs = [...t.querySelectorAll("thead th")].map((th) => th.textContent?.trim() ?? "");
+        t.querySelectorAll("tbody tr, tfoot tr").forEach((tr) => {
+          let i = 0;
+          tr.querySelectorAll(":scope > td").forEach((td) => {
+            const span = Number(td.getAttribute("colspan") || 1);
+            if (span === 1 && hs[i] && td.getAttribute("data-label") !== hs[i]) td.setAttribute("data-label", hs[i]);
+            i += span;
+          });
+        });
+      });
+    };
+    const mo = new MutationObserver(() => { if (!raf) raf = requestAnimationFrame(label); });
+    mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+    label();
+    return () => { mo.disconnect(); if (raf) cancelAnimationFrame(raf); };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -127,9 +148,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div className="av">{me.name.slice(0, 1)}</div>
                 <div><b>{me.name}</b><span>{me.title || TIER_LABEL[me.tier]} · {me.branch}</span></div>
               </div>
-              <Link href="/membership">회원권<em>열기</em></Link>
-              <Link href="/settings">설정 보기<em>{me.tier === "staff" ? "보기만" : "열기"}</em></Link>
-              {["대시보드", "통계", "마케팅", "내 정보 · 내 근무시간", "알림 설정", "도움말"].map((l) => <span key={l} className="off">{l}<em>준비 중</em></span>)}
+              <Link href="/membership" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.card}</svg><span>회원권<small>고객이 가진 회원권 · 잔여</small></span></Link>
+              <div className="mm-g">설정{me.tier === "staff" ? " (보기만)" : ""}</div>
+              {SET_NAV.flatMap((g) => g.items).map((i) => (
+                <Link key={i.href} href={i.href} className="mm-row"><SetIcon n={i.icon} s={22} /><span>{i.label}<small>{i.help}</small></span></Link>
+              ))}
               <button className="mm-out" onClick={() => setBye(true)}>로그아웃</button>
             </div>
           </>

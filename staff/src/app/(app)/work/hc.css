@@ -90,7 +90,7 @@
   .w-subbar .w-br{order:5;margin-left:8px!important;height:32px}
   .w-subbar .bar{width:90px}
   .hc{grid-template-columns:minmax(0,1fr);gap:12px}
-  .hc-kpis{display:flex;overflow-x:auto;gap:6px;scrollbar-width:none;margin:0 -12px;padding:0 12px}
+  .hc-kpis{display:flex;flex-wrap:wrap;gap:6px}
   .hc-kpis::-webkit-scrollbar{display:none}
   .hc-k{flex:0 0 auto;padding:8px 12px;gap:6px;border-radius:999px}
   .hc-k.on{padding:7px 11px}

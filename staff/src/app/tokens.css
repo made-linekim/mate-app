@@ -445,3 +445,26 @@ table.t tr:hover td{background:var(--bg-soft)}
 .rd-rep-days{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
 .rd-rep-days span{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:var(--fs-xs)}
 .rd-rep-msg{margin-top:10px;padding:10px 12px;border-radius:var(--r-ctl);background:var(--amb-50,#FFF1DC);color:var(--amb,#965A00);font-size:var(--fs-sm)}
+/* 11/21 더보기: 아이콘 + 진한 글씨 + 설명, 준비 중 메뉴 없음 */
+.mmore{max-height:calc(100vh - 120px);overflow:auto}
+.mmore .mm-row{height:auto;min-height:60px;gap:14px;font-weight:600;color:var(--ink)}
+.mmore .mm-row svg{flex:none;color:var(--ink-2)}
+.mmore .mm-row span{display:flex;flex-direction:column;line-height:1.3}
+.mmore .mm-row small{font-size:var(--fs-sm);font-weight:400;color:var(--ink-3)}
+.mmore .mm-g{font-size:var(--fs-sm);font-weight:700;color:var(--ink-2);padding:16px 0 2px}
+/* 11/21 모바일 표 → 카드 (칸 이름은 layout 이 data-label 로 붙여요). 가로 스크롤 없음 */
+@media (max-width:767px){
+ .sl-scroll,.mb-scroll{overflow:visible}
+ .sl-scroll table,.mb-scroll table,.sl-scroll table tbody,.mb-scroll table tbody,.sl-scroll table tfoot,.mb-scroll table tfoot{display:block;width:100%;min-width:0}
+ .sl-scroll table thead,.mb-scroll table thead{display:none}
+ .sl-scroll table tr,.mb-scroll table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;padding:12px 4px;border-bottom:1px solid var(--line)}
+ .sl-scroll table td,.mb-scroll table td{display:flex;justify-content:space-between;align-items:center;gap:8px;height:auto;min-height:0;padding:0;border:0;white-space:normal;text-align:right;font-size:var(--fs-sm);min-width:0;background:none}
+ .sl-scroll table td::before,.mb-scroll table td::before{content:attr(data-label);color:var(--ink-3);font-weight:400;text-align:left;flex:none}
+ .sl-scroll table td:first-child,.mb-scroll table td:first-child{grid-column:1/-1;font-size:var(--fs-md);font-weight:700;text-align:left;justify-content:flex-start}
+ .sl-scroll table td:first-child::before,.mb-scroll table td:first-child::before,.sl-scroll table td[colspan]::before,.mb-scroll table td[colspan]::before,.sl-scroll table td:not([data-label])::before,.mb-scroll table td:not([data-label])::before{display:none}
+ .sl-scroll table td[colspan],.mb-scroll table td[colspan]{grid-column:1/-1;justify-content:center}
+ .mb-scroll .mb-t td.items{min-width:0;white-space:normal;grid-column:1/-1;display:block;text-align:left}
+ .mb-scroll .mb-t td.items>div{display:flex;flex-wrap:wrap;gap:4px 8px;padding:2px 0}
+ .mb-scroll table td,.sl-scroll table td{padding:0!important}
+ .sl-scroll table td:empty,.mb-scroll table td:empty{display:none}
+}

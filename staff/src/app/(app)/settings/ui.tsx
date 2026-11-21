@@ -3,26 +3,35 @@ import { createContext, useContext } from "react";
 import { BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 
-/* 설정 왼쪽 메뉴 (시안 11-01~11-18, 8차에서 '관리 항목' → '프로그램 설정', '문자 · 알림톡' 추가).
-   href 가 없는 칸은 아직 백엔드가 없어 '준비 중'으로만 보여요. */
-export type SetItem = { label: string; href?: string };
+/* 설정 메뉴: 실제로 쓰는 것만 보여요 (준비 중인 메뉴는 숨김, 같은 기능은 한 곳에만).
+   회원권 '상품'은 여기에서만, 고객이 가진 회원권은 고객 > 회원권 에서 봐요. */
+export type SetItem = { label: string; href: string; icon: keyof typeof SET_ICONS; help: string };
+const SP = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+export const SET_ICONS = {
+  clock: <><circle cx="12" cy="12" r="8.5" {...SP} /><path d="M12 7.5V12l3 2" {...SP} /></>,
+  off: <><rect x="3.5" y="5" width="17" height="15" rx="2.5" {...SP} /><path d="M3.5 10h17M8 3v4M16 3v4M9.5 13.5l5 4M14.5 13.5l-5 4" {...SP} /></>,
+  list: <path d="M8.5 7h11M8.5 12h11M8.5 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01" {...SP} />,
+  ticket: <><path d="M3.5 8a2 2 0 002-2h13a2 2 0 002 2v2a2 2 0 000 4v2a2 2 0 00-2 2h-13a2 2 0 00-2-2v-2a2 2 0 000-4z" {...SP} /><path d="M14 7v10" {...SP} strokeDasharray="2 2" /></>,
+  team: <><circle cx="9" cy="9" r="3.3" {...SP} /><path d="M3 19.5c.9-3.2 3.2-4.7 6-4.7s5.1 1.5 6 4.7M15.5 5.9a3.3 3.3 0 010 6.3M17.5 14.9c1.7.6 3 2 3.5 4.6" {...SP} /></>,
+  key: <><circle cx="8" cy="15" r="4" {...SP} /><path d="M11 12l8.5-8.5M16 7l2.5 2.5M14 9l2 2" {...SP} /></>,
+};
 export const SET_NAV: { group: string; items: SetItem[] }[] = [
   { group: "예약", items: [
-    { label: "기본" }, { label: "예약표" },
-    { label: "업무시간", href: "/settings/hours" }, { label: "휴무", href: "/settings/holidays" },
-    { label: "관리실" }, { label: "네이버 예약 연동" }, { label: "문자 · 알림톡" },
+    { label: "업무시간", href: "/settings/hours", icon: "clock", help: "요일별 여는 시간" },
+    { label: "휴무", href: "/settings/holidays", icon: "off", help: "쉬는 날 · 직원 휴무" },
   ] },
   { group: "상품", items: [
-    { label: "프로그램 설정", href: "/settings/programs" }, { label: "회원권 상품", href: "/settings/products" },
-    { label: "포인트" }, { label: "고객 등급" },
+    { label: "프로그램", href: "/settings/programs", icon: "list", help: "관리 항목 · 시간 · 색" },
+    { label: "회원권 상품", href: "/settings/products", icon: "ticket", help: "파는 회원권 종류 · 가격" },
   ] },
-  { group: "사람", items: [
-    { label: "직원", href: "/settings/staff" }, { label: "권한", href: "/settings/perms" }, { label: "계정" },
-  ] },
-  { group: "운영", items: [
-    { label: "목표" }, { label: "결제 · 수수료" }, { label: "마감 기준" }, { label: "카드 단말기" }, { label: "연결" },
+  { group: "직원", items: [
+    { label: "직원", href: "/settings/staff", icon: "team", help: "직원 등록 · 계정" },
+    { label: "권한", href: "/settings/perms", icon: "key", help: "직원별 쓸 수 있는 기능" },
   ] },
 ];
+export function SetIcon({ n, s = 20 }: { n: keyof typeof SET_ICONS; s?: number }) {
+  return <svg viewBox="0 0 24 24" width={s} height={s} aria-hidden>{SET_ICONS[n]}</svg>;
+}
 /* 지점을 안 고르는 화면(직원·권한)은 '전 지점'도 고를 수 있어요 */
 export const ALL_OK = ["/settings/staff", "/settings/perms"];
 

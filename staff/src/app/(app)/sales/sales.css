@@ -80,3 +80,9 @@
  .sl-cond-panel .frow{grid-template-columns:1fr;gap:8px}
  .sl-search{width:100%}
 }
+/* 11/21 모바일: 가로 스크롤 없이 — 탭은 줄바꿈, 표는 카드 */
+@media (max-width:767px){
+ .sl-tabs{flex-wrap:wrap;gap:6px;padding:10px var(--page-x);overflow:visible}
+ .sl-tabs a{height:32px;padding:0 12px;border:1px solid var(--line-strong);border-radius:999px;margin:0;font-size:var(--fs-sm)}
+ .sl-tabs a.on{border-color:var(--red);background:var(--red-50);color:var(--red)}
+}

@@ -8,15 +8,17 @@ import { canSee } from "@/lib/sales";
 import { MbCtx, SearchIcon, useBranchPick } from "./ui";
 import "./membership.css";
 
+// 회원권은 고객 메뉴 안에 있어요 (고객 목록 · 연락할 고객 · 회원권). 상품 만들기는 설정 > 회원권 상품.
 const TABS = [
-  { href: "/membership", label: "보유 회원권" },
-  { href: "/membership/products", label: "상품" },
+  { href: "/customers", label: "고객 목록" },
+  { href: "/happycall", label: "연락할 고객" },
+  { href: "/membership", label: "회원권" },
 ];
 
 export default function MembershipLayout({ children }: { children: React.ReactNode }) {
   const me = useMe();
   const path = usePathname();
-  const cur = TABS.find((t) => (t.href === "/membership" ? path === "/membership" : path.startsWith(t.href)));
+  const cur = TABS.find((t) => path === t.href) ?? TABS[2];
   const [branch, setBranch] = useState(useBranchPick());
   const [q, setQ] = useState("");
   const ctx = useMemo(() => ({ branch, setBranch, q, setQ }), [branch, q]);

@@ -156,6 +156,7 @@ export default function Customers() {
       <nav className="c-tabs">
         <button className="on">고객 목록 <span className="n">{n("all")}</span></button>
         <Link href="/happycall">연락할 고객 <span className="n">{contact ?? ""}</span></Link>
+        <Link href="/membership">회원권</Link>
       </nav>
       <div className="page">
         <div className={`c-chips ${editing ? "editing" : ""}`}>
