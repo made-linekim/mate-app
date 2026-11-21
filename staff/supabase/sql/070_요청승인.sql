@@ -145,7 +145,6 @@ begin
   if v_a.status <> '대기' then raise exception 'ALREADY_DONE'; end if;
   if not public.approval_can_decide(v_a.kind, v_a.amount) then raise exception 'NO_PERMISSION'; end if;
   if v_a.requested_by = v_me.id and v_me.tier <> 'owner' then raise exception 'SELF_APPROVAL'; end if;
-  if not p_ok and coalesce(btrim(p_note),'') = '' then raise exception 'NOTE_REQUIRED'; end if;
   update public.approval_requests set status = case when p_ok then '승인' else '반려' end,
     decided_by = v_me.id, decided_name = v_me.name, decided_at = now(), decide_note = coalesce(btrim(p_note),'')
   where id = p_id;

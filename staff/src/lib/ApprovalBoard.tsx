@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sb } from "@/lib/sb";
 import { useMe } from "@/lib/me";
-import { KIND_LABEL, canDecide, decider, friendlyErr, ReasonPick, type Kind } from "@/lib/approval";
+import { KIND_LABEL, canDecide, decider, friendlyErr, type Kind } from "@/lib/approval";
 import "./approval.css";
 
 /* 시안 U-PC-TODO-3-PAY (승인 대기 · 승인 확인 · 완료 · 본인 요청) + U-PC-RSV-5 노쇼 확인.
@@ -29,7 +29,7 @@ const when = (iso: string | null) => {
 const what = (r: Req) =>
   r.amount != null ? won(r.amount)
   : r.kind === "rsv_noshow" ? (r.payload.deduct ? "1회 차감" : "기록만")
-  : r.kind === "rsv_cancel" ? "예약 취소" : "";
+  : r.kind === "rsv_cancel" ? "예약 취소" : String(r.payload.detail ?? "");
 const badge = (s: Req["status"]) => (s === "대기" ? "warn" : s === "반려" ? "em" : s === "취소" ? "" : "ok");
 
 export default function ApprovalBoard({ branch }: { branch: string | null }) {
@@ -101,7 +101,6 @@ function Detail({ r, me, onClose, onDone }: { r: Req; me: ReturnType<typeof useM
   const mine = r.requested_by === me.id;
   const can = r.status === "대기" && canDecide(me, r.kind, r.amount) && (!mine || me.tier === "owner");
   const decide = async (ok: boolean) => {
-    if (!ok && !note) return setErr("거절 사유를 골라 주세요.");
     setBusy(true); setErr("");
     const { error } = await sb.rpc("approval_decide", { p_id: r.id, p_ok: ok, p_note: note });
     setBusy(false);
@@ -138,8 +137,9 @@ function Detail({ r, me, onClose, onDone }: { r: Req; me: ReturnType<typeof useM
         </dl>
         {can && (
           <>
-            <div className="ap-l">거절 사유 (거절할 때만)</div>
-            <ReasonPick options={["사유가 부족해요", "금액을 다시 확인해 주세요", "고객과 다시 상담해 주세요"]} value={note} onChange={setNote} />
+            <div className="ap-l">거절 사유 (선택)</div>
+            <textarea className="inp ap-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
+            <p className="ap-hint">이유는 비워 두어도 돼요.</p>
           </>
         )}
         {ask && (

@@ -42,3 +42,16 @@
 .ap-side footer{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--line)}
 @media (max-width:1100px){.ap-board.with{grid-template-columns:1fr}.ap-side{position:fixed;inset:auto 0 0 0;margin:0;min-height:0;max-height:85vh;overflow:auto;z-index:45;border-radius:var(--r-overlay) var(--r-overlay) 0 0;box-shadow:var(--shadow-overlay)}}
 @media (max-width:767px){.ap-q{flex:1;width:auto}.ap-tbl thead{display:none}.ap-tbl tr{display:grid;grid-template-columns:1fr auto;padding:10px 12px;border-bottom:1px solid var(--line)}.ap-tbl td{border:0!important;height:auto!important;padding:2px 0!important}}
+.app .ap-note { width: 100%; min-height: 64px; resize: vertical; }
+.app .ap-hint { margin: 6px 0 0; color: var(--ink-3, #8a8a92); font-size: 13px; }
+.rd.rd-docked{position:relative}
+.ap-full{position:absolute;inset:0;z-index:5;background:var(--bg);display:flex;flex-direction:column}
+.ap-fhd{height:64px;flex:none;display:flex;align-items:center;gap:10px;padding:0 24px;border-bottom:1px solid var(--line)}
+.ap-fhd b{font-size:var(--fs-xl)}
+.ap-fb{flex:1;overflow:auto;padding:20px 24px;display:flex;flex-direction:column;gap:10px}
+.ap-fb dl{margin:0;display:flex;flex-direction:column;gap:4px}
+.ap-fb dt{font-size:var(--fs-sm);color:var(--ink-3);margin-top:8px}
+.ap-fb dt:first-child{margin-top:0}
+.ap-fb dd{margin:0;font-size:var(--fs-md)}
+.ap-fb .ap-ta{margin-top:0}
+.ap-fft{flex:none;display:flex;justify-content:flex-end;padding:14px 24px;border-top:1px solid var(--line)}

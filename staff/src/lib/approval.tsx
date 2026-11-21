@@ -60,20 +60,23 @@ export function ReasonPick({ options, value, onChange }: { options: string[]; va
 }
 
 /** 예약 노쇼 · 취소: 직원은 요청, 관리자 이상은 바로 처리 */
-export function RsvStatusAsk({ me, branch, kind, rsv, left, onBack, onDone, fallback }: {
+export function RsvStatusAsk({ me, branch, kind, rsv, left, msName, onBack, onDone, fallback }: {
   me: Pick<Me, "tier">; branch: string; kind: "rsv_noshow" | "rsv_cancel";
-  rsv: { id: string; customer: string; when: string; program: string; customerKey?: string | null };
-  left?: number | null; onBack: () => void; onDone: (msg: string) => void;
+  rsv: { id: string; customer: string; phone?: string | null; when: string; program: string; staff?: string | null; customerKey?: string | null };
+  left?: number | null; msName?: string | null; onBack: () => void; onDone: (msg: string) => void;
   fallback: (reason: string) => Promise<string | null>;   // 070 SQL 전: 예전 방식(rsv_set_status)
 }) {
   const noshow = kind === "rsv_noshow";
-  const [deduct, setDeduct] = useState(noshow && left != null && left > 0);
-  const [reason, setReason] = useState("");
+  const canDeduct = noshow && left != null && left > 0;
+  const [deduct, setDeduct] = useState(canDeduct);
+  const reasons = noshow ? ["오지 않음", "연락이 안 됨", "늦게 취소", "기타"] : ["고객 요청", "일정 변경", "센터 사정", "기타"];
+  const [pick, setPick] = useState(reasons[0]);
+  const [detail, setDetail] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const direct = canDecide(me, kind);
+  const reason = detail.trim() ? `${pick} · ${detail.trim()}` : pick;
   const go = async () => {
-    if (!reason) return setErr("사유를 골라 주세요.");
     setBusy(true); setErr("");
     const r = await sendRequest(me, {
       branch, kind, targetType: "reservation", targetId: rsv.id, reason,
@@ -88,27 +91,44 @@ export function RsvStatusAsk({ me, branch, kind, rsv, left, onBack, onDone, fall
     if (r.error) return setErr(r.error);
     onDone(r.state === "done" ? (noshow ? "노쇼로 처리했어요" : "예약을 취소했어요") : `${decider(kind)}에게 요청을 보냈어요`);
   };
+  const what = noshow ? (deduct ? "노쇼 · 1회 차감" : "노쇼 · 기록만 (차감 없음)") : "예약 취소";
+  const after = direct
+    ? (noshow && deduct ? "바로 회원권 1회가 차감돼요. 되돌릴 수 없어요." : "바로 반영되고 기록에 남아요.")
+    : `이 화면에서는 요청만 보낼 수 있어요. 승인되면 ${noshow && deduct ? "회원권 1회가 차감돼요." : "반영돼요."}`;
   return (
-    <div className="card ap-ask">
-      <div className="ap-t">{direct ? (noshow ? "노쇼로 처리할까요?" : "예약을 취소할까요?") : (noshow ? "노쇼 요청" : "취소 요청")}</div>
-      <div className="ap-s">{rsv.customer} · {rsv.when} · {rsv.program}</div>
-      {noshow && (
-        <>
-          <div className="ap-l">처리</div>
-          <div className="ap-chips">
-            <button type="button" className={deduct ? "on" : ""} disabled={left == null || left <= 0} onClick={() => setDeduct(true)}>1회 차감</button>
-            <button type="button" className={!deduct ? "on" : ""} onClick={() => setDeduct(false)}>기록만 (차감 없음)</button>
-          </div>
-          {deduct && left != null && <p className="ap-h">회원권 1회가 차감돼요. (잔여 {left}회 → {left - 1}회)</p>}
-        </>
-      )}
-      <div className="ap-l">사유</div>
-      <ReasonPick options={noshow ? ["오지 않음", "연락이 안 됨", "늦게 취소"] : ["고객 요청", "일정 변경", "센터 사정"]} value={reason} onChange={setReason} />
-      <p className="ap-h">{direct ? (noshow && deduct ? "바로 차감돼요. 되돌릴 수 없어요. " : "") + "기록에 남아요." : `${decider(kind)}가 승인하면 반영돼요. 승인 전에는 요청을 취소할 수 있어요.`}</p>
-      {err && <p className="ap-err">{err}</p>}
-      <div className="ap-ft">
-        <button className="btn sm t" onClick={onBack}>돌아가기</button>
-        <button className="btn sm danger" disabled={busy} onClick={go}>{direct ? (noshow ? "노쇼 처리" : "예약 취소") : "요청 보내기"}</button>
+    <div className="ap-full" role="dialog" aria-label={noshow ? "노쇼 처리" : "예약 취소"}>
+      <div className="ap-fhd">
+        <b>{noshow ? "노쇼 처리" : "예약 취소"}</b><span className="badge">진행 전</span>
+        <div style={{ flex: 1 }} />
+        <button className="btn sm" onClick={onBack}>닫기</button>
+      </div>
+      <div className="ap-fb">
+        <dl>
+          <dt>고객</dt><dd>{rsv.customer}{rsv.phone ? ` · ${rsv.phone}` : ""}</dd>
+          <dt>예약</dt><dd>{rsv.when} · {rsv.program}{rsv.staff ? ` · 담당 ${rsv.staff}` : ""}</dd>
+          {noshow && <><dt>회원권</dt><dd>{msName ? `${msName}${left != null ? ` · 잔여 ${left}회` : ""}` : "쓸 수 있는 회원권 없음"}</dd></>}
+          <dt>처리</dt><dd>{what}</dd>
+        </dl>
+        {noshow && (
+          <>
+            <div className="ap-l">처리</div>
+            <div className="ap-chips">
+              <button type="button" className={deduct ? "on" : ""} disabled={!canDeduct} onClick={() => setDeduct(true)}>1회 차감</button>
+              <button type="button" className={!deduct ? "on" : ""} onClick={() => setDeduct(false)}>기록만 (차감 없음)</button>
+            </div>
+          </>
+        )}
+        <div className="ap-l">사유</div>
+        <div className="ap-chips">
+          {reasons.map((o) => <button key={o} type="button" className={pick === o ? "on" : ""} onClick={() => setPick(o)}>{o}</button>)}
+        </div>
+        <textarea className="inp ap-ta" value={detail} onChange={(e) => setDetail(e.target.value)} aria-label="자세한 내용" />
+        <p className="ap-h">자세한 내용은 비워 두어도 돼요.</p>
+        <p className="ap-h">{after}</p>
+        {err && <p className="ap-err">{err}</p>}
+      </div>
+      <div className="ap-fft">
+        <button className="btn p" disabled={busy} onClick={go}>{direct ? (noshow ? "노쇼 처리" : "예약 취소") : "요청 보내기"}</button>
       </div>
     </div>
   );

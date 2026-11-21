@@ -194,7 +194,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const today = todayKST();
   const endTime = prog ? hm(toMin(time) + prog.minutes) : "";
   const last = (st: string) => sum?.visits.find((v) => v.status === st)?.day;
-  const lastVisit = sum?.customer.last_visit_on ?? sum?.visits.find((v) => v.status === "완료" || v.status === "방문")?.day;
+  const lastVisit = sum?.customer?.last_visit_on ?? sum?.visits.find((v) => v.status === "완료" || v.status === "방문")?.day;
   const active = (sum?.memberships ?? []).filter((m) => m.status === "사용중");
   const staffName = staff.find((s) => s.id === staffId)?.name;
 
@@ -418,7 +418,8 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
 
           {askReason && (
             <RsvStatusAsk me={me} branch={branch} kind={askReason === "노쇼" ? "rsv_noshow" : "rsv_cancel"}
-              rsv={{ id: String(draft.id), customer: cust?.name ?? "고객", customerKey: cust?.key ?? null, when: `${fmtDay(day)} ${time.slice(0, 5)}`, program: prog?.name ?? "" }}
+              rsv={{ id: String(draft.id), customer: cust?.name ?? "고객", phone: sum?.customer?.phone ?? null, customerKey: cust?.key ?? null, when: `${fmtDay(day)} ${time.slice(0, 5)}`, program: prog?.name ?? "", staff: staffName ?? null }}
+              msName={active.find((x) => x.kind === "회차")?.name ?? null}
               left={(() => { const m = active.find((x) => x.kind === "회차"); return m ? m.items.reduce((a, i) => a + i.total + (i.service ?? 0) - i.used, 0) : null; })()}
               onBack={() => setAskReason(null)}
               onDone={(msg) => { setAskReason(null); setErr(""); alertDone(msg); }}
