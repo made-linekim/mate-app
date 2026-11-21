@@ -1,0 +1,90 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { sb } from "@/lib/sb";
+import { useMe } from "@/lib/me";
+import { canSee } from "@/lib/sales";
+import { CATS, REPORTS, type ReportDef, type Span } from "@/lib/stats";
+import { Info } from "./ui";
+
+const SPANS: (Span | "전체")[] = ["전체", "연간", "월간", "일간"];
+const DEF_FAV = ["sales_month", "cust_new", "rsv_status", "noshow_top"];
+
+export default function ReportList() {
+  const me = useMe();
+  const money = canSee(me, "sales.others") || canSee(me, "sales.own");
+  const [span, setSpan] = useState<Span | "전체">("전체");
+  const [favs, setFavs] = useState<string[]>(DEF_FAV);
+  const [saved, setSaved] = useState(true);
+
+  useEffect(() => {
+    sb.rpc("stats_fav_list").then(({ data, error }) => {
+      if (error) { setSaved(false); try { const l = localStorage.getItem("stats:favs"); if (l) setFavs(JSON.parse(l)); } catch {} return; }
+      setFavs((data as string[]) ?? []);
+    });
+  }, []);
+
+  async function toggle(id: string) {
+    const next = favs.includes(id) ? favs.filter((f) => f !== id) : [...favs, id];
+    setFavs(next);
+    if (saved) {
+      const { error } = await sb.rpc("stats_fav_toggle", { p_id: id });
+      if (!error) return;
+      setSaved(false);
+    }
+    try { localStorage.setItem("stats:favs", JSON.stringify(next)); } catch {}
+  }
+
+  const list = REPORTS.filter((r) => (money || !r.money) && (span === "전체" || r.span === span || r.span === "전체"));
+  const favList = favs.map((id) => list.find((r) => r.id === id)).filter(Boolean) as ReportDef[];
+
+  return (
+    <>
+      <div className="st-head">
+        <h2>리포트 <Info text="리포트를 누르면 표와 그래프로 봐요. 별을 누르면 맨 위 즐겨찾기에 모여요. 금액이 나오는 리포트는 매출 권한이 있는 직원에게만 보여요." /></h2>
+        <div className="seg st-noprint" role="tablist" aria-label="기간 종류">
+          {SPANS.map((s) => <button key={s} role="tab" aria-selected={span === s} className={span === s ? "on" : ""} onClick={() => setSpan(s)}>{s}</button>)}
+        </div>
+      </div>
+
+      {favList.length > 0 && (
+        <section className="st-sec">
+          <h3>즐겨찾기</h3>
+          <Grid items={favList} favs={favs} onStar={toggle} />
+        </section>
+      )}
+      {CATS.map((c) => {
+        const items = list.filter((r) => r.cat === c);
+        if (!items.length) return null;
+        return (
+          <section key={c} className="st-sec">
+            <h3>{c}</h3>
+            <Grid items={items} favs={favs} onStar={toggle} />
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
+function Grid({ items, favs, onStar }: { items: ReportDef[]; favs: string[]; onStar: (id: string) => void }) {
+  return (
+    <div className="st-grid">
+      {items.map((r) => {
+        const on = favs.includes(r.id);
+        return (
+          <div key={r.id} className="st-tile">
+            <Link href={`/stats/r/${r.id}`} className="st-tile-a">
+              <span className="badge">{r.cat}</span>
+              <b>{r.title}</b>
+              <span className="st-tile-d">{r.span} · {r.desc}</span>
+            </Link>
+            <button className={`st-star ${on ? "on" : ""}`} aria-label={on ? "즐겨찾기 빼기" : "즐겨찾기"} aria-pressed={on} onClick={() => onStar(r.id)}>
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9 1 5.6L12 16.6l-5 2.6 1-5.6-4-3.9 5.5-.8z" fill={on ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
