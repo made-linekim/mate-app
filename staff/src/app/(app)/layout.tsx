@@ -16,6 +16,7 @@ const NAV: { group: string; items: Item[] }[] = [
   ] },
   { group: "성과", items: [
     { href: "/sales", label: "매출", icon: "won" },
+    { href: "/stats", label: "통계", icon: "bar" },
   ] },
   { group: "관리", items: [
     { href: "/settings", label: "설정", icon: "gear" },
@@ -149,6 +150,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div><b>{me.name}</b><span>{me.title || TIER_LABEL[me.tier]} · {me.branch}</span></div>
               </div>
               <Link href="/membership" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.card}</svg><span>회원권<small>고객이 가진 회원권 · 잔여</small></span></Link>
+              <Link href="/stats" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.bar}</svg><span>통계<small>리포트 · 날짜별·담당자별 집계 · 인센티브</small></span></Link>
               <div className="mm-g">설정{me.tier === "staff" ? " (보기만)" : ""}</div>
               {SET_NAV.flatMap((g) => g.items).map((i) => (
                 <Link key={i.href} href={i.href} className="mm-row"><SetIcon n={i.icon} s={22} /><span>{i.label}<small>{i.help}</small></span></Link>
