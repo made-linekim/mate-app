@@ -26,6 +26,15 @@ const callTag = (c: Call) => c.note === "재방문 약속" ? { l: "재방문 약
   : c.result === "예약완료" ? { l: "예약", c: "grn" } : c.result === "답장대기" ? { l: "답장 대기", c: "" } : { l: "통화", c: "" };
 const dot = (d: string) => `${d.slice(2, 4)}.${d.slice(5, 7)}.${d.slice(8, 10)}`;
 const kAt = (t: string) => { const k = new Date(new Date(t).getTime() + 9 * 36e5).toISOString(); return `${Number(k.slice(5, 7))}.${k.slice(8, 10)}`; };
+// 해피콜 업무 카드 (대표님 11/21 시안 이미지): 지점 · 대상 · 시도 · 완료율 + 1차~4차 · 완료 · 거절 · 제외 인원
+// n차 = 다음에 할 연락이 몇 번째인지 (최근 30일 연락 기록 기준, 부재·답장 대기면 다음 차수로)
+type Stg = "1" | "2" | "3" | "4" | "done" | "no" | "skip";
+const STGS: { k: Stg; l: string; c: string; tip: string }[] = [
+  { k: "1", l: "1차", c: "y", tip: "아직 연락 안 한 고객" }, { k: "2", l: "2차", c: "y", tip: "1번 연락했고 아직 안 닿은 고객" },
+  { k: "3", l: "3차", c: "y", tip: "2번 연락했고 아직 안 닿은 고객" }, { k: "4", l: "4차", c: "y", tip: "3번 넘게 연락했고 아직 안 닿은 고객" },
+  { k: "done", l: "완료", c: "g", tip: "통화했거나 예약을 잡은 고객" }, { k: "no", l: "거절", c: "k", tip: "연락을 거절한 고객" },
+  { k: "skip", l: "제외", c: "", tip: "현장에서 소통함 등으로 뺀 고객" },
+];
 // 단계 배지 (고객 단계 데이터가 생기기 전까지 해피콜 사유로 정해요)
 const STAGE: Record<Kind, { l: string; c: string }> = {
   norsv: { l: "위험", c: "red" }, todo: { l: "위험", c: "red" }, low: { l: "주의", c: "amb" }, new: { l: "신규", c: "grn" }, consult: { l: "상담", c: "" },
@@ -125,11 +134,30 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
   }, [branch, keysSig]);
   useEffect(() => { loadExt(); }, [loadExt]);
 
+  const [stg, setStg] = useState<Stg | null>(null);
+  const since = useMemo(() => new Date(Date.parse(today) - 30 * 864e5).toISOString(), [today]);
+  const stageOf = useCallback((r: Row): Stg => {
+    if (r.done && r.result === "해당없음") return "skip";
+    const cs = (ext.get(r.customer_key)?.calls ?? []).filter((c) => c.at >= since);
+    const last = r.done ? { result: r.result ?? "", note: r.result_note } : cs[cs.length - 1];
+    if (last?.result === "거절") return "no";
+    if (last && (last.result === "통화완료" || last.result === "예약완료")) return "done";
+    const tried = Math.max(cs.length, r.done ? 1 : 0);
+    return String(Math.min(tried + 1, 4)) as Stg;
+  }, [ext, since]);
   const all = useMemo(() => (rows ?? []).filter((r) => !(r.done && r.result === "해당없음")), [rows]);
   const doneN = all.filter((r) => r.done).length;
   useEffect(() => { if (rows) onCount(all.length - doneN, doneN, all.length); }, [rows, all.length, doneN, onCount]);
   const staff = useMemo(() => [...new Set(all.map((r) => r.assignee).filter(Boolean) as string[])].sort(), [all]);
-  const found = all.filter((r) => (!who || r.assignee === who) && (!q.trim() || `${r.name ?? ""} ${r.assignee ?? ""}`.includes(q.trim())));
+  const base = (rows ?? []).filter((r) => (!who || r.assignee === who) && (!q.trim() || `${r.name ?? ""} ${r.assignee ?? ""}`.includes(q.trim())));
+  const fun = useMemo(() => {
+    const m: Record<Stg, number> = { 1: 0, 2: 0, 3: 0, 4: 0, done: 0, no: 0, skip: 0 };
+    let tried = 0;
+    base.forEach((r) => { const k = stageOf(r); m[k]++; if (k !== "1" && k !== "skip") tried++; });
+    const tot = base.length - m.skip;
+    return { m, tot, tried, rate: tot ? Math.round((m.done / tot) * 100) : 0 };
+  }, [base, stageOf]);
+  const found = base.filter((r) => (stg ? stageOf(r) === stg : !(r.done && r.result === "해당없음")));
   const cnt = (k: Grp) => found.filter((r) => grpOf(r) === k && !r.done).length;
   const shownG = GROUPS.filter((g) => found.some((r) => grpOf(r) === g.k));
   const g = shownG.find((x) => x.k === grp) ?? shownG[0] ?? null;
@@ -237,6 +265,23 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
           </select>
           <button className="btn3 r" onClick={() => router.push("/customers")}>연락할 고객</button>
         </div>
+        <div className="hv3-body">
+        {!cur && (
+          <aside className="card hv3-fun" aria-label="해피콜 업무">
+            <div className="fh"><i>{branch.slice(0, 1)}</i><b>{branch}</b><span>{who || "담당 전체"}</span><em className="num">{fun.tot}명</em></div>
+            <div className="fs"><span>시도 <b className="num">{fun.tried}</b></span><span>완료율 <b className="num">{fun.rate}%</b></span></div>
+            <div className="bar"><i style={{ width: `${fun.rate}%` }} /></div>
+            <div className="fl">
+              {STGS.map((x) => (
+                <button key={x.k} className={stg === x.k ? "on" : ""} title={x.tip} onClick={() => { setStg(stg === x.k ? null : x.k); setSel(null); }}>
+                  <span className={`st ${x.c}`}>{x.l}</span><b className="num">{fun.m[x.k]}</b><svg className="i" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              ))}
+            </div>
+            {stg && <button className="clr" onClick={() => setStg(null)}>단계 거르기 풀기</button>}
+          </aside>
+        )}
+        <div className="hv3-main">
         {chips}
         {g && <div className="hv3-say"><b>먼저 꺼낼 말</b><span>{g.say}</span></div>}
         <section className="card hv3-tbl">
@@ -259,6 +304,8 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
             </table>
           )}
         </section>
+        </div>
+        </div>
         {/* 모바일 카드 (U-MO-TODO-1) */}
         <div className="hv3-cards">
           {list.length === 0 && <section className="card"><p className="wv3-empty">{rows ? "오늘 연락할 고객이 없어요." : "불러오는 중이에요."}</p></section>}
