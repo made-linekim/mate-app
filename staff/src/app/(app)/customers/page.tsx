@@ -23,6 +23,7 @@ const ago = (d: string | null) => {
   const n = Math.round((Date.parse(kst()) - Date.parse(d)) / 864e5);
   return n === 0 ? "오늘" : n > 0 ? `${n}일전` : `${-n}일후`;
 };
+const old = (d: string) => Math.round((Date.parse(kst()) - Date.parse(d)) / 864e5) > 14;
 const chartUrl = (r: Row, tab?: string) => `/customers/chart?b=${encodeURIComponent(r.branch)}&k=${encodeURIComponent(r.key)}${tab ? `&tab=${tab}` : ""}`;
 
 function Rem({ r, sel }: { r: Row; sel?: boolean }) {
@@ -141,8 +142,13 @@ export default function Customers() {
 
   return (
     <>
-      <header className="top c-top">
+      <header className="top c-top v3-hd">
         <h1>고객</h1>
+        <nav className="c-tabs">
+          <button className="on">고객 목록 <span className="n">{n("all")}</span></button>
+          <Link href="/happycall">연락할 고객 <span className="n">{contact ?? ""}</span></Link>
+          <Link href="/membership">회원권</Link>
+        </nav>
         <span className="sub num">{branchLabel} · {loading ? "…" : `${(counts.all ?? total).toLocaleString()}명`}</span>
         <div className="c-right">
           {me.tier === "owner" ? (
@@ -153,11 +159,6 @@ export default function Customers() {
           ) : <span className="btn c-bsel" style={{ cursor: "default" }}>{me.branch}</span>}
         </div>
       </header>
-      <nav className="c-tabs">
-        <button className="on">고객 목록 <span className="n">{n("all")}</span></button>
-        <Link href="/happycall">연락할 고객 <span className="n">{contact ?? ""}</span></Link>
-        <Link href="/membership">회원권</Link>
-      </nav>
       <div className="page">
         <div className={`c-chips ${editing ? "editing" : ""}`}>
           {[...builtins, ...saved].map((c) => (
@@ -167,8 +168,8 @@ export default function Customers() {
               </button>
               {editing && !c.builtin && (
                 <>
-                  <button className="c-chip-i" aria-label={`${c.name} 고치기`} onClick={() => setCond({ chip: c })}>✎</button>
-                  <button className="c-chip-i del" aria-label={`${c.name} 지우기`} onClick={() => removeChip(c)}>🗑</button>
+                  <button className="c-chip-i" aria-label={`${c.name} 고치기`} onClick={() => setCond({ chip: c })}><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 20h4L19 9l-4-4L4 16z" /></svg></button>
+                  <button className="c-chip-i del" aria-label={`${c.name} 지우기`} onClick={() => removeChip(c)}><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13" /></svg></button>
                 </>
               )}
             </span>
@@ -209,7 +210,7 @@ export default function Customers() {
             <thead>
               <tr>
                 <th className="ck"><input type="checkbox" className="c-ck" checked={allOn} onChange={toggleAll} aria-label="모두 선택" /></th>
-                <th>이름</th><th>휴대전화</th><th>보유 회원권</th><th>잔여</th><th>만료</th><th>담당</th><th>최근 방문일</th>
+                <th>고객</th><th>연락처</th><th>회원권</th><th>잔여</th><th>담당</th><th>최근 방문</th>
                 {showBranch && <th>지점</th>}
                 <th />
               </tr>
@@ -220,17 +221,16 @@ export default function Customers() {
                 return (
                   <tr key={id(r)} className={on ? "sel" : ""} onClick={() => router.push(chartUrl(r))}>
                     <td className="ck" onClick={(e) => e.stopPropagation()}><input type="checkbox" className="c-ck" checked={on} onChange={() => toggle(r)} aria-label={`${r.name} 선택`} /></td>
-                    <td className="nm">{r.name}</td>
+                    <td className="nm"><span className="v3-nmc"><span className="v3-av">{r.name.slice(0, 1)}</span><span className="v3-2l"><b>{r.name}</b>{r.customer_no && <small className="num">No. {r.customer_no}</small>}</span></span></td>
                     <td className="num">{r.phone || "-"}</td>
-                    <td className="ms">{r.membership || <span className="c-muted">-</span>}</td>
+                    <td className="ms">{r.membership ? <span className="v3-2l"><span>{r.membership}</span>{r.ends_on && <small className="num">{ymd2(r.ends_on)} 만료</small>}</span> : <span className="c-muted">—</span>}</td>
                     <td><Rem r={r} sel={on} /></td>
-                    <td className="num">{ymd2(r.ends_on)}</td>
                     <td>{r.manager || "-"}</td>
-                    <td className="num">{r.last_visit_on ? `${r.last_visit_on} (${ago(r.last_visit_on)})` : "-"}</td>
+                    <td className="num">{r.last_visit_on ? <span className="v3-2l"><span>{r.last_visit_on.slice(5).replace("-", ".")}</span><small className={old(r.last_visit_on) ? "v3-old" : ""}>{ago(r.last_visit_on)}</small></span> : <span className="c-muted">—</span>}</td>
                     {showBranch && <td>{r.branch}</td>}
                     <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
                       <div className="c-menu">
-                        <button className="btn sm" onClick={() => setMenu(menu === id(r) ? null : id(r))}>관리 ▾</button>
+                        <button className="btn sm t v3-dots" aria-label="관리" title="관리" onClick={() => setMenu(menu === id(r) ? null : id(r))}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><circle cx="5" cy="12" r="1.6" fill="currentColor" /><circle cx="12" cy="12" r="1.6" fill="currentColor" /><circle cx="19" cy="12" r="1.6" fill="currentColor" /></svg></button>
                         {menu === id(r) && (
                           <div className="c-pop" onMouseLeave={() => setMenu(null)}>
                             <Link href={chartUrl(r)}>고객 차트 보기</Link>

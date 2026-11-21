@@ -31,8 +31,13 @@ export default function SalesLayout({ children }: { children: React.ReactNode })
 
   return (
     <SalesCtx.Provider value={ctx}>
-      <header className="top sl-top">
+      <header className="top sl-top v3-hd">
         <h1>매출</h1>
+        <nav className="sl-tabs">
+          {tabs.map((t) => (
+            <Link key={t.href} href={t.href} className={t === cur ? "on" : ""}>{SHORT[t.tab] ?? t.label}</Link>
+          ))}
+        </nav>
         <div className="sl-tools">
           <BranchSelect />
           <MonthSelect disabled={noMonth} />
@@ -47,11 +52,6 @@ export default function SalesLayout({ children }: { children: React.ReactNode })
           )}
         </div>
       </header>
-      <nav className="sl-tabs">
-        {tabs.map((t) => (
-          <Link key={t.href} href={t.href} className={t === cur ? "on" : ""}>{SHORT[t.tab] ?? t.label}</Link>
-        ))}
-      </nav>
       <div className="page">
         {tabs.length === 0 && !tabOk(me, acct.keys) ? (
           <p style={{ color: "var(--ink-3)" }}>매출 메뉴 권한이 없어요. 대표관리자에게 요청해 주세요.</p>

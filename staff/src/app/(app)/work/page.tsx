@@ -115,10 +115,13 @@ function Work() {
 
   return (
     <>
-      <div className="w-subbar">
+      <div className="w-subbar v3-hd">
+        <h1>오늘 할 일</h1>
+        <span className="v3-seg">
         <button className={`pill${work ? " on" : ""}`} onClick={() => go("remaining")}>업무</button>
         <button className={`pill${tab === "happycall" ? " on" : ""}`} onClick={() => go("happycall")}>해피콜{prog && prog.left > 0 && <i className="c num">{prog.left}</i>}</button>
         <button className={`pill${tab === "memo" ? " on" : ""}`} onClick={() => go("memo")}>업무 메모</button>
+        </span>
         {tab === "happycall" && prog && (
           <div className="prog">오늘 완료 <em className="num">{prog.done} / {prog.total}</em>
             <div className="bar"><i style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
