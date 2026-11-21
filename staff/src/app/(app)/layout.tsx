@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { sb, TIER_LABEL, type Staff } from "@/lib/sb";
 import { MeCtx } from "@/lib/me";
-import { SET_NAV, SetIcon } from "./settings/ui";
 
 // 메뉴: 실제로 쓰는 것만 보여요.
 type Item = { href?: string; label: string; icon: keyof typeof ICONS };
@@ -55,9 +54,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = usePathname();
   const [me, setMe] = useState<Staff | null | undefined>(undefined);
-  const [more, setMore] = useState(false);
   const [bye, setBye] = useState(false);
-  useEffect(() => { setMore(false); setBye(false); }, [path]);
+  useEffect(() => { setBye(false); }, [path]);
 
   // 모바일에서 표를 카드로 보여 줄 때 칸 이름(data-label)을 머리줄에서 붙여 줘요 (가로 스크롤 없이)
   useEffect(() => {
@@ -138,31 +136,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               ? <Link key={t.label} href={t.href} className={isOn(path, t.href) ? "on" : ""}>{icon}<span>{t.label}</span></Link>
               : <span key={t.label} className="off">{icon}<span>{t.label}</span></span>;
           })}
-          <button className={more || !TABS.some((t) => t.href && isOn(path, t.href)) ? "on" : ""} onClick={() => setMore(!more)}>
+          <Link href="/more" className={path.startsWith("/more") || !TABS.some((t) => t.href && isOn(path, t.href)) ? "on" : ""}>
             <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden>{ICONS.lines}</svg>
             <span>더보기</span>
-          </button>
+          </Link>
         </nav>
-        {more && (
-          <>
-            <div className="dim mmore-dim" onClick={() => setMore(false)} />
-            <div className="mmore">
-              <div className="mm-me">
-                <div className="av">{me.name.slice(0, 1)}</div>
-                <div><b>{me.name}</b><span>{me.title || TIER_LABEL[me.tier]} · {me.branch}</span></div>
-              </div>
-              <Link href="/dashboard" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.grid}</svg><span>대시보드<small>오늘 현황 · 목표 · 직원 성장 · 팀전</small></span></Link>
-              <Link href="/membership" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.card}</svg><span>회원권<small>고객이 가진 회원권 · 잔여</small></span></Link>
-              <Link href="/stats" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.bar}</svg><span>통계<small>리포트 · 날짜별·담당자별 집계 · 인센티브</small></span></Link>
-              <Link href="/marketing" className="mm-row"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{ICONS.mega}</svg><span>마케팅<small>광고 · 채널 · 제안 · 문자 · 제휴</small></span></Link>
-              <div className="mm-g">설정{me.tier === "staff" ? " (보기만)" : ""}</div>
-              {SET_NAV.flatMap((g) => g.items).map((i) => (
-                <Link key={i.href} href={i.href} className="mm-row"><SetIcon n={i.icon} s={22} /><span>{i.label}<small>{i.help}</small></span></Link>
-              ))}
-              <button className="mm-out" onClick={() => setBye(true)}>로그아웃</button>
-            </div>
-          </>
-        )}
         {bye && (
           <>
             <div className="dim" style={{ zIndex: 60 }} onClick={() => setBye(false)} />

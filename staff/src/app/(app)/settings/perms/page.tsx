@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { sb, type Perm, type Staff } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { isOn } from "@/lib/perm";
-import { Head, Ico, Info, Msg, useSetBranch } from "../ui";
+import { Ico, Info, Msg, useSetBranch } from "../ui";
+import { PageH, HelpD } from "../kit";
 import { CARDS } from "./config";
 import Detail, { MANAGER, membersOf, titleLabel, type Preset } from "./Detail";
 
@@ -77,14 +78,15 @@ export default function PermsPage() {
     [arr[i], arr[j]] = [arr[j], arr[i]]; saveOrder(arr);
   };
 
-  if (!isAdmin) return (<><Head title="직급 · 권한" /><p className="st-foot">대표관리자 · 관리자만 볼 수 있어요.</p></>);
+  if (!isAdmin) return (<div className="ct"><PageH title="권한" sub="직급마다 쓰는 기능" /><div className="body"><HelpD>대표관리자 · 관리자만 볼 수 있어요.</HelpD></div></div>);
 
   return (
-    <>
-      <Head title="직급 · 권한">
+    <div className="ct">
+      <PageH title="권한" sub={`${branch === "all" ? "전 지점" : branch} · 직급마다 쓰는 기능`}>
         <Msg text={msg} />
-        <button className="btn p" disabled={noTable} onClick={() => setAdding(true)}><Ico n="plus" />직급 추가</button>
-      </Head>
+        <button className="btn p sm" disabled={noTable} onClick={() => setAdding(true)}>직급 추가</button>
+      </PageH>
+      <div className="body">
       {noTable && <p className="st-msg">직급 저장 표가 아직 없어요. 044 SQL을 실행하면 직급 추가 · 세부설정 저장이 돼요.</p>}
       <p className="pl-cnt">직급 {titles.length + 1}개 · 사람 {nPeople}명</p>
 
@@ -140,7 +142,8 @@ export default function PermsPage() {
         onClose={() => setRenaming(null)} onDone={() => { setRenaming(null); setMsg("이름을 바꿨어요"); load(); }} />}
       {removing && <RemoveModal name={removing} titles={titles} list={list}
         onClose={() => setRemoving(null)} onDone={() => { setRemoving(null); setMsg("직급을 지웠어요"); load(); }} />}
-    </>
+      </div>
+    </div>
   );
 }
 
