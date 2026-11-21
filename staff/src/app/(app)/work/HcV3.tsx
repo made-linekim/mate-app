@@ -10,11 +10,11 @@ import CareBoard, { type CareKind } from "./CareBoard";
 // 줄 클릭 → 오른쪽 해피콜 카드 → 통화 끝 → 통화 결과(연결 · 부재 · 재방문 약속) → 토스트(되돌리기 · 예약 잡기)
 // 서버: happycall_board(038) · 없으면 happycall_list. 기록: happycall_log · happycall_undo
 
-type Kind = "norsv" | "new" | "low" | "consult" | "todo";
+type Kind = "norsv" | "new" | "low" | "consult" | "todo" | "ended";
 type Row = {
   kind: Kind; item_id: string | null; customer_key: string; branch: string; name: string | null; phone: string | null;
   membership: string | null; min_remaining: number | null; last_visit_on: string | null; registered_on: string | null;
-  ends_on?: string | null;
+  ends_on?: string | null; ended_on?: string | null;
   manager: string | null; assignee: string | null; why_a: string; why_n: string; why_b: string;
   done: boolean; result: string | null; result_note: string | null; log_id: string | null;
 };
@@ -37,7 +37,7 @@ const STGS: { k: Stg; l: string; c: string; tip: string }[] = [
 ];
 // 단계 배지 (고객 단계 데이터가 생기기 전까지 해피콜 사유로 정해요)
 const STAGE: Record<Kind, { l: string; c: string }> = {
-  norsv: { l: "위험", c: "red" }, todo: { l: "위험", c: "red" }, low: { l: "주의", c: "amb" }, new: { l: "신규", c: "grn" }, consult: { l: "상담", c: "" },
+  norsv: { l: "위험", c: "red" }, todo: { l: "위험", c: "red" }, low: { l: "주의", c: "amb" }, new: { l: "신규", c: "grn" }, consult: { l: "상담", c: "" }, ended: { l: "종료", c: "red" },
 };
 // 통화 결과 3가지 → happycall_log 결과
 const RESULTS = [
@@ -51,12 +51,13 @@ const ro = (w: string) => { const c = w.charCodeAt(w.length - 1) - 0xac00; const
 const nk = (r: Row) => `${r.branch}|${r.customer_key}`;
 const why = (r: Row) => `${r.why_a}${r.why_n}${r.why_b}`.trim();
 // 종류별로 나눠 보기 (대표님 11/21 "구분 못하나, 정신사납다"): 한 번에 한 종류만, 먼저 꺼낼 말은 종류 위에 한 번
-type Grp = "risk" | "consult" | "new" | "low";
+type Grp = "risk" | "ended" | "consult" | "new" | "low";
 const GROUPS: { k: Grp; l: string; say: string }[] = [
   { k: "risk", l: "위험 · 다음 예약 없음", say: "요즘 방문이 뜸해서 안부가 궁금했어요. 요즘 컨디션부터 물어보세요." },
+  { k: "ended", l: "회원권 종료 후 미등록", say: "그동안 받으신 관리가 어땠는지 먼저 묻고, 지금 몸 상태에 맞는 회원권을 안내해 주세요." },
   { k: "consult", l: "상담 후 미등록", say: "상담 때 궁금해하신 점부터 다시 물어보세요." },
   { k: "new", l: "신규 등록", say: "처음 받아 보신 관리가 어땠는지부터 물어보세요." },
-  { k: "low", l: "회원권 곧 끝남", say: "그동안 달라진 점부터 같이 이야기하고, 남은 횟수를 알려 드리세요." },
+  { k: "low", l: "만료 임박", say: "그동안 달라진 점부터 같이 이야기하고, 남은 횟수를 알려 드리세요." },
 ];
 const grpOf = (r: Row): Grp => (r.kind === "norsv" || r.kind === "todo" ? "risk" : r.kind);
 // 먼저 꺼낼 말 (통화 첫마디)
@@ -88,14 +89,14 @@ function fromList(r: HcRow, today: string): Row {
   };
 }
 
-export default function HcV3({ branch, today, onCount, initCare = null }: { branch: string; today: string; onCount: (left: number, done: number, total: number) => void; initCare?: CareKind | null }) {
+export default function HcV3({ branch, today, onCount, initCare = null, initGrp = null }: { branch: string; today: string; onCount: (left: number, done: number, total: number) => void; initCare?: CareKind | null; initGrp?: string | null }) {
   const router = useRouter();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [legacy, setLegacy] = useState(false);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
   const [who, setWho] = useState("");
-  const [grp, setGrp] = useState<Grp | null>(null);
+  const [grp, setGrp] = useState<Grp | null>(initGrp && ["risk", "ended", "consult", "new", "low"].includes(initGrp) ? (initGrp as Grp) : null);
   // 식단 케어 · 운동 케어 (CareBoard) — 해피콜 종류 칩 옆에 항상 보여요
   const [care, setCare] = useState<CareKind | null>(initCare);
   const [careN, setCareN] = useState<Record<CareKind, number | null>>({ diet: null, ex: null });
@@ -145,11 +146,16 @@ export default function HcV3({ branch, today, onCount, initCare = null }: { bran
     const tried = Math.max(cs.length, r.done ? 1 : 0);
     return String(Math.min(tried + 1, 4)) as Stg;
   }, [ext, since]);
-  const all = useMemo(() => (rows ?? []).filter((r) => !(r.done && r.result === "해당없음")), [rows]);
+  // 위 숫자(남음·완료)는 오늘 케어 · 고객 > 연락할 고객과 같은 기준: 회원권 종료 후 미등록은 최근 30일만
+  const cut30 = new Date(Date.parse(today) - 30 * 864e5).toISOString().slice(0, 10);
+  const all = useMemo(() => (rows ?? []).filter((r) => !(r.done && r.result === "해당없음") && (r.kind !== "ended" || (r.ended_on ?? "") >= cut30)), [rows, cut30]);
   const doneN = all.filter((r) => r.done).length;
   useEffect(() => { if (rows) onCount(all.length - doneN, doneN, all.length); }, [rows, all.length, doneN, onCount]);
   const staff = useMemo(() => [...new Set(all.map((r) => r.assignee).filter(Boolean) as string[])].sort(), [all]);
-  const base = (rows ?? []).filter((r) => (!who || r.assignee === who) && (!q.trim() || `${r.name ?? ""} ${r.assignee ?? ""}`.includes(q.trim())));
+  // 회원권 종료 후 미등록: 끝난 날 기간 (기본 최근 30일, 칩 30일·3개월 + 달력으로 직접)
+  const [ep, setEp] = useState<{ from: string; to: string }>(() => ({ from: new Date(Date.parse(today) - 30 * 864e5).toISOString().slice(0, 10), to: today }));
+  const epOk = (r: Row) => r.kind !== "ended" || (!!r.ended_on && r.ended_on >= ep.from && r.ended_on <= ep.to);
+  const base = (rows ?? []).filter((r) => epOk(r) && (!who || r.assignee === who) && (!q.trim() || `${r.name ?? ""} ${r.assignee ?? ""}`.includes(q.trim())));
   const fun = useMemo(() => {
     const m: Record<Stg, number> = { 1: 0, 2: 0, 3: 0, 4: 0, done: 0, no: 0, skip: 0 };
     let tried = 0;
@@ -283,6 +289,21 @@ export default function HcV3({ branch, today, onCount, initCare = null }: { bran
         )}
         <div className="hv3-main">
         {chips}
+        {g?.k === "ended" && (
+          <div className="hv3-ep" role="group" aria-label="회원권 끝난 기간">
+            <span className="l">끝난 기간</span>
+            {[{ d: 30, l: "최근 30일" }, { d: 90, l: "최근 3개월" }].map((x) => {
+              const f = new Date(Date.parse(today) - x.d * 864e5).toISOString().slice(0, 10);
+              return <button key={x.d} className={ep.from === f && ep.to === today ? "on" : ""} onClick={() => setEp({ from: f, to: today })}>{x.l}</button>;
+            })}
+            <span className="d">
+              <input type="date" value={ep.from} max={ep.to} onChange={(e) => e.target.value && setEp({ ...ep, from: e.target.value })} aria-label="시작일" />
+              <span>~</span>
+              <input type="date" value={ep.to} min={ep.from} max={today} onChange={(e) => e.target.value && setEp({ ...ep, to: e.target.value })} aria-label="끝일" />
+            </span>
+            <span className="cap">1년 안에 끝난 고객까지 볼 수 있어요</span>
+          </div>
+        )}
         {g && <div className="hv3-say"><b>먼저 꺼낼 말</b><span>{g.say}</span></div>}
         <section className="card hv3-tbl">
           {list.length === 0 ? <p className="wv3-empty">{rows ? "오늘 연락할 고객이 없어요." : "불러오는 중이에요."}</p> : (

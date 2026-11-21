@@ -77,6 +77,8 @@ export function builtinChips(): Chip[] {
     { id: "b-left", name: "잔여 10회 미만", conds: [{ t: "count_left", min: 0, max: 9 }], builtin: true },
     { id: "b-end", name: "기간 종료", conds: [{ t: "period_end", from: monthStart(t), to: monthEnd(t) }], builtin: true },
     { id: "b-dormant", name: "미방문 30일 이상", conds: [{ t: "dormant", days: 30 }], builtin: true },
+    // 장기 미방문: 해피콜에서 뺀 고객(마지막 방문 90일 넘음). 기간은 검색조건 > 최종방문일로 골라요
+    { id: "b-long", name: "장기 미방문 90일+", conds: [{ t: "dormant", days: 90 }], builtin: true },
     { id: "b-report", name: "주간 리포트 미발송", conds: [{ t: "report_unsent" }], builtin: true, app: true },
     { id: "b-lounge", name: "라운지 3일 미참여", conds: [{ t: "lounge_idle" }], builtin: true, app: true },
   ];
