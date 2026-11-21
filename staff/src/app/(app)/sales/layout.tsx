@@ -21,7 +21,7 @@ export default function SalesLayout({ children }: { children: React.ReactNode })
   const cur = TABS.find((t) => (t.href === "/sales" ? path === "/sales" : path.startsWith(t.href)));
   const allowed = cur && tabOk(me, cur.keys);
   const acct = TABS.find((t) => t.tab === "accounts")!;
-  const noMonth = cur?.tab === "receivable" || cur?.tab === "accounts";
+  const noMonth = cur?.tab === "receivable" || cur?.tab === "accounts" || /^\/sales\/product\/(stock|payable|vendors|items)/.test(path);
 
   async function download() {
     if (!exporter) return;
