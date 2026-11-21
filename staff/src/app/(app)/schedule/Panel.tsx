@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { sb } from "@/lib/sb";
+import WorkMemo from "./WorkMemo";
 import { type Rsv, todayKST, addDays, dow, DOW } from "@/lib/schedule";
 
 const monthEnd = (d: string) => addDays(`${addDays(`${d.slice(0, 8)}28`, 4).slice(0, 8)}01`, -1);
@@ -32,7 +33,7 @@ const WIDGETS: { k: W; l: string }[] = [
 ];
 const TABS = ["현황", "업무 메모", "문자", "네이버"] as const;
 
-export default function Panel({ branch, day, dayRows, staffName }: { branch: string; day: string; dayRows: Rsv[]; staffName: (id: string) => string }) {
+export default function Panel({ branch, day, dayRows, staffName, onFold }: { branch: string; day: string; dayRows: Rsv[]; staffName: (id: string) => string; onFold?: () => void }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("현황");
   const [hide, setHide] = useState<W[]>([]);
   const [edit, setEdit] = useState(false);
@@ -41,6 +42,7 @@ export default function Panel({ branch, day, dayRows, staffName }: { branch: str
   const on = (k: W) => !hide.includes(k);
   return (
     <aside className="rv3-side">
+      {onFold && <button className="rv3-fold" onClick={onFold} aria-label="왼쪽 패널 닫아두기">{Ico.left}닫아두기</button>}
       <div className="sg">
         {TABS.map((t) => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t}</button>)}
       </div>
@@ -63,7 +65,7 @@ export default function Panel({ branch, day, dayRows, staffName }: { branch: str
             </div>
           )}
         </>
-      ) : tab === "업무 메모" ? <MemoSide branch={branch} /> : (
+      ) : tab === "업무 메모" ? <WorkMemo branch={branch} /> : (
         <div className="card mempty">{tab} 화면은 준비 중이에요.</div>
       )}
     </aside>
@@ -198,168 +200,5 @@ function ByStaffW({ rows, staffName }: { rows: Rsv[]; staffName: (id: string) =>
       {list.length === 0 && <div className="wl cap">이 날 예약이 없어요</div>}
       {list.map(([k, v]) => <div key={k} className="wl">{k ? staffName(k) : "담당 미정"}<span className="r cap num">{v}건</span></div>)}
     </Fold>
-  );
-}
-
-// 업무 메모 (v3 시안 U-PC-RSV-1_업무메모 · 빈화면 · 월간 · 저장)
-type Memo = { id: string; day: string; body: string; author: string; created_at: string };
-function MemoSide({ branch }: { branch: string }) {
-  const today = todayKST();
-  const [day, setDay] = useState(today);
-  const [mode, setMode] = useState<"d" | "m">("d");
-  const [list, setList] = useState<Memo[] | null>(null);
-  const [auto, setAuto] = useState<{ hc: number | null; idle: number | null }>({ hc: null, idle: null });
-  const [text, setText] = useState("");
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState("");
-  const mFrom = `${day.slice(0, 8)}01`, mTo = monthEnd(day);
-  const load = () => {
-    setErr("");
-    sb.rpc("rsv_work_memo_list", { p_branch: branch, p_from: mFrom, p_to: mTo }).then(({ data, error }) => {
-      if (error) { setList([]); setErr(/function|schema cache/i.test(error.message) ? "업무 메모는 서버 준비 중이에요." : error.message); return; }
-      setList((data ?? []) as Memo[]);
-    });
-  };
-  useEffect(load, [branch, mFrom, mTo]); // eslint-disable-line react-hooks/exhaustive-deps
-  // 자동 대상: 오늘만 (해피콜 대상 · 잔여 회차 있는데 오늘 예약 없는 고객)
-  useEffect(() => {
-    let on = true;
-    Promise.all([
-      sb.rpc("happycall_list", { p_branch: branch }),
-      sb.rpc("membership_holdings", { p_branch: branch, p_filter: "active" }),
-      sb.rpc("rsv_board", { p_branch: branch, p_from: today, p_to: today }),
-    ]).then(([h, m, r]) => {
-      if (!on) return;
-      const booked = new Set(((r.data ?? []) as Rsv[]).filter((x) => x.status === "예약" || x.status === "완료").map((x) => x.customer_key));
-      const hold = (m.data?.rows ?? []) as { customer_key: string; remain: number }[];
-      setAuto({
-        hc: h.error || !Array.isArray(h.data) ? null : h.data.length,
-        idle: m.error || r.error ? null : new Set(hold.filter((x) => Number(x.remain) > 0 && !booked.has(x.customer_key)).map((x) => x.customer_key)).size,
-      });
-    });
-    return () => { on = false; };
-  }, [branch, today]);
-  const add = async () => {
-    if (!text.trim()) return;
-    setBusy(true);
-    const { error } = await sb.rpc("rsv_work_memo_add", { p_branch: branch, p_day: day, p_body: text.trim() });
-    setBusy(false);
-    if (error) return setErr(/function|schema cache/i.test(error.message) ? "업무 메모는 서버 준비 중이에요." : error.message);
-    setText(""); load(); setToast("업무 메모를 남겼어요."); setTimeout(() => setToast(""), 2500);
-  };
-  const stepM = (n: number) => setDay(`${addDays(`${day.slice(0, 8)}15`, n * 30).slice(0, 8)}01`);
-  const tm = (t: string) => new Date(t).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Seoul" });
-  const when = (m: Memo) => `${m.author || "직원"} · ${m.day === today ? "오늘" : `${Number(m.day.slice(5, 7))}.${m.day.slice(8)}`} ${tm(m.created_at)}`;
-  const shown = (list ?? []).filter((m) => m.day === day).sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const memoDays = new Set((list ?? []).map((m) => m.day));
-  const first = `${day.slice(0, 8)}01`;
-  const cells = [...Array.from({ length: dow(first) }, () => ""), ...Array.from({ length: Number(mTo.slice(8)) }, (_, i) => `${day.slice(0, 8)}${String(i + 1).padStart(2, "0")}`)];
-  const autoCard = day === today && (auto.hc !== null || auto.idle !== null) && (
-    <div className="card mc">
-      <div className="when">자동 · {mode === "d" ? "오늘" : `${Number(day.slice(5, 7))}.${day.slice(8)}`}</div>
-      {auto.hc !== null && <div className="mtxt">해피콜 대상 {auto.hc}명</div>}
-      {auto.idle !== null && <div className="mtxt">잔여 회차 있는데 {mode === "d" ? "오늘 " : ""}예약 없는 고객 {auto.idle}명</div>}
-    </div>
-  );
-  return (
-    <>
-      <div className="mnav">
-        <button className="ib" onClick={() => stepM(-1)} aria-label="이전 달">{Ico.left}</button>
-        <b className="num" style={{ textAlign: "center" }}>{Number(day.slice(5, 7))}월 {day.slice(0, 4)}</b>
-        <button className="ib" onClick={() => stepM(1)} aria-label="다음 달">{Ico.chev}</button>
-      </div>
-      <div className="sg">
-        <button className={mode === "d" ? "on" : ""} onClick={() => setMode("d")} style={{ flex: "none" }}>일간</button>
-        <button className={mode === "m" ? "on" : ""} onClick={() => setMode("m")} style={{ flex: "none" }}>월간</button>
-      </div>
-      <div className="card minfo">{Ico.info}그날 남긴 메모와 자동 대상(해피콜·상담일지, 잔여 회차·예약 없음)을 보여 줘요.</div>
-      {mode === "m" && (
-        <div className="card mcal num">
-          {DOW.map((d) => <div key={d} className="hd">{d}</div>)}
-          {cells.map((d, i) => d ? (
-            <button key={d} className={d === day ? "on" : ""} onClick={() => setDay(d)}>{Number(d.slice(8))}{memoDays.has(d) && <i className="dot" />}</button>
-          ) : <span key={`e${i}`} />)}
-        </div>
-      )}
-      {list === null ? <div className="card mempty">불러오는 중…</div> : (
-        <>
-          {autoCard}
-          {shown.map((m) => <div key={m.id} className="card mc"><div className="when num">{when(m)}</div><div className="mtxt">{m.body}</div></div>)}
-          {!autoCard && shown.length === 0 && <div className="card mempty">{err || "이 날에 남긴 업무 메모가 없어요."}</div>}
-        </>
-      )}
-      {mode === "d" && (
-        <div className="card mwrite">
-          <label htmlFor="rv3-memo">메모 쓰기</label>
-          <textarea id="rv3-memo" maxLength={500} value={text} onChange={(e) => setText(e.target.value)} />
-          {err && list && list.length > 0 && <p className="cap" style={{ color: "var(--red)" }}>{err}</p>}
-          <button className="btn3 sm p" disabled={busy || !text.trim()} onClick={add}>메모 저장</button>
-        </div>
-      )}
-      {toast && <div className="rv3-toast">{toast}</div>}
-    </>
-  );
-}
-
-// 업무 메모 (시안 1120 U-PC-RSV-1): 날짜별로 남기는 지점 메모. 일간 / 월간
-export function MemoTab({ branch }: { branch: string }) {
-  const [day, setDay] = useState(todayKST());
-  const [mode, setMode] = useState<"d" | "m">("d");
-  const [list, setList] = useState<Memo[] | null>(null);
-  const [text, setText] = useState("");
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
-  const from = mode === "d" ? day : `${day.slice(0, 8)}01`;
-  const to = mode === "d" ? day : monthEnd(day);
-  const load = () => {
-    setErr("");
-    sb.rpc("rsv_work_memo_list", { p_branch: branch, p_from: from, p_to: to }).then(({ data, error }) => {
-      if (error) { setList([]); setErr(/function|schema cache/i.test(error.message) ? "업무 메모는 서버 준비 중이에요." : error.message); return; }
-      setList((data ?? []) as Memo[]);
-    });
-  };
-  useEffect(load, [branch, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
-  const add = async () => {
-    if (!text.trim()) return;
-    setBusy(true);
-    const { error } = await sb.rpc("rsv_work_memo_add", { p_branch: branch, p_day: day, p_body: text.trim() });
-    setBusy(false);
-    if (error) return setErr(/function|schema cache/i.test(error.message) ? "업무 메모는 서버 준비 중이에요." : error.message);
-    setText(""); load();
-  };
-  const step = (n: number) => setDay(mode === "d" ? addDays(day, n) : `${addDays(`${day.slice(0, 8)}15`, n * 30).slice(0, 8)}01`);
-  const label = mode === "d" ? `${Number(day.slice(5, 7))}.${day.slice(8)}` : `${day.slice(0, 4)}년 ${Number(day.slice(5, 7))}월`;
-  const tm = (t: string) => new Date(t).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Seoul" });
-  return (
-    <div className="memo-tab">
-      <div className="memo-nav">
-        <button className="btn sm" onClick={() => step(-1)} aria-label="이전">‹</button>
-        <b className="num">{label}</b>
-        <button className="btn sm" onClick={() => step(1)} aria-label="다음">›</button>
-        <div className="seg sm" style={{ marginLeft: "auto" }}>
-          <button className={mode === "d" ? "on" : ""} onClick={() => setMode("d")}>일간</button>
-          <button className={mode === "m" ? "on" : ""} onClick={() => setMode("m")}>월간</button>
-        </div>
-      </div>
-      <div className="memo-list">
-        {list === null ? <p className="memo-empty">불러오는 중…</p>
-          : list.length === 0 ? <p className="memo-empty">{err || (mode === "d" ? "이날 남긴 메모가 없어요." : "이번 달 남긴 메모가 없어요.")}</p>
-          : list.map((m) => (
-            <div key={m.id} className="memo-it">
-              <span>{m.author || "직원"} · {mode === "m" ? `${Number(m.day.slice(5, 7))}.${m.day.slice(8)} ` : ""}{tm(m.created_at)}</span>
-              <p>{m.body}</p>
-            </div>
-          ))}
-      </div>
-      {mode === "d" && (
-        <div className="memo-write">
-          <label>메모 쓰기</label>
-          <textarea className="inp" rows={3} maxLength={500} value={text} onChange={(e) => setText(e.target.value)} placeholder="예: 저녁 마감 때 2번실 소독이 남아 있어요." />
-          {err && list && list.length > 0 && <p className="memo-err">{err}</p>}
-          <button className="btn p sm" disabled={busy || !text.trim()} onClick={add}>메모 저장</button>
-        </div>
-      )}
-    </div>
   );
 }

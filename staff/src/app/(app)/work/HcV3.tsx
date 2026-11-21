@@ -31,6 +31,15 @@ const resLabel = (r: Row) => (r.result_note === "재방문 약속" ? "재방문 
 const ro = (w: string) => { const c = w.charCodeAt(w.length - 1) - 0xac00; const j = c >= 0 && c < 11172 ? c % 28 : 0; return j && j !== 8 ? "으로" : "로"; };
 const nk = (r: Row) => `${r.branch}|${r.customer_key}`;
 const why = (r: Row) => `${r.why_a}${r.why_n}${r.why_b}`.trim();
+// 종류별로 나눠 보기 (대표님 11/21 "구분 못하나, 정신사납다"): 한 번에 한 종류만, 먼저 꺼낼 말은 종류 위에 한 번
+type Grp = "risk" | "consult" | "new" | "low";
+const GROUPS: { k: Grp; l: string; say: string }[] = [
+  { k: "risk", l: "위험 · 다음 예약 없음", say: "요즘 방문이 뜸해서 안부가 궁금했어요. 요즘 컨디션부터 물어보세요." },
+  { k: "consult", l: "상담 후 미등록", say: "상담 때 궁금해하신 점부터 다시 물어보세요." },
+  { k: "new", l: "신규 등록", say: "처음 받아 보신 관리가 어땠는지부터 물어보세요." },
+  { k: "low", l: "회원권 곧 끝남", say: "그동안 달라진 점부터 같이 이야기하고, 남은 횟수를 알려 드리세요." },
+];
+const grpOf = (r: Row): Grp => (r.kind === "norsv" || r.kind === "todo" ? "risk" : r.kind);
 // 먼저 꺼낼 말 (통화 첫마디)
 function opener(r: Row) {
   switch (r.kind) {
@@ -67,6 +76,7 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
   const [who, setWho] = useState("");
+  const [grp, setGrp] = useState<Grp | null>(null);
   const [sel, setSel] = useState<string | null>(null);
   const [mode, setMode] = useState<"card" | "result">("card");
   const [sheet, setSheet] = useState<string | null>(null); // 모바일 통화 결과
@@ -88,7 +98,13 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
   const doneN = all.filter((r) => r.done).length;
   useEffect(() => { if (rows) onCount(all.length - doneN, doneN, all.length); }, [rows, all.length, doneN, onCount]);
   const staff = useMemo(() => [...new Set(all.map((r) => r.assignee).filter(Boolean) as string[])].sort(), [all]);
-  const list = all.filter((r) => (!who || r.assignee === who) && (!q.trim() || `${r.name ?? ""} ${r.assignee ?? ""}`.includes(q.trim())));
+  const found = all.filter((r) => (!who || r.assignee === who) && (!q.trim() || `${r.name ?? ""} ${r.assignee ?? ""}`.includes(q.trim())));
+  const cnt = (k: Grp) => found.filter((r) => grpOf(r) === k && !r.done).length;
+  const shownG = GROUPS.filter((g) => found.some((r) => grpOf(r) === g.k));
+  const g = shownG.find((x) => x.k === grp) ?? shownG[0] ?? null;
+  // 남은 사람 먼저, 그 안에서 최근에 왔던 고객부터 (오래전 고객은 아래로)
+  const list = found.filter((r) => g && grpOf(r) === g.k)
+    .sort((a, b) => Number(a.done) - Number(b.done) || (b.last_visit_on ?? "").localeCompare(a.last_visit_on ?? ""));
   const cur = sel ? all.find((r) => nk(r) === sel) ?? null : null;
   const sheetRow = sheet ? all.find((r) => nk(r) === sheet) ?? null : null;
 
@@ -150,11 +166,21 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
           </select>
           <button className="btn3 r" onClick={() => router.push("/customers")}>연락할 고객</button>
         </div>
+        {shownG.length > 0 && (
+          <div className="hv3-grp" role="tablist" aria-label="해피콜 종류">
+            {shownG.map((x) => (
+              <button key={x.k} role="tab" aria-selected={g?.k === x.k} className={g?.k === x.k ? "on" : ""} onClick={() => { setGrp(x.k); setSel(null); }}>
+                {x.l}<span className="num">{cnt(x.k)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {g && <div className="hv3-say"><b>먼저 꺼낼 말</b><span>{g.say}</span></div>}
         <section className="card hv3-tbl">
           {list.length === 0 ? <p className="wv3-empty">{rows ? "오늘 연락할 고객이 없어요." : "불러오는 중이에요."}</p> : (
             <table>
               <thead><tr>
-                <th>이름</th>{!cur && <th>휴대전화</th>}<th>단계</th><th>왜 전화하는지</th>{!cur && <th>먼저 꺼낼 말</th>}<th>담당</th>{!cur && <th />}
+                <th>이름</th>{!cur && <th>휴대전화</th>}<th>단계</th><th>왜 전화하는지</th><th>담당</th>{!cur && <th />}
               </tr></thead>
               <tbody>
                 {list.map((r) => (
@@ -163,7 +189,6 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
                     {!cur && <td className="num">{r.phone ?? "-"}</td>}
                     <td><Stage r={r} /></td>
                     <td className="why">{why(r)}</td>
-                    {!cur && <td className="op">{opener(r)}</td>}
                     <td>{r.assignee ?? "-"}</td>
                     {!cur && <td className="act"><Call r={r} cls="btn3 sm" /><Sms r={r} /></td>}
                   </tr>
@@ -179,7 +204,6 @@ export default function HcV3({ branch, today, onCount }: { branch: string; today
             <section key={nk(r)} className="card hv3-mc">
               <div className="h"><b>{r.name ?? "-"}</b><Stage r={r} />{r.done && <span className="bdg g">{resLabel(r)}</span>}</div>
               <div className="w">왜 · {why(r)}</div>
-              <div className="o">{opener(r)}</div>
               <div className="m">담당 {r.assignee ?? "-"}{r.phone ? ` · ${r.phone}` : ""}</div>
               {!r.done && <div className="a"><Call r={r} cls="btn3" /><button className="btn3" onClick={() => setSheet(nk(r))}>통화 결과</button></div>}
             </section>
