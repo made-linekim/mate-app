@@ -387,7 +387,7 @@ export default function SchedulePage() {
         {err && <p style={{ color: "var(--red)", padding: "0 16px" }}>{err}</p>}
         {view === "week" ? mweek() : month(true)}
         {draft && (
-          <RsvDrawer branch={branch} draft={draft} programs={programs} rows={rows} canWrite={canWrite}
+          <RsvDrawer branch={branch} draft={draft} offDays={holidays.map((h) => h.day)} programs={programs} rows={rows} canWrite={canWrite}
             onClose={() => setDraft(null)} onSaved={() => { setDraft(null); load(); }} />
         )}
       </div>
@@ -459,7 +459,7 @@ export default function SchedulePage() {
         {draft && (
           <aside className="rsv-dock">
             <RsvDrawer key={`${draft.id ?? "new"}-${draft.day}-${draft.start_time}-${draft.staff_id ?? ""}`}
-              docked branch={branch} draft={draft}
+              docked branch={branch} draft={draft} offDays={holidays.map((h) => h.day)}
               programs={programs} rows={rows} canWrite={canWrite}
               onClose={() => setDraft(null)} onSaved={() => { setDraft(null); load(); }} />
           </aside>

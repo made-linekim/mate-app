@@ -4,11 +4,12 @@ import { sb, type Staff } from "@/lib/sb";
 import Link from "next/link";
 import { useMe } from "@/lib/me";
 import PayModal from "./PayModal";
+import "./rsv-new.css";
 import { type Program, type Rsv, SLOTS, toMin, usedAt, DAY_START, DAY_END, fmtDay, todayKST, DOW, dow } from "@/lib/schedule";
 
 // 새 예약은 day/start_time/program_id 만, 기존 예약은 Rsv 전체
 export type Draft = Partial<Rsv> & { day: string; start_time: string; program_id?: string | null };
-type Cust = { key: string; branch: string; name: string; phone: string | null; membership: string | null; min_remaining: number | null; ends_on: string | null };
+type Cust = { key: string; branch: string; name: string; phone: string | null; membership: string | null; min_remaining: number | null; ends_on: string | null; last_visit_on?: string | null };
 
 const isWork = (p?: Program) => !!p && (p.grp === "업무" || p.grp === "행사");
 type Summary = {
@@ -23,8 +24,8 @@ const daysTo = (d: string, from: string) => Math.round((Date.parse(`${d}T00:00:0
 const addD = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onClose, onSaved, docked }: {
-  docked?: boolean; branch: string; draft: Draft; programs: Program[]; rows: Rsv[]; canWrite: boolean;
+export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onClose, onSaved, docked, offDays = [] }: {
+  docked?: boolean; offDays?: string[]; branch: string; draft: Draft; programs: Program[]; rows: Rsv[]; canWrite: boolean;
   onClose: () => void; onSaved: () => void;
 }) {
   const editing = !!draft.id;
@@ -63,21 +64,39 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const [err, setErr] = useState("");
   const [askReason, setAskReason] = useState<"취소" | "노쇼" | null>(null);
   // 새 예약 팝업: 일반 예약 / 일정 등록, 고객은 기존 검색 / 신규 입력
-  const [mode, setMode] = useState<"rsv" | "work">(isWork(programs.find((p) => p.id === draft.program_id)) ? "work" : "rsv");
+  const [mode, setMode] = useState<"rsv" | "work" | "sale">(isWork(programs.find((p) => p.id === draft.program_id)) ? "work" : "rsv");
   const [custMode, setCustMode] = useState<"old" | "new">("old");
   const [nName, setNName] = useState("");
   const [nPhone, setNPhone] = useState("");
   const [reason, setReason] = useState("");
   // 겹침 안내 (시안 1120 U-MO-RSV-1 시간겹침 · 같은고객): 강제 저장 없이 비어 있는 다른 시간을 골라 저장
   const [clash, setClash] = useState<{ cust: boolean; other: Rsv; alts: number[] } | null>(null);
-  const [alt, setAlt] = useState<number | null>(null);
+  const [alt, setAlt] = useState<number | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
   // 반복 예약: 첫 예약과 같은 시간·관리로 주기마다 N회
   const [rep, setRep] = useState(false);
   const [repEvery, setRepEvery] = useState(7);
   const [repN, setRepN] = useState(4);
   const [repMsg, setRepMsg] = useState("");
   const [repDone, setRepDone] = useState(false);
-  const repDays = useMemo(() => Array.from({ length: rep ? repN : 1 }, (_, i) => addD(day, i * repEvery)), [rep, repN, repEvery, day]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 반복 (시안 P20): 매주·격주 + 요일 여러 개, 횟수만큼. 미리보기에서 겹치는 날은 빼고 저장
+  const [repWd, setRepWd] = useState<number[]>([dow(draft.day)]);
+  const [repOff, setRepOff] = useState<Set<string>>(new Set());
+  const [repMove, setRepMove] = useState<Record<string, number>>({}); // 이동한 날짜 → 시작 분
+  const [repEnd, setRepEnd] = useState<string | null>(null); // 종료일로 끝내기
+  const [pick, setPick] = useState(false); // 모바일 날짜·시간 고르기 (M07)
+  const repAll = useMemo(() => {
+    if (!rep) return [day];
+    const mon = addD(day, -((dow(day) + 6) % 7));
+    const wds = [...repWd].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+    const out: string[] = [];
+    const cap = repEnd ? 60 : repN;
+    for (let w = 0; out.length < cap && w < 120; w += repEvery === 14 ? 2 : 1) {
+      if (repEnd && addD(mon, w * 7) > repEnd) break;
+      for (const wd of wds) { const d = addD(mon, w * 7 + ((wd + 6) % 7)); if (d >= day && out.length < cap && (!repEnd || d <= repEnd)) out.push(d); }
+    }
+    return out.length ? out : [day];
+  }, [rep, repN, repEvery, repWd, day, repEnd]);
+  const repDays = useMemo(() => repAll.filter((d, i) => i === 0 || !repOff.has(d)), [repAll, repOff]);
 
   // 고객 요약 (시안 8차 P03: 이력 · 보유 회원권 · 비고)
   const [sum, setSum] = useState<Summary | null>(null);
@@ -95,6 +114,18 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const prog = programs.find((p) => p.id === programId);
   const work = editing ? isWork(prog) : mode === "work";
   const left = prog ? prog.capacity - usedAt(rows, day, prog.id, toMin(time), prog.minutes, draft.id) : null;
+  // 정원 초과 (시안 P38): 같은 관리의 다음 빈 시간 두 개를 자리 수와 같이 보여 줘요
+  const capFull = !editing && !work && !rep && !!prog && left !== null && left <= 0;
+  const capAlts = (() => {
+    if (!capFull || !prog) return [] as { m: number; n: number }[];
+    const out: { m: number; n: number }[] = [];
+    for (let m = toMin(time) + 30; m + prog.minutes <= DAY_END && out.length < 2; m += 30) {
+      const n = prog.capacity - usedAt(rows, day, prog.id, m, prog.minutes, draft.id);
+      if (n > 0) out.push({ m, n });
+    }
+    return out;
+  })();
+  const focusSel = (f: "time" | "staff" | "prog") => { const el = document.querySelector<HTMLSelectElement>(`.rd select[data-f=${f}]`); el?.scrollIntoView({ block: "center" }); el?.focus(); try { el?.showPicker?.(); } catch { /* 일부 브라우저는 지원 안 해요 */ } };
 
   // 프로그램 선택 목록: 그룹별 (하위 프로그램은 부모 밑에)
   const groups = useMemo(() => {
@@ -113,20 +144,55 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
     if (!q.trim()) return;
     const { data, error } = await sb.rpc("customer_list", { p_q: q.trim(), p_branch: branch, p_filter: "all", p_limit: 20, p_offset: 0 });
     if (error) { setErr(error.message); return; }
-    setFound((data ?? []) as Cust[]);
+    const d = (data ?? []) as Cust[];
+    setFound(d);
+    if (!d.length) { const t = q.trim(); if (/^[\d-]+$/.test(t)) { setNPhone(t); setNName(""); } else { setNName(t); setNPhone(""); } }
   };
+
+  // 검색 결과 없음 (시안 P29): 결과 카드 아래에 신규 등록 칸을 바로 보여 줘요
+  const nf = !editing && !cust && custMode === "old" && !!found && found.length === 0;
 
   // 같은 담당 또는 같은 고객이 같은 시간에 이미 예약(취소·노쇼 제외)이 있는지
   const findClash = (at: number, ck: string | null, mins: number, onDay = day) => rows.find((r) =>
     r.day === onDay && r.id !== draft.id && (r.status === "예약" || r.status === "완료")
     && toMin(r.start_time) < at + mins && at < toMin(r.start_time) + (r.minutes || 30)
     && ((!!ck && r.customer_key === ck) || (!!staffId && r.staff_id === staffId)));
-  const save = async (atOverride?: number) => {
+  const [newId, setNewId] = useState<string | null>(null);
+  const [payAfter, setPayAfter] = useState(false);
+  // 반복 미리보기 한 줄 상태 (예약표에 불러온 기간만 알 수 있어요)
+  const repAt = (d: string) => repMove[d] ?? toMin(time);
+  const freeAt = (d: string, at: number) => !!prog && !findClash(at, work ? null : cust?.key ?? null, prog.minutes, d) && usedAt(rows, d, prog.id, at, prog.minutes, draft.id) < prog.capacity;
+  const repState = (d: string) => {
+    if (offDays.includes(d)) return "휴무";
+    if (!prog) return "가능";
+    if (findClash(repAt(d), work ? null : cust?.key ?? null, prog.minutes, d)) return "겹침";
+    if (usedAt(rows, d, prog.id, repAt(d), prog.minutes, draft.id) >= prog.capacity) return "정원 참";
+    return "가능";
+  };
+  const clashWho = (d: string) => { const r = prog && findClash(repAt(d), work ? null : cust?.key ?? null, prog.minutes, d); return r ? (r.customer_name || r.title || "다른 예약") : ""; };
+  // 이동 (시안 P20): 그날 가장 가까운 빈 시간으로 옮겨요 (앞뒤 10분 단위)
+  const repMoveTo = (d: string) => {
+    if (!prog) return;
+    const base = toMin(time);
+    for (let k = 1; k < 80; k++) for (const m of [base + k * 10, base - k * 10])
+      if (m >= DAY_START && m + prog.minutes <= DAY_END && freeAt(d, m)) { setRepMove({ ...repMove, [d]: m }); return; }
+    setErr(`${md(d)}은 빈 시간이 없어요. 제외해 주세요.`);
+  };
+  // 고른 관리와 이름이 맞는 회차 회원권 (반복 미리보기의 회차·단건 안내)
+  const repMs = (() => {
+    if (!prog || !sum) return null;
+    const m = (sum.memberships ?? []).find((x) => x.status === "사용중" && x.kind === "회차" && x.name.includes(prog.name));
+    if (!m) return null;
+    const t = m.items.reduce((a, i) => a + i.total + (i.service ?? 0), 0), u = m.items.reduce((a, i) => a + i.used, 0);
+    return { name: m.name, left: Math.max(t - u, 0), used: u };
+  })();
+  const repBad = rep ? repAll.filter((d, i) => repState(d) !== "가능" && !(i > 0 && repOff.has(d))).length : 0;
+  const save = async (atOverride?: number, thenPay = payAfter) => {
     setErr("");
-    const at = atOverride ?? toMin(time);
+    const at = atOverride ?? (rep && !editing && repMove[day] != null ? repMove[day] : toMin(time));
     if (!prog) return setErr("프로그램을 골라 주세요.");
     let c = cust;
-    if (!work && !c && custMode === "new") {
+    if (!work && !c && (custMode === "new" || nf)) {
       if (!nName.trim() || nPhone.replace(/\D/g, "").length < 10) return setErr("신규 고객 이름과 연락처를 넣어 주세요.");
       setBusy(true);
       const { data, error } = await sb.rpc("customer_create", { p_branch: branch, p_name: nName.trim(), p_phone: nPhone.replace(/\D/g, "") });
@@ -136,7 +202,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
       setCust(c);
     }
     if (!work && !c) return setErr("고객을 골라 주세요.");
-    if (atOverride == null && left !== null && left <= 0) return setErr(`이 시간 ${prog.name} 정원(${prog.capacity}명)이 다 찼어요.`);
+    if (atOverride == null && left !== null && left <= 0) return; // 위 안내 띠에서 시간을 옮겨요 (P38)
     const ck = work ? null : c!.key;
     const hit = findClash(at, ck, prog.minutes);
     if (hit) {
@@ -149,17 +215,19 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
     setClash(null);
     setBusy(true);
     const body = { branch, day, start_time: hm(at), program_id: prog.id, customer_key: work ? null : c!.key, title: work ? title : "", staff_id: staffId, memo };
-    const { error } = editing
+    const { data: rid, error } = editing
       ? await sb.rpc("rsv_update", { p_id: draft.id, p: body })
       : await sb.rpc("rsv_create", { p: body });
     setBusy(false);
     if (error) return setErr(error.message);
+    if (!editing && thenPay && !work && typeof rid === "string") { setNewId(rid); setPayOpen(true); return; }
     if (!editing && rep && repDays.length > 1) {
       setBusy(true);
       const fail: string[] = [];
-      for (const d of repDays.slice(1)) {
-        if (findClash(at, ck, prog.minutes, d)) { fail.push(`${md(d)} 겹침`); continue; }
-        const r = await sb.rpc("rsv_create", { p: { ...body, day: d } });
+      for (const d of repDays.filter((x) => x !== day)) {
+        const dAt = repMove[d] ?? at;
+        if (findClash(dAt, ck, prog.minutes, d)) { fail.push(`${md(d)} 겹침`); continue; }
+        const r = await sb.rpc("rsv_create", { p: { ...body, day: d, start_time: hm(dAt) } });
         if (r.error) fail.push(`${md(d)} ${/capacity|정원/i.test(r.error.message) ? "정원 참" : "실패"}`);
       }
       setBusy(false);
@@ -176,6 +244,34 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
     onSaved();
   };
 
+  // 신규 고객 바로 등록 (시안 P29): 검색어가 숫자면 전화, 아니면 이름으로 채워요
+  const [firstV, setFirstV] = useState<"체험" | "상담" | "관리">("체험");
+  const toNew = (v: string) => {
+    const t = v.trim(); setCustMode("new"); setFound(null);
+    if (/^[\d-]+$/.test(t)) setNPhone(t); else setNName(t);
+    pickFirst(firstV);
+  };
+  const pickFirst = (k: "체험" | "상담" | "관리") => {
+    setFirstV(k);
+    if (k === "관리" || programId) return;
+    const p = programs.find((x) => !isWork(x) && x.name.includes(k));
+    if (p) setProgramId(p.id);
+  };
+  const searchAll = async () => {
+    const { data, error } = await sb.rpc("customer_list", { p_q: q.trim(), p_branch: null, p_filter: "all", p_limit: 20, p_offset: 0 });
+    if (error) return setErr(error.message);
+    setFound((data ?? []) as Cust[]);
+  };
+  const newForm = (
+    <div className="rn-new">
+      <div className="rn-nh">신규로 바로 등록<span className="pc">&nbsp;· 이름과 전화만</span></div>
+      <div className="rd-grid"><span className="rd-k">이름</span><input className="inp" placeholder="이름" value={nName} onChange={(e) => setNName(e.target.value)} autoFocus={!nf} /></div>
+      <div className="rd-grid"><span className="rd-k">휴대전화</span><input className="inp num" placeholder="010-0000-0000" inputMode="tel" value={nPhone} onChange={(e) => setNPhone(e.target.value)} /></div>
+      <div className="rd-grid"><span className="rd-k">첫 방문</span>
+        <div className="seg sm" style={{ width: "max-content" }}>{(["체험", "상담", "관리"] as const).map((k) => <button key={k} className={firstV === k ? "on" : ""} onClick={() => pickFirst(k)}>{k === "관리" ? "바로 관리" : k}</button>)}</div></div>
+      <div className="rn-rec">나머지 정보는 방문 뒤 고객 차트에서 채워요 · 동의는 고객 앱 첫 실행 때 받아요</div>
+    </div>
+  );
   const ro = !canWrite || locked;
   const today = todayKST();
   const endTime = prog ? hm(toMin(time) + prog.minutes) : "";
@@ -189,8 +285,8 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
       {!docked && <div className="dim" style={{ zIndex: 20 }} onClick={onClose} />}
       <aside className={docked ? "rd rd-docked" : editing ? "drawer rd" : "drawer rd rd-modal"} style={docked ? undefined : { zIndex: 21 }} role="dialog" aria-label={editing ? "예약 수정" : "새 예약"}>
         <div className="hd">
-          {editing ? "예약 수정" : "새 예약"}
-          <span className="rd-sub num">{md(day)} ({DOW[dow(day)]}) {time}</span>
+          <b className="rn-title">{editing ? "예약 수정" : "새 예약"}</b>
+          {editing && <span className="rd-sub num">{md(day)} ({DOW[dow(day)]}) {time}</span>}
           {editing && draft.status !== "예약" && (
             <span className={`badge ${draft.status === "완료" ? "ok" : draft.status === "노쇼" ? "warn" : "em"}`} style={{ marginLeft: 8 }}>
               {draft.status === "완료" ? "결제 완료" : draft.status}
@@ -200,22 +296,59 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
           <button className="rd-x" onClick={onClose} aria-label="닫기" title="닫기">×</button>
         </div>
         {!editing && (
-          <div className="rd-tabs">
-            <button className={mode === "rsv" ? "on" : ""} onClick={() => { setMode("rsv"); setProgramId(""); }}>일반 예약</button>
-            <button className={mode === "work" ? "on" : ""} onClick={() => { setMode("work"); setProgramId(""); }}>일정 등록</button>
+          <div className="rn-tabs">
+            <div className="rn-seg">
+              <button className={mode === "rsv" && !rep ? "on" : ""} onClick={() => { if (mode !== "rsv") setProgramId(""); setMode("rsv"); setRep(false); }}>일반예약</button>
+              <button className={mode === "rsv" && rep ? "on" : ""} onClick={() => { if (mode !== "rsv") setProgramId(""); setMode("rsv"); setRep(true); }}>반복예약</button>
+              <button className={mode === "work" ? "on" : ""} onClick={() => { setMode("work"); setProgramId(""); setRep(false); }}>일정등록</button>
+              <button className={mode === "sale" ? "on" : ""} onClick={() => { setMode("sale"); setRep(false); }}>매출등록</button>
+            </div>
           </div>
         )}
-        <div className="bd">
+        <div className={`bd ${nf ? "rn-nfmode" : ""} ${rep && !editing ? "rn-repmode" : ""} ${!editing && !cust && custMode === "old" && found && found.length > 0 ? "rn-srch" : ""}`}>
+          {clash && prog && (
+            <div className="rn-ban bad" role="alert">
+              <p><b>! 저장하지 못했어요</b> · {clash.cust ? "이 고객은" : `${clash.other.staff_name ?? staffName ?? "같은 담당"}`} {clash.other.start_time.slice(0, 5)}에 다른 예약({clash.other.customer_name || clash.other.title || "일정"}{programs.find((x) => x.id === clash.other.program_id)?.name ? ` ${programs.find((x) => x.id === clash.other.program_id)?.name}` : ""})이 있어요. 적어 둔 내용은 그대로예요.</p>
+              <div className="bt">
+                {clash.alts[0] != null && <button className="btn sm p" disabled={busy} onClick={() => { const m = clash.alts[0]; setTime(hm(m)); save(m); }}>{hm(clash.alts[0])}으로 옮겨 저장</button>}
+                {!clash.cust && <button className="btn sm" onClick={() => { setClash(null); focusSel("staff"); }}>다른 담당 보기</button>}
+                <button className="btn sm" onClick={() => { setClash(null); focusSel("time"); }}>빈 시간 보기</button>
+              </div>
+            </div>
+          )}
+          {!clash && capFull && prog && (
+            <div className="rn-ban warn pc" role="alert">
+              <p><b>{time} {prog.name} 정원이 찼어요</b> · 같은 시간 최대 {prog.capacity}건 중 {prog.capacity - (left ?? 0)}건이 이미 있어요. 적어 둔 내용은 그대로예요.</p>
+              <div className="bt">
+                {capAlts.map((a, i) => <button key={a.m} className={`btn sm ${i === 0 ? "p" : ""}`} onClick={() => setTime(hm(a.m))}>{hm(a.m)}{i === 0 ? "으로 옮기기" : ""} · {a.n}자리</button>)}
+                <button className="btn sm" onClick={() => focusSel("prog")}>다른 관리로 바꾸기</button>
+              </div>
+            </div>
+          )}
+          {mode === "sale" && !editing ? (
+            <div className="rn-sale">
+              <b>예약 없이 받는 매출</b>
+              <p>회원권이나 제품을 예약 없이 팔 때 여기서 바로 등록해요. 예약한 관리의 결제는 예약을 눌러 &apos;결제&apos;로 해요.</p>
+              <div className="rn-sale-bt">
+                <Link className="btn" href={`/membership?sell=1&b=${encodeURIComponent(branch)}${cust ? `&k=${encodeURIComponent(cust.key)}` : ""}`}>회원권 판매</Link>
+                <Link className="btn" href="/sales/product">제품 판매</Link>
+              </div>
+            </div>
+          ) : <>
+          {!editing && !cust && (
+            <div className="rn-pre"><span className="badge">예약표에서 선택</span><b className="num">{md(day)} ({DOW[dow(day)]}) {time}</b>
+              <span className="rd-dim">· {staffName ?? "담당 미정"} · 자동 입력</span></div>
+          )}
           {/* 고객 */}
           {!work && (cust ? (
             <>
               <div className="rd-box rd-cust">
                 <b>{cust.name}</b>
-                <span className="num">{sum?.customer.phone ?? ""}</span>
+                <span className="num rn-ph">{sum?.customer.phone ?? ""}</span>
+                <span className="rn-rsum">{[prog?.name, staffName].filter(Boolean).join(" · ")}</span>
                 <div style={{ flex: 1 }} />
                 <Link className="btn sm" href={`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(cust.key)}&from=rsv&ctx=${encodeURIComponent([day, time, prog?.name].filter(Boolean).join("|"))}`}>고객 차트</Link>
-                <button className="btn sm" disabled title="문자 보내기는 준비 중이에요">문자</button>
-                {!ro && !editing && <button className="btn sm t" onClick={() => { setCust(null); setFound(null); }}>변경</button>}
+                {!ro && !editing && <button className="btn sm" onClick={() => { setCust(null); setFound(null); setQ(""); }}>다른 고객</button>}
               </div>
               <div className="rd-box rd-row">
                 <span className="rd-k">이력</span>
@@ -242,43 +375,48 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
                 </div>
               )}
               {sum?.memos?.[0] && (
-                <div className="rd-box rd-row"><span className="rd-k">비고</span><span className="rd-ell">{sum.memos[0].body}</span></div>
+                <div className="rd-box rd-row"><span className="rd-k"><svg className="rn-i" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>비고</span><span className="rd-ell">{sum.memos[0].body}</span></div>
               )}
             </>
           ) : (
             <div className="rd-custpick">
-              <div className="rd-sec" style={{ margin: 0 }}>
-                <b>고객</b>
-                <div className="seg sm" style={{ marginLeft: "auto" }}>
-                  <button className={custMode === "old" ? "on" : ""} onClick={() => setCustMode("old")}>기존 고객</button>
-                  <button className={custMode === "new" ? "on" : ""} onClick={() => setCustMode("new")}>신규 고객</button>
-                </div>
+              <div className="seg sm rn-cm">
+                <button className={custMode === "old" ? "on" : ""} onClick={() => setCustMode("old")}>기존 고객</button>
+                <button className={custMode === "new" ? "on" : ""} onClick={() => setCustMode("new")}>신규 고객</button>
               </div>
-              {custMode === "new" ? (
-                <div className="rd-line" style={{ marginTop: 8 }}>
-                  <input className="inp" style={{ flex: 1 }} placeholder="이름" value={nName} onChange={(e) => setNName(e.target.value)} autoFocus />
-                  <input className="inp num" style={{ flex: 1.3 }} placeholder="연락처 010-0000-0000" inputMode="tel" value={nPhone} onChange={(e) => setNPhone(e.target.value)} />
-                </div>
-              ) : (
-              <form style={{ display: "flex", gap: 8, marginTop: 8 }} onSubmit={(e) => { e.preventDefault(); search(); }}>
-                <input className="inp" placeholder="고객 이름 · 전화번호 뒤 4자리로 찾기" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
-                <button className="btn">검색</button>
+              {custMode === "new" ? newForm : (
+              <form className="rn-q" onSubmit={(e) => { e.preventDefault(); search(); }}>
+                <input className="inp" placeholder="이름 · 전화 뒤 4자리 · 초성(ㄱㅇ)" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
               </form>
               )}
               {custMode === "old" && found && (
-                <div className="card" style={{ padding: 0, marginTop: 8, maxHeight: 240, overflow: "auto" }}>
-                  {found.length === 0 && <div style={{ padding: 12, color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>찾는 고객이 없어요</div>}
-                  {found.map((c) => (
-                    <button key={c.key} onClick={() => { setCust({ key: c.key, name: c.name }); setFound(null); }}
-                      style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 12px", border: 0, borderBottom: "1px solid var(--line)", background: "var(--bg)" }}>
-                      <div style={{ fontWeight: 600 }}>{c.name} <span className="num" style={{ color: "var(--ink-3)", fontWeight: 400 }}>{c.phone ?? ""}</span></div>
-                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-                        {c.membership ? `${c.membership}${c.min_remaining != null ? ` · 잔여 ${c.min_remaining}회` : ""}${c.ends_on ? ` · ~${c.ends_on}` : ""}` : "회원권 없음"}
+                <div className="rn-res">
+                  {found.length === 0 && (
+                    <div className="rn-nf">
+                      <b>‘{q.trim()}’ 고객이 없어요</b>
+                      <p className="pc">다른 지점 고객이거나 아직 등록 전일 수 있어요.<br />초성(ㅂㅇ)이나 전화 뒤 4자리만으로도 찾을 수 있어요.</p>
+                      <p className="mo">초성(ㅂㅇ)이나 뒤 4자리로도 찾을 수 있어요.</p>
+                      <div className="bt">
+                        {me.tier === "owner" && <button className="btn sm" onClick={searchAll}>전 지점에서 찾기</button>}
+                        <button className="btn sm p pc" onClick={() => toNew(q)}>신규 고객으로 등록</button>
                       </div>
-                    </button>
-                  ))}
+                    </div>
+                  )}
+                  {found.map((c, i) => {
+                    const lv = c.last_visit_on ? Math.max(0, -daysTo(c.last_visit_on, today)) : null;
+                    const lvTxt = c.last_visit_on !== undefined ? `최근 방문 ${lv == null ? "없음" : lv === 0 ? "오늘" : `${lv}일 전`}` : "";
+                    return (
+                      <button key={c.key} className={`rn-rr ${i === 0 ? "on" : ""}`} onClick={() => { setCust({ key: c.key, name: c.name }); setFound(null); }}>
+                        <span className="av">{c.name.slice(0, 1)}</span>
+                        <span><b>{c.name}</b> <span className="pn num">{c.phone ?? ""}{lvTxt && <span className="lvp"> · {lvTxt}</span>}</span></span>
+                        <span className="m num">{lvTxt && <span className="lvm">{lvTxt} · </span>}{c.membership ? `${c.membership}${c.min_remaining != null ? ` ${c.min_remaining}회` : ""}${c.ends_on ? ` · ${Math.max(0, daysTo(c.ends_on, today))}일` : ""}` : "회원권 없음"}</span>
+                      </button>
+                    );
+                  })}
+                  {found.length > 0 && <button className="rn-newc" onClick={() => toNew(q)}>+ &apos;{q.trim()}&apos; 신규 고객으로 바로 등록 <span>· 이름·전화만 넣고 예약까지</span></button>}
                 </div>
               )}
+              {nf && newForm}
             </div>
           ))}
 
@@ -289,18 +427,82 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             </div>
           )}
 
+          {!editing && !ro && rep && (
+            <div className="rn-rep">
+              <div className="rd-sec" style={{ margin: 0 }}><b>반복 설정</b><span className="rd-dim">{[prog?.name, staffName].filter(Boolean).join(" · ")}</span></div>
+              <div className="rd-grid">
+                <span className="rd-k">주기 · 요일</span>
+                <div className="rn-wd">
+                  <div className="seg sm">
+                    <button className={repEvery === 7 ? "on" : ""} onClick={() => setRepEvery(7)}>매주</button>
+                    <button className={repEvery === 14 ? "on" : ""} onClick={() => setRepEvery(14)}>격주</button>
+                  </div>
+                  {[1, 2, 3, 4, 5, 6].map((w) => (
+                    <button key={w} className={`rn-day ${repWd.includes(w) ? "on" : ""}`} onClick={() => setRepWd(repWd.includes(w) ? (repWd.length > 1 ? repWd.filter((x) => x !== w) : repWd) : [...repWd, w])}>{DOW[w]}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="rd-grid">
+                <span className="rd-k">시간</span>
+                <div className="rd-line"><span className="inp rd-ro num">{time}</span><span className="rd-dim">~</span><span className="inp rd-ro num">{endTime || "--:--"}</span><span className="rd-dim">관리 시간으로 자동</span></div>
+              </div>
+              <div className="rd-grid">
+                <span className="rd-k">끝</span>
+                <div className="rd-line">
+                  <div className="seg sm">
+                    <button className={!repEnd ? "on" : ""} onClick={() => setRepEnd(null)}>횟수</button>
+                    <button className={repEnd ? "on" : ""} onClick={() => setRepEnd(repAll[repAll.length - 1])}>종료일</button>
+                  </div>
+                  {repEnd ? <input type="date" className="inp" value={repEnd} min={day} onChange={(e) => e.target.value && setRepEnd(e.target.value)} />
+                    : <select className="sel" value={repN} onChange={(e) => setRepN(Number(e.target.value))}>
+                      {Array.from({ length: 29 }, (_, i) => i + 2).map((n) => <option key={n} value={n}>{n}회</option>)}
+                    </select>}
+                  <span className="rd-dim num">{repEnd ? `= ${repAll.length}회` : `= ${repAll[repAll.length - 1].slice(2).replace(/-/g, ".")}까지`}</span>
+                </div>
+              </div>
+              {repMs && repAll.length > repMs.left && (
+                <div className="rn-chk"><b>확인</b><span>{repMs.name} 잔여 {repMs.left}회 · 반복 {repAll.length}회 → {repMs.left + 1 === repAll.length ? `${repAll.length}` : `${repMs.left + 1}–${repAll.length}`}회차는 단건 결제</span></div>
+              )}
+              <div className="rn-pv">
+                <div className="rn-pvh">미리보기 <span className="rd-dim">{repAll.length}건 · 충돌 {repAll.filter((d, i) => (repState(d) === "겹침" || repState(d) === "정원 참") && !(i > 0 && repOff.has(d))).length} · 휴무 {repAll.filter((d) => repState(d) === "휴무").length}</span></div>
+                {(() => { let k = 0; return repAll.map((d, i) => {
+                  const st = repState(d);
+                  const off = i > 0 && repOff.has(d);
+                  const n = !off && st === "가능" ? k++ : -1; // 회차는 실제로 들어가는 줄만 세요
+                  return (
+                    <div key={d} className={`rn-pr ${st !== "가능" && !off ? "bad" : ""} ${off ? "off" : ""}`}>
+                      <span className="i">{i + 1}</span><b className="num">{md(d)} ({DOW[dow(d)]})</b><span className="num">{hm(repAt(d))}</span>
+                      <span className="t">{off ? "빼고 저장" : st === "겹침" ? `${clashWho(d)} 이미 예약 있음` : st !== "가능" ? st : repMs ? (n < repMs.left ? `${prog?.name ?? ""} ${repMs.used + n + 1}회차 · 잔여 ${repMs.left - n - 1}` : "회원권 부족 · 단건 결제") : (prog?.name ?? "")}</span>
+                      {st !== "가능" && (i > 0 || st !== "휴무") ? <span className="rn-pb">{i > 0 && <button className="btn sm" onClick={() => { const n = new Set(repOff); if (off) n.delete(d); else n.add(d); setRepOff(n); }}>{off ? "되살리기" : "제외"}</button>}{!off && st !== "휴무" && <button className="btn sm rn-mv" onClick={() => repMoveTo(d)}>이동</button>}</span>
+                        : <span className={`badge ${st !== "가능" ? "warn" : repMs && n >= repMs.left ? "warn" : "ok"}`}>{st !== "가능" ? st : repMs && n >= repMs.left ? "단건" : "가능"}</span>}
+                    </div>
+                  );
+                }); })()}
+              </div>
+            </div>
+          )}
           {/* 예약 정보 */}
-          <div className="rd-sec">
+          <div className={`rd-sec ${capFull ? "pc" : ""}`}>
             <b>예약 정보</b>
-            {prog && left !== null && !ro && (left > 0
+            {clash ? <span className="rd-no">{clash.cust ? "이 고객" : clash.other.staff_name ?? staffName ?? "담당"} {clash.other.start_time.slice(0, 5)} 겹침</span>
+              : prog && left !== null && !ro && (left > 0
               ? <span className="rd-ok">✓ {staffName ? `${staffName} · ` : ""}이 시간 {left}자리 비어 있음</span>
-              : <span className="rd-no">이 시간 정원이 다 찼어요</span>)}
+              : !capFull && <span className="rd-no">이 시간 정원이 다 찼어요</span>)}
           </div>
-          <div className="rd-grid">
+          {!clash && capFull && prog && (
+            <div className="rn-ban warn mo" role="alert">
+              <b>{time} {prog.name} 정원이 찼어요</b>
+              <p>같은 시간 최대 {prog.capacity}건이 모두 찼어요. 입력은 그대로예요.</p>
+              <div className="bt">{capAlts.map((a, i) => <button key={a.m} className={`btn sm ${i === 0 ? "p" : ""}`} onClick={() => setTime(hm(a.m))}>{hm(a.m)} · {a.n}자리</button>)}</div>
+            </div>
+          )}
+          <div className="rd-grid rn-dt">
             <span className="rd-k">날짜 · 시간</span>
             <div className="rd-line">
-              <input type="date" className="inp" style={{ width: 160 }} value={day} disabled={ro} onChange={(e) => e.target.value && setDay(e.target.value)} />
-              <select className="sel" style={{ width: 112 }} value={time} disabled={ro} onChange={(e) => setTime(e.target.value)}>
+              <input type="date" className="inp pc" style={{ width: 160 }} value={day} disabled={ro} onChange={(e) => e.target.value && setDay(e.target.value)} />
+              <button type="button" className="inp mo rn-dbtn num" disabled={ro} onClick={() => setPick(true)}>{md(day)} ({DOW[dow(day)]})</button>
+              <button type="button" className="inp mo rn-tbtn num" disabled={ro} onClick={() => setPick(true)}>{time}</button>
+              <select className="sel pc" data-f="time" style={{ width: 112 }} value={time} disabled={ro} onChange={(e) => setTime(e.target.value)}>
                 {SLOTS.map((m) => {
                   const v = hm(m);
                   const full = prog ? usedAt(rows, day, prog.id, m, prog.minutes, draft.id) >= prog.capacity : false;
@@ -313,17 +515,17 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             </div>
           </div>
           {day !== draft.day && <div className="rd-help">{fmtDay(day)} 정원은 저장할 때 다시 확인해요.</div>}
-          <div className="rd-grid">
+          <div className="rd-grid rn-st">
             <span className="rd-k">담당</span>
-            <select className="sel" style={{ maxWidth: 220 }} value={staffId} disabled={ro} onChange={(e) => setStaffId(e.target.value)}>
+            <select className="sel" data-f="staff" style={{ maxWidth: 220 }} value={staffId} disabled={ro} onChange={(e) => setStaffId(e.target.value)}>
               <option value="">담당 미정</option>
               {staff.map((s) => <option key={s.id} value={s.id}>{s.name}{s.title ? ` · ${s.title}` : ""}</option>)}
             </select>
           </div>
           {prog && (
-            <div className="rd-grid">
+            <div className="rd-grid rn-same">
               <span className="rd-k">같은 시간</span>
-              <span className="num">{prog.short || prog.name} {prog.capacity - Math.max(left ?? 0, 0)}/{prog.capacity} <span className="rd-dim">정원은 설정 › 관리 항목</span></span>
+              <span className="num"><span className="rn-mo">끝나는 시간은 관리 시간으로 자동 · 같은 시간 </span>{(left ?? 1) <= 0 ? <b className="rn-full">{prog.short || prog.name} {prog.capacity}/{prog.capacity} 마감</b> : <>{prog.short || prog.name} {prog.capacity - Math.max(left ?? 0, 0)}/{prog.capacity}</>} <span className="rd-dim">정원은 설정 › 프로그램 설정</span></span>
             </div>
           )}
 
@@ -332,7 +534,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             <div className="rd-sec" style={{ margin: 0 }}><b>관리 선택</b><span className="rd-dim">{prog ? `${prog.minutes}분` : ""}</span></div>
             <div className="rd-item">
               {prog && <span className="rd-chip" style={{ background: `color-mix(in srgb, ${prog.color ?? "#8A8A8A"} 16%, #fff)` }}>{prog.short || prog.name}</span>}
-              <select className="sel" value={programId} disabled={ro} onChange={(e) => setProgramId(e.target.value)}>
+              <select className="sel" data-f="prog" value={programId} disabled={ro} onChange={(e) => setProgramId(e.target.value)}>
                 <option value="">관리를 골라 주세요</option>
                 {groups.map(([g, list]) => (
                   <optgroup key={g} label={g === "업무" ? "업무·행사" : g}>
@@ -345,30 +547,11 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
 
           <div className="rd-memo">
             <span className="rd-k">관리 메모</span>
-            <textarea className="inp" rows={5} value={memo} disabled={ro} onChange={(e) => setMemo(e.target.value)} placeholder="예: 왼쪽 어깨 위주 · 압 약하게" />
+            <textarea className="inp" rows={1} value={memo} disabled={ro} onChange={(e) => setMemo(e.target.value)} placeholder="예: 왼쪽 어깨 위주 · 압 약하게" />
           </div>
 
-          {!editing && !ro && (
-            <div className="rd-rep">
-              <label className="rd-rep-on"><input type="checkbox" checked={rep} onChange={(e) => setRep(e.target.checked)} /> 반복 예약</label>
-              {rep && (
-                <>
-                  <div className="rd-rep-row">
-                    <select className="sel" value={repEvery} onChange={(e) => setRepEvery(Number(e.target.value))}>
-                      <option value={7}>매주 같은 요일</option>
-                      <option value={14}>2주마다</option>
-                      <option value={1}>매일</option>
-                    </select>
-                    <select className="sel" value={repN} onChange={(e) => setRepN(Number(e.target.value))}>
-                      {Array.from({ length: 19 }, (_, i) => i + 2).map((n) => <option key={n} value={n}>총 {n}회</option>)}
-                    </select>
-                  </div>
-                  <div className="rd-rep-days num">{repDays.map((d) => <span key={d}>{md(d)}({DOW[dow(d)]})</span>)}</div>
-                </>
-              )}
-            </div>
-          )}
           {repMsg && <div className="rd-rep-msg">{repMsg}</div>}
+          {!editing && <div className="rn-rec">저장하면 등록한 직원이 자동으로 기록돼요</div>}
 
           {editing && (
             <div className="rd-help">
@@ -412,6 +595,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
               </div>
             </div>
           )}
+          </>}
           {err && <p style={{ color: "var(--red)", marginTop: 12 }}>{err}</p>}
         </div>
         {canWrite && (
@@ -425,43 +609,84 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             {editing && (draft.status === "취소" || draft.status === "노쇼") && (
               <button className="btn" disabled={busy} onClick={() => setStatus("예약")}>예약으로 되돌리기</button>
             )}
+            {!editing && rep && !repDone && <button className="btn" onClick={onClose}><span className="pc">닫기</span><span className="mo">취소</span></button>}
+            {nf && <><button className="btn mo" onClick={onClose}>취소</button><button className="btn p mo" disabled={busy} onClick={() => { setPayAfter(false); save(undefined, false); }}>등록하고 예약</button></>}
             <div style={{ flex: 1 }} />
             {repDone ? <button className="btn p" onClick={onSaved}>닫기</button>
-              : !locked && <button className={editing ? "btn" : "btn p"} disabled={busy} onClick={() => save()}>{editing ? "저장" : rep ? `반복 예약 ${repN}건 등록` : "예약 등록"}</button>}
+              : !locked && mode !== "sale" && <>{rep && repBad > 0 && <span className="rd-dim">충돌 {repBad}건 처리하면 켜져요</span>}{capFull && <span className="rd-dim">시간을 옮기면 켜져요</span>}<button className={`${editing || (!work && !rep) ? "btn" : "btn p"} ${nf ? "pc" : ""}`} disabled={busy || repBad > 0 || capFull} onClick={() => { setPayAfter(false); save(undefined, false); }}>{editing ? "저장" : rep ? <><span className="pc">{repDays.length}건 저장</span><span className="mo">{repDays.length}건 예약등록</span></> : "저장"}</button></>}
+            {!editing && !work && !rep && mode !== "sale" && !repDone && (
+              <button className={`btn p ${nf ? "pc" : ""}`} disabled={busy || !canPay || capFull} title={canPay ? undefined : "결제 권한이 없어요"} onClick={() => { setPayAfter(true); save(undefined, true); }}>결제</button>
+            )}
             {editing && !work && draft.status === "예약" && cust && (
               <button className="btn p" disabled={!canPay} title={canPay ? undefined : "결제 권한이 없어요"} onClick={() => setPayOpen(true)}>결제</button>
             )}
           </div>
         )}
-        {clash && prog && (
-          <>
-            <div className="rd-clash-dim" onClick={() => setClash(null)} />
-            <div className="rd-clash" role="dialog">
-              <i className="grab" />
-              <b className="t">{clash.cust ? "이 고객은 이미 이 시간에 예약이 있어요" : "이 시간에 이미 예약이 있어요"}</b>
-              <p className="why">겹침은 같은 담당 또는 같은 고객이 같은 시간일 때예요. 겹친 채로는 저장하지 않아요.</p>
-              <div className="who">{clash.other.customer_name || clash.other.title || "일정"} · {fmtDay(clash.other.day)} {clash.other.start_time.slice(0, 5)} – {hm(toMin(clash.other.start_time) + (clash.other.minutes || 30))}{clash.other.staff_name ? ` · 담당 ${clash.other.staff_name}` : ""}</div>
-              <div className="lb">다른 시간</div>
-              {clash.alts.length === 0 && <p className="why">이날 남은 빈 시간이 없어요. 날짜를 바꿔 주세요.</p>}
-              {clash.alts.map((m) => (
-                <button key={m} className={`alt ${alt === m ? "on" : ""}`} onClick={() => setAlt(m)}>
-                  <b className="num">{hm(m)} – {hm(m + prog.minutes)}</b>
-                  <span>{prog.name}{staffId ? ` · 담당 ${staff.find((x) => x.id === staffId)?.name ?? ""}` : ""} · 비어 있음</span>
-                </button>
-              ))}
-              {alt == null && clash.alts.length > 0 && <p className="why">저장하려면 비어 있는 시간을 골라 주세요.</p>}
-              <div className="bt">
-                <button className="btn" onClick={() => setClash(null)}>닫기</button>
-                <button className="btn p" disabled={alt == null || busy} onClick={() => { if (alt != null) { setTime(hm(alt)); save(alt); } }}>이 시간으로 저장</button>
-              </div>
-            </div>
-          </>
-        )}
+        {pick && <TimePick day={day} time={time} staffId={staffId} staff={staff} rows={rows} offDays={offDays} prog={prog} draftId={draft.id} custKey={work ? null : cust?.key ?? null}
+          onClose={() => setPick(false)} onRep={() => { setPick(false); setMode("rsv"); setRep(true); }}
+          onPick={(d, t, sid) => { setDay(d); setTime(t); if (sid) setStaffId(sid); setPick(false); }} />}
       </aside>
-      {payOpen && draft.id && cust && (
-        <PayModal branch={branch} programs={programs} onClose={() => setPayOpen(false)} onDone={() => { setPayOpen(false); onSaved(); }}
-          rsv={{ id: draft.id, day: draft.day, start_time: draft.start_time, customer_key: cust.key, customer_name: cust.name, program_id: draft.program_id ?? null, staff_name: draft.staff_name ?? staffName ?? null }} />
+      {payOpen && (draft.id || newId) && cust && (
+        <PayModal branch={branch} programs={programs} onClose={() => { setPayOpen(false); if (newId) onSaved(); }} onDone={() => { setPayOpen(false); onSaved(); }}
+          rsv={{ id: (draft.id ?? newId)!, day: draft.id ? draft.day : day, start_time: draft.id ? draft.start_time : time, customer_key: cust.key, customer_name: cust.name, program_id: draft.id ? draft.program_id ?? null : programId || null, staff_name: draft.staff_name ?? staffName ?? null }} />
       )}
+    </>
+  );
+}
+
+// 모바일 날짜·시간 고르기 시트 (시안 M07): 달력(날마다 예약 수·휴무) + 담당별 빈 시간
+function TimePick({ day, time, staffId, staff, rows, offDays, prog, draftId, custKey, onClose, onRep, onPick }: {
+  day: string; time: string; staffId: string; staff: { id: string; name: string }[]; rows: Rsv[]; offDays: string[]; prog?: Program; draftId?: string | null; custKey: string | null;
+  onClose: () => void; onRep: () => void; onPick: (d: string, t: string, staffId: string) => void;
+}) {
+  const [d, setD] = useState(day);
+  const [sel, setSel] = useState<{ s: string; m: number }>({ s: staffId || staff[0]?.id || "", m: toMin(time) });
+  const [ym, setYm] = useState(day.slice(0, 7));
+  const mins = prog?.minutes ?? 60;
+  const first = `${ym}-01`;
+  const lead = dow(first);
+  const nDays = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: nDays }, (_, i) => `${ym}-${String(i + 1).padStart(2, "0")}`)];
+  const live = (r: Rsv) => r.status === "예약" || r.status === "완료";
+  const cnt = (x: string) => rows.filter((r) => r.day === x && live(r)).length;
+  const shift = (n: number) => { const dt = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + n, 1)); setYm(dt.toISOString().slice(0, 7)); };
+  const busyAt = (sid: string, m: number) => rows.some((r) => r.day === d && r.id !== draftId && live(r) && toMin(r.start_time) < m + mins && m < toMin(r.start_time) + (r.minutes || 30) && (r.staff_id === sid || (!!custKey && r.customer_key === custKey)))
+    || (!!prog && usedAt(rows, d, prog.id, m, mins, draftId ?? undefined) >= prog.capacity);
+  const base = toMin(time);
+  // 담당마다 지금 시간에서 가까운 세 칸 (찬 칸은 줄을 그어 보여 줘요)
+  const slotsFor = (sid: string) => SLOTS.filter((m) => m + mins <= DAY_END && m % 30 === 0).sort((a, b) => Math.abs(a - base) - Math.abs(b - base) || a - b).slice(0, 3).sort((a, b) => a - b).map((m) => ({ m, busy: busyAt(sid, m) }));
+  const list = staff.length ? staff : [{ id: "", name: "담당 미정" }];
+  const who = list.find((x) => x.id === sel.s)?.name ?? "담당 미정";
+  return (
+    <>
+      <div className="rn-pk-dim" onClick={onClose} />
+      <div className="rn-pk" role="dialog" aria-label="날짜 · 시간">
+        <div className="rn-pk-hd"><b>날짜 · 시간</b><button className="rd-x" onClick={onClose} aria-label="닫기">×</button></div>
+        <div className="rn-pk-bd">
+          <div className="rn-pk-mh"><button onClick={() => shift(-1)} aria-label="이전 달">‹</button><b className="num">{ym.slice(0, 4)}년 {Number(ym.slice(5))}월</b><button onClick={() => shift(1)} aria-label="다음 달">›</button></div>
+          <div className="rn-pk-cal">
+            {DOW.map((w) => <span key={w} className="w">{w}</span>)}
+            {cells.map((c, i) => c == null ? <span key={`e${i}`} /> : (
+              <button key={c} className={`c ${c === d ? "on" : ""} ${offDays.includes(c) ? "off" : ""}`} disabled={offDays.includes(c)} onClick={() => setD(c)}>
+                <b className="num">{Number(c.slice(8))}</b><span className={`num ${cnt(c) >= 16 ? "hot" : ""}`}>{offDays.includes(c) ? "휴무" : cnt(c) || ""}</span>
+              </button>
+            ))}
+          </div>
+          <div className="rn-pk-sh"><b className="num">{md(d)} ({DOW[dow(d)]})</b><span>비어 있고 정원이 남은 시간</span></div>
+          {list.map((st) => (
+            <div key={st.id} className="rn-pk-row">
+              <span className="n">{st.name}</span>
+              <div className="ts">{slotsFor(st.id).map(({ m, busy }) => (
+                <button key={m} className={`t num ${sel.s === st.id && sel.m === m ? "on" : ""}`} disabled={busy} onClick={() => setSel({ s: st.id, m })}>{hm(m)}</button>
+              ))}</div>
+            </div>
+          ))}
+        </div>
+        <div className="rn-pk-ft">
+          <button className="btn" onClick={onRep}>반복예약</button>
+          <button className="btn p" onClick={() => onPick(d, hm(sel.m), sel.s)}>{who} {hm(sel.m)} ~ {hm(sel.m + mins)}</button>
+        </div>
+      </div>
     </>
   );
 }
