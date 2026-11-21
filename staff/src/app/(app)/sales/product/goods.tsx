@@ -17,7 +17,7 @@ export type Goods = {
 export type Vendor = { id: string; branch: string; name: string; phone: string; manager: string; memo: string; active: boolean; goods: number };
 
 export const SUBS = [
-  { href: "/sales/product", label: "판매" },
+  { href: "/sales/product/sell", label: "판매" },
   { href: "/sales/product/buy", label: "매입" },
   { href: "/sales/product/stock", label: "재고" },
   { href: "/sales/product/payable", label: "미지급금" },
@@ -37,7 +37,7 @@ export function SubNav({ right }: { right?: React.ReactNode }) {
     <div className="gd-sub">
       <nav>
         {SUBS.map((s) => (
-          <Link key={s.href} href={s.href} className={(s.href === "/sales/product" ? path === s.href : path.startsWith(s.href)) ? "on" : ""}>{s.label}</Link>
+          <Link key={s.href} href={s.href} className={path.startsWith(s.href) ? "on" : ""}>{s.label}</Link>
         ))}
       </nav>
       {right && <div className="gd-sub-r">{right}</div>}
