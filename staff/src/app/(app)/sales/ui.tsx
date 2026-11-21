@@ -1,4 +1,5 @@
 "use client";
+import { useFollowTop } from "@/lib/branch";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
@@ -30,7 +31,8 @@ export const useSales = () => useContext(SalesCtx)!;
 export function useSalesState() {
   const me = useMe();
   const t = todayKST();
-  const [branch, setBranch] = useState<string | null>(me.tier === "owner" ? null : me.branch);
+  const [branch, setBranch] = useState<string | null>(me.branch);
+  useFollowTop(me, setBranch);
   const [range, setRange] = useState<Range>(monthRange(+t.slice(0, 4), +t.slice(5, 7)));
   const [mode, setMode] = useState<Mode>("month");
   const [exporter, setExporter] = useState<Exporter>(null);

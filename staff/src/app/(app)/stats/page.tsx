@@ -5,7 +5,7 @@ import { sb } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { canSee } from "@/lib/sales";
 import { CATS, REPORTS, type ReportDef, type Span } from "@/lib/stats";
-import { Info, StTitle } from "./ui";
+import { Info, StTitle, useStats } from "./ui";
 
 const SPANS: (Span | "전체" | "비교")[] = ["전체", "연간", "월간", "일간", "비교"];
 // 직원(일반 권한)은 본인 결제로 계산되는 리포트만 (049 SQL 과 같은 목록)
@@ -14,6 +14,7 @@ const DEF_FAV = ["sales_month", "cust_new", "rsv_status", "noshow_top"];
 
 export default function ReportList() {
   const me = useMe();
+  const { branch } = useStats();
   const money = canSee(me, "sales.others") || canSee(me, "sales.own");
   const [span, setSpan] = useState<Span | "전체" | "비교">("전체");
   const [favs, setFavs] = useState<string[]>(DEF_FAV);
@@ -43,7 +44,7 @@ export default function ReportList() {
 
   return (
     <>
-      <StTitle title="리포트" meta={me.tier === "owner" ? "전 지점 · 지점은 오른쪽 위에서" : me.branch}
+      <StTitle title="리포트" meta={branch ?? me.branch}
         right={
           <div className="seg st3-spans st-noprint" role="tablist" aria-label="기간 종류">
             {SPANS.map((s) => <button key={s} role="tab" aria-selected={span === s} className={span === s ? "on" : ""} onClick={() => setSpan(s)}>{s}</button>)}

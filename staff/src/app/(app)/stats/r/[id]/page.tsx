@@ -108,7 +108,7 @@ export default function ReportDetail() {
           </div>
         </Pop>
         <span className="st3-l">지점</span>
-        {me.tier === "owner" ? <BranchSelect /> : <span className="btn st3-box st3-static">{me.branch}</span>}
+        <span className="btn st3-box st3-static">{branch ?? me.branch}</span>
         {def.pay && (
           <>
             <span className="st3-l">직원</span>
