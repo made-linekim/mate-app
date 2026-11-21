@@ -1,0 +1,168 @@
+/* 대시보드 (시안 1120 U-PC-DASH) — tokens.css 값만 사용 */
+.ds-tabs{display:flex;align-items:center;gap:24px;padding:0 var(--page-x);border-bottom:1px solid var(--line)}
+.ds-tabs button{height:var(--tab-h);display:flex;align-items:center;white-space:nowrap;font-size:var(--fs-lg);font-weight:500;color:var(--ink-3);border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;padding:0}
+.ds-tabs button.on{font-weight:700;color:var(--ink);border-bottom-color:var(--red)}
+.ds-tabs .ds-br{margin-left:auto;width:auto;height:var(--btn-h-sm);font-size:var(--fs-sm);padding-left:12px}
+.ds{display:flex;flex-direction:column;gap:var(--gap)}
+.ds-note{background:var(--bg-sub);border-radius:var(--r-ctl);padding:10px 16px;font-size:var(--fs-sm);color:var(--ink-2);display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:44px}
+.ds-note-btn{margin-left:auto;background:var(--bg)}
+.ds-cap{margin:-4px 0 -6px}
+
+.ds-g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--gap)}
+.ds-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap)}
+.ds-g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--gap)}
+.ds-g2.in{margin-bottom:16px}
+
+.ds-kpi{min-height:var(--kpi-h);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.ds-kpi b{font-size:var(--fs-2xl);line-height:var(--lh-2xl);font-weight:700}
+.ds-kpi b.red{color:var(--red)}
+.ds-kpi span{font-size:var(--fs-md);color:var(--ink-2);font-weight:500}
+
+.ds-card{min-width:0}
+.ds-card h2{font-size:var(--fs-lg);line-height:var(--lh-lg);font-weight:700;margin:0 0 12px}
+.ds-sub{font-size:var(--fs-sm);color:var(--ink-3);margin:0 0 12px}
+.ds-sub.ds-gap{margin-top:14px}
+.ds-c{text-align:center;margin:8px 0 0}
+.ds-lbl{font-size:var(--fs-sm);color:var(--ink-3);margin:12px 0 8px}
+.ds-pct{display:block;margin-top:12px;font-size:var(--fs-md)}
+.ds-err{color:var(--red);font-size:var(--fs-sm)}
+.ds-empty{color:var(--ink-3);font-size:var(--fs-sm);padding:20px 4px;text-align:center}
+
+.ds-bar{height:10px;border-radius:var(--r-pill);background:var(--bg-sub);overflow:hidden;flex:1;min-width:0}
+.ds-bar i{display:block;height:100%;background:var(--ink);border-radius:var(--r-pill)}
+.ds-bar i.g{background:var(--grn)}
+
+/* 월 매출 막대 — 폭을 고르게 채움 */
+.ds-leg{display:flex;gap:16px;font-size:var(--fs-sm);color:var(--ink-3);margin-bottom:8px}
+.ds-leg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.ds-leg i.k{background:var(--ink)}.ds-leg i.l{background:var(--line-strong)}
+.ds-chart{display:flex;align-items:stretch;gap:4px;height:180px}
+.ds-chart .col{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0}
+.ds-chart .bars{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+.ds-chart .bars i{width:min(12px,28%);border-radius:var(--r-pill) var(--r-pill) 2px 2px}
+.ds-chart .bars i.k{background:var(--ink)}.ds-chart .bars i.l{background:var(--line-strong)}
+.ds-chart .col span{font-size:var(--fs-xs);color:var(--ink-3);margin-top:6px;white-space:nowrap}
+
+/* 직원별 매출 순위 */
+.ds-rank .ds-rrow{display:flex;align-items:center;gap:16px;height:52px;border-bottom:1px solid var(--line)}
+.ds-rrow .n{width:16px;color:var(--ink-3)}
+.ds-rrow .nm{width:72px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ds-rrow .v{width:64px;text-align:right}
+
+/* 3칸 명단 */
+.ds-list .h,.ds-list .r{display:grid;align-items:center;gap:8px;padding:0 12px}
+.ds-list .h{height:var(--th-h);background:var(--bg-sub);font-size:var(--fs-xs);font-weight:600;color:var(--ink-3);border-radius:6px 6px 0 0}
+.ds-list .r{min-height:var(--tr-h);border-bottom:1px solid var(--line);font-size:var(--fs-md)}
+.ds-list .r:hover{background:var(--bg-soft)}
+.ds-list .r span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ds-list .e{padding:24px 12px;text-align:center;color:var(--ink-3);font-size:var(--fs-sm)}
+.ds-list{max-height:var(--list-card-max-h);overflow-y:auto}
+.ds-c3 .h,.ds-c3 .r{grid-template-columns:1fr 1fr 1fr}
+.ds-c3b .h,.ds-c3b .r{grid-template-columns:1fr 44px 56px}
+.ds-c3c .h,.ds-c3c .r{grid-template-columns:1fr 1.3fr 56px}
+.ds-c4 .h,.ds-c4 .r{grid-template-columns:1fr 1.2fr 56px 1.4fr}
+.ds-c3b .r span:nth-child(2),.ds-c4 .r span:nth-child(3){text-align:right}
+.ds-act{color:var(--red);font-weight:500}
+
+/* 직원별 달성률 */
+.ds-sg .h,.ds-sg .r{display:grid;align-items:center;gap:24px;padding:0 12px}
+.ds-sg.s3 .h,.ds-sg.s3 .r{grid-template-columns:minmax(80px,.8fr) repeat(3,minmax(0,1fr))}
+.ds-sg.s2 .h,.ds-sg.s2 .r{grid-template-columns:minmax(80px,.8fr) repeat(2,minmax(0,1fr))}
+.ds-sg .h{height:var(--th-h);background:var(--bg-sub);font-size:var(--fs-xs);font-weight:600;color:var(--ink-3)}
+.ds-sg .r{min-height:var(--tr-h);border-bottom:1px solid var(--line)}
+.ds-sg .c{display:flex;align-items:center;gap:16px;min-width:0}
+.ds-sg .c em{font-style:normal;width:40px;text-align:right;flex:none}
+.ds-logs>div{padding:14px 0;border-bottom:1px solid var(--line);font-size:var(--fs-md);color:var(--ink-2)}
+
+/* 목표 편집 */
+.ds-ge .h,.ds-ge .r{display:grid;align-items:center;gap:10px}
+.ds-ge.s3 .h,.ds-ge.s3 .r{grid-template-columns:1.2fr repeat(3,minmax(0,1fr))}
+.ds-ge.s2 .h,.ds-ge.s2 .r{grid-template-columns:1.2fr repeat(2,minmax(0,1fr))}
+.ds-ge .h{font-size:var(--fs-xs);color:var(--ink-3);font-weight:600;padding-bottom:6px}
+.ds-ge .r{padding:6px 0;border-bottom:1px solid var(--line)}
+.ds-ge .r.all .nm{font-weight:700}
+.ds-ge .inp{width:100%;min-width:0;text-align:right}
+
+/* 레벨 */
+.ds-lv{font-size:var(--fs-lg);font-weight:700;margin-bottom:8px}
+.ds-lvs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:4px}
+.ds-lvs span{background:var(--bg-soft);border:1px solid var(--line);border-radius:var(--r-ctl);padding:10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ds-lvs em{font-style:normal;font-size:var(--fs-xs);color:var(--ink-3)}
+.ds-st .h,.ds-st .r{display:grid;align-items:center;gap:12px;padding:0 12px;grid-template-columns:48px 1.4fr 1.4fr 1fr 1fr 72px 1.2fr}
+.ds-st .h{height:var(--th-h);background:var(--bg-sub);font-size:var(--fs-xs);font-weight:600;color:var(--ink-3)}
+.ds-st .h span:first-child,.ds-st .rk,.ds-st .h span:nth-child(6),.ds-st .sc{text-align:right}
+.ds-st .r{min-height:var(--tr-h);border-bottom:1px solid var(--line)}
+.ds-st .r.me{background:var(--bg-sub)}
+.ds-st .r span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 팀전 */
+.ds-team{display:flex;flex-direction:column;min-width:0}
+.ds-team.first{border:1.5px solid var(--ink);background:var(--bg-sub)}
+.ds-team .rk{font-size:var(--fs-sm);color:var(--ink-3);margin-bottom:6px}
+.ds-team h3{font-size:var(--fs-lg);font-weight:700;margin:0 0 10px}
+.ds-team .ft{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+.ds-form{display:flex;flex-direction:column;gap:14px}
+.ds-form label{display:flex;flex-direction:column;gap:6px;font-size:var(--fs-sm);color:var(--ink-3)}
+.ds-form .inp,.ds-form .sel{width:100%}
+.ds-pick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ds-pick label{flex-direction:row;align-items:center;gap:8px;border:1px solid var(--line);border-radius:var(--r-ctl);padding:10px 12px;color:var(--ink);font-size:var(--fs-md);cursor:pointer}
+.ds-pick label.on{border-color:var(--ink);background:var(--bg-soft)}
+.ds-pick small{color:var(--ink-3);font-size:var(--fs-xs);margin-left:auto;white-space:nowrap}
+
+@media (max-width:1100px){
+ .ds-g3{grid-template-columns:1fr}
+ .ds-g2:not(.in){grid-template-columns:1fr}
+ .ds-g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:767px){
+ .ds-tabs{gap:18px;flex-wrap:wrap;row-gap:0}
+ .ds-tabs button{font-size:var(--fs-md)}
+ .ds-g4,.ds-g2.in{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ .ds-kpi{padding:12px 16px}
+ .ds-kpi b{font-size:var(--fs-xl);line-height:var(--lh-xl)}
+ .ds-kpi span{font-size:var(--fs-sm)}
+ .ds-chart{height:140px;gap:2px}
+ .ds-chart .bars{gap:1px}
+ .ds-chart .col span{font-size:10px}
+ .ds-rrow .nm{width:56px}
+ /* 달성률·순위 표 → 한 사람씩 카드 */
+ .ds-sg .h,.ds-st .h{display:none}
+ .ds-sg .r,.ds-sg.s2 .r,.ds-sg.s3 .r{grid-template-columns:1fr;gap:8px;padding:12px 0}
+ .ds-sg .nm{font-weight:700}
+ .ds-sg .c::before{content:attr(data-label);width:44px;flex:none;font-size:var(--fs-sm);color:var(--ink-3)}
+ .ds-st .r{grid-template-columns:28px 1fr auto;row-gap:4px;padding:12px 4px}
+ .ds-st .r span[data-label]{display:none}
+ .ds-st .pg{grid-column:1 / -1}
+ .ds-st .nm{font-weight:600}
+ .ds-ge .h{display:none}
+ .ds-ge.s3 .r,.ds-ge.s2 .r{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .ds-ge.s2 .r{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ds-ge .nm{grid-column:1 / -1}
+ .ds-lvs{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .ds-pick{grid-template-columns:1fr}
+ .ds-c4 .h,.ds-c4 .r{grid-template-columns:1fr 1fr 44px}
+ .ds-c4 .h span:nth-child(4),.ds-c4 .r span:nth-child(4){display:none}
+}
+
+/* 스킬 반영: ⓘ 접기, 자료 없음 한 줄, 나머지 접기, 1~3위 굵게 */
+.ds-note{background:none;padding:0;min-height:32px}
+.ds-note p{flex-basis:100%;margin:0;background:var(--bg-sub);border-radius:var(--r-ctl);padding:10px 14px;font-size:var(--fs-sm);color:var(--ink-2)}
+.ds-i{display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:4px 0;font-size:var(--fs-sm);color:var(--ink-3);font-weight:500}
+.ds-i.on{color:var(--ink)}
+.ds-card h2{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.ds-card h2 small{font-size:var(--fs-sm);font-weight:500;color:var(--ink-3)}
+.ds-ii{border:0;background:none;padding:2px;color:var(--ink-4);display:inline-flex}
+.ds-iit{flex-basis:100%;font-size:var(--fs-sm);font-weight:400;color:var(--ink-2);background:var(--bg-sub);border-radius:var(--r-ctl);padding:8px 12px}
+.ds-none{font-size:var(--fs-sm);color:var(--ink-3);padding:14px 16px;border:1px dashed var(--line-strong);border-radius:var(--r-ctl)}
+.ds-more{width:100%;height:40px;border:0;background:none;color:var(--ink-2);font-size:var(--fs-sm);font-weight:600}
+.ds-rrow.t3 .n,.ds-rrow.t3 .nm,.ds-st .r.t3 .rk{font-weight:700;color:var(--ink)}
+.ds-team .ds-bar{flex:none;margin-top:auto}
+.ds-team .ft{margin-top:10px}
+.ds-c4 .h,.ds-c4 .r{column-gap:16px}
+@media (max-width:767px){.ds-rank .ds-rrow{height:44px}}
+@media (max-width:767px){
+ .ds-teams{grid-template-columns:1fr}
+ .ds-team{padding:12px 16px}
+ .ds-team h3{margin-bottom:4px}
+ .ds-team .ds-sub{margin-bottom:6px}
+}
