@@ -280,6 +280,74 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
   const active = (sum?.memberships ?? []).filter((m) => m.status === "사용중");
   const staffName = staff.find((s) => s.id === staffId)?.name;
 
+  // 결제 완료 요약 (시안 P06): 아래 칸에 초록 띠로
+  const paidPanel = editing && draft.status === "완료" ? (
+    <div className="rn-paid">
+      {paid ? (
+        <>
+          <div className="h">
+            <i className="ok" aria-hidden>✓</i>
+            <b className="num">결제 완료 · {new Date(paid.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).replace(/\. /g, ".").replace(/\.(?=\s|$)/, "")}</b>
+            <span className="sp" />
+            {canPayCancel && !cxAsk && <button className="btn sm" onClick={() => setCxAsk(true)}>결제 취소</button>}
+          </div>
+          <div className="l num">{[["card", "카드"], ["cash", "현금"], ["account", "계좌이체"], ["local", "지역화폐"]].filter(([k]) => (paid.pay?.[k] ?? 0) > 0).map(([k, l]) => `${l} ${paid.pay[k].toLocaleString()}원`).join(" · ") || "받은 금액 0원"}{paid.discount > 0 ? ` · 할인 ${paid.discount.toLocaleString()}원` : ""}{paid.unpaid > 0 ? ` · 미수금 ${paid.unpaid.toLocaleString()}원` : ""}</div>
+          {(paid.detail?.sessions || paid.new_membership) && <div className="l">{[paid.detail?.sessions, paid.new_membership ? `${paid.new_membership} 판매` : ""].filter(Boolean).join(" · ")}</div>}
+          <div className="l d">결제 {paid.created_by}</div>
+          {cxAsk && (
+            <div className="cx">
+              <input className="inp" placeholder="취소 사유 (선택)" value={cxReason} onChange={(e) => setCxReason(e.target.value)} />
+              <button className="btn sm t" onClick={() => setCxAsk(false)}>돌아가기</button>
+              <button className="btn sm danger" disabled={busy} onClick={payCancel}>결제 취소</button>
+            </div>
+          )}
+          {cxAsk && <span className="l d">차감한 회차를 되돌리고 매출을 지워요. 예약은 다시 &apos;예약&apos; 상태가 돼요.</span>}
+        </>
+      ) : <span className="l d">결제 기록이 없어요 (이전 프로그램에서 완료된 예약)</span>}
+    </div>
+  ) : null;
+
+  // 고객 요약 (예약 패널 · 결제 창 왼쪽 위에 같이 써요)
+  const custHead = cust ? (
+    <>
+              <div className="rd-box rd-cust">
+                <b>{cust.name}</b>
+                <span className="num rn-ph">{sum?.customer.phone ?? ""}</span>
+                <span className="rn-rsum">{[prog?.name, staffName].filter(Boolean).join(" · ")}</span>
+                <div style={{ flex: 1 }} />
+                <Link className="btn sm" href={`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(cust.key)}&from=rsv&ctx=${encodeURIComponent([day, time, prog?.name].filter(Boolean).join("|"))}`}>고객 차트</Link>
+                {!ro && !editing && <button className="btn sm" onClick={() => { setCust(null); setFound(null); setQ(""); }}>다른 고객</button>}
+              </div>
+              <div className="rd-box rd-row">
+                <span className="rd-k">이력</span>
+                <span className="num">
+                  취소 <em>{sum?.counts?.cancel ?? 0}회</em>{last("취소") ? ` ${md(last("취소")!)}` : ""} · 노쇼 <em>{sum?.counts?.noshow ?? 0}회</em>{last("노쇼") ? ` ${md(last("노쇼")!)}` : ""}
+                  {lastVisit ? ` · 최근 방문 ${md(lastVisit)} (${Math.max(0, -daysTo(lastVisit, today))}일 전)` : " · 방문 기록 없음"}
+                </span>
+              </div>
+              {active.length > 0 && (
+                <div className="rd-box rd-ms">
+                  {active.slice(0, 4).map((m) => {
+                    const left = m.items.reduce((a, i) => a + Math.max(i.total - i.used, 0) + (i.service ?? 0), 0);
+                    const dd = m.end_on ? daysTo(m.end_on, today) : null;
+                    return (
+                      <div key={m.id} className="num">
+                        <b>{m.name}</b>
+                        <span>{m.kind === "금액" ? `잔액 ${Math.round((m.amount_left ?? 0) / 10000)}만` : `잔여 ${left}회`}{dd !== null ? ` · ${dd}일` : ""}</span>
+                        {m.end_on && (dd !== null && dd <= 14
+                          ? <span className="tag cc">D-{dd} · {md(m.end_on)} 만료</span>
+                          : <span className="rd-dim">· {m.end_on.slice(2).replace(/-/g, ".")} 만료</span>)}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {sum?.memos?.[0] && (
+                <div className="rd-box rd-row"><span className="rd-k"><svg className="rn-i" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>비고</span><span className="rd-ell">{sum.memos[0].body}</span></div>
+              )}
+            </>
+  ) : null;
+
   return (
     <>
       {!docked && <div className="dim" style={{ zIndex: 20 }} onClick={onClose} />}
@@ -341,43 +409,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
           )}
           {/* 고객 */}
           {!work && (cust ? (
-            <>
-              <div className="rd-box rd-cust">
-                <b>{cust.name}</b>
-                <span className="num rn-ph">{sum?.customer.phone ?? ""}</span>
-                <span className="rn-rsum">{[prog?.name, staffName].filter(Boolean).join(" · ")}</span>
-                <div style={{ flex: 1 }} />
-                <Link className="btn sm" href={`/customers/chart?b=${encodeURIComponent(branch)}&k=${encodeURIComponent(cust.key)}&from=rsv&ctx=${encodeURIComponent([day, time, prog?.name].filter(Boolean).join("|"))}`}>고객 차트</Link>
-                {!ro && !editing && <button className="btn sm" onClick={() => { setCust(null); setFound(null); setQ(""); }}>다른 고객</button>}
-              </div>
-              <div className="rd-box rd-row">
-                <span className="rd-k">이력</span>
-                <span className="num">
-                  취소 <em>{sum?.counts?.cancel ?? 0}회</em>{last("취소") ? ` ${md(last("취소")!)}` : ""} · 노쇼 <em>{sum?.counts?.noshow ?? 0}회</em>{last("노쇼") ? ` ${md(last("노쇼")!)}` : ""}
-                  {lastVisit ? ` · 최근 방문 ${md(lastVisit)} (${Math.max(0, -daysTo(lastVisit, today))}일 전)` : " · 방문 기록 없음"}
-                </span>
-              </div>
-              {active.length > 0 && (
-                <div className="rd-box rd-ms">
-                  {active.slice(0, 4).map((m) => {
-                    const left = m.items.reduce((a, i) => a + Math.max(i.total - i.used, 0) + (i.service ?? 0), 0);
-                    const dd = m.end_on ? daysTo(m.end_on, today) : null;
-                    return (
-                      <div key={m.id} className="num">
-                        <b>{m.name}</b>
-                        <span>{m.kind === "금액" ? `잔액 ${Math.round((m.amount_left ?? 0) / 10000)}만` : `잔여 ${left}회`}{dd !== null ? ` · ${dd}일` : ""}</span>
-                        {m.end_on && (dd !== null && dd <= 14
-                          ? <span className="tag cc">D-{dd} · {md(m.end_on)} 만료</span>
-                          : <span className="rd-dim">· {m.end_on.slice(2).replace(/-/g, ".")} 만료</span>)}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {sum?.memos?.[0] && (
-                <div className="rd-box rd-row"><span className="rd-k"><svg className="rn-i" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>비고</span><span className="rd-ell">{sum.memos[0].body}</span></div>
-              )}
-            </>
+            custHead
           ) : (
             <div className="rd-custpick">
               <div className="seg sm rn-cm">
@@ -560,31 +592,6 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
             </div>
           )}
 
-          {editing && draft.status === "완료" && (
-            <div className="rd-paid">
-              {paid ? (
-                <>
-                  <div className="t"><span>결제 내용</span><b className="num">{(paid.gross - paid.discount).toLocaleString()}원</b></div>
-                  {paid.detail?.sessions && <div className="r"><span>회원권 차감</span><span>{paid.detail.sessions}</span></div>}
-                  {paid.new_membership && <div className="r"><span>회원권 판매</span><span>{paid.new_membership}</span></div>}
-                  <div className="r num"><span>받은 금액</span><span>{[["card", "카드"], ["cash", "현금"], ["account", "계좌"], ["local", "지역화폐"]].filter(([k]) => (paid.pay?.[k] ?? 0) > 0).map(([k, l]) => `${l} ${paid.pay[k].toLocaleString()}`).join(" · ") || "0"}</span></div>
-                  {paid.discount > 0 && <div className="r num"><span>할인</span><span>-{paid.discount.toLocaleString()}</span></div>}
-                  {paid.unpaid > 0 && <div className="r num"><span>미수금</span><span style={{ color: "var(--red)" }}>{paid.unpaid.toLocaleString()}</span></div>}
-                  <div className="r"><span>결제</span><span>{paid.created_by} · {new Date(paid.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "short", timeStyle: "short" })}</span></div>
-                  {canPayCancel && !cxAsk && <div className="cx"><div style={{ flex: 1 }} /><button className="btn sm" onClick={() => setCxAsk(true)}>결제 취소</button></div>}
-                  {cxAsk && (
-                    <div className="cx">
-                      <input className="inp" placeholder="취소 사유 (선택)" value={cxReason} onChange={(e) => setCxReason(e.target.value)} />
-                      <button className="btn sm t" onClick={() => setCxAsk(false)}>돌아가기</button>
-                      <button className="btn sm danger" disabled={busy} onClick={payCancel}>결제 취소</button>
-                    </div>
-                  )}
-                  {cxAsk && <span className="rd-dim">차감한 회차를 되돌리고 매출을 지워요. 예약은 다시 &apos;예약&apos; 상태가 돼요.</span>}
-                </>
-              ) : <span className="rd-dim">결제 기록이 없어요 (이전 프로그램에서 완료된 예약)</span>}
-            </div>
-          )}
-
           {askReason && (
             <div className="card" style={{ marginTop: 16, background: "var(--bg-soft)" }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>{askReason === "취소" ? "예약을 취소할까요?" : "노쇼로 처리할까요?"}</div>
@@ -598,7 +605,8 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
           </>}
           {err && <p style={{ color: "var(--red)", marginTop: 12 }}>{err}</p>}
         </div>
-        {canWrite && (
+        {paidPanel && <div className="ft rn-pft">{paidPanel}</div>}
+        {canWrite && !paidPanel && (
           <div className="ft">
             {editing && draft.status === "예약" && !askReason && (
               <>
@@ -627,7 +635,7 @@ export default function RsvDrawer({ branch, draft, programs, rows, canWrite, onC
           onPick={(d, t, sid) => { setDay(d); setTime(t); if (sid) setStaffId(sid); setPick(false); }} />}
       </aside>
       {payOpen && (draft.id || newId) && cust && (
-        <PayModal branch={branch} programs={programs} onClose={() => { setPayOpen(false); if (newId) onSaved(); }} onDone={() => { setPayOpen(false); onSaved(); }}
+        <PayModal branch={branch} programs={programs} head={custHead} onClose={() => { setPayOpen(false); if (newId) onSaved(); }} onDone={() => { setPayOpen(false); onSaved(); }}
           rsv={{ id: (draft.id ?? newId)!, day: draft.id ? draft.day : day, start_time: draft.id ? draft.start_time : time, customer_key: cust.key, customer_name: cust.name, program_id: draft.id ? draft.program_id ?? null : programId || null, staff_name: draft.staff_name ?? staffName ?? null }} />
       )}
     </>

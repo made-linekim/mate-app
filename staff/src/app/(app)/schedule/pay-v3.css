@@ -1,0 +1,103 @@
+/* 결제하기 — v3 확정 시안 P05·P05b·P06·P31 (CHART_v3) 값. 800×840 창, 왼쪽 480 · 오른쪽 320 */
+.app .pv{position:fixed;z-index:51;left:50%;top:50%;transform:translate(-50%,-50%);width:800px;height:840px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);background:#fff;border-radius:16px;box-shadow:var(--shadow-overlay);display:flex;flex-direction:column;overflow:hidden}
+.app .pv .sp{flex:1}
+.app .pv-hd{height:64px;display:flex;align-items:center;gap:8px;padding:0 24px;border-bottom:1px solid var(--line);flex:none}
+.app .pv-hd>b{font-size:20px;line-height:28px;font-weight:700}
+.app .pv-hd>.num{font-size:13px;color:var(--ink-3);line-height:18px}
+.app .pv-x{border:0;background:transparent;color:var(--ink-3);font-size:16px;width:28px;height:28px;cursor:pointer}
+.app .pv-cols{display:grid;grid-template-columns:480px 320px;flex:1;min-height:0}
+.app .pv-l{padding:12px 24px;display:flex;flex-direction:column;gap:8px;overflow:auto;min-width:0}
+.app .pv-r{padding:12px 20px;background:var(--bg-soft);border-left:1px solid var(--line);display:flex;flex-direction:column;gap:8px;overflow:auto}
+.app .pv-head{display:flex;flex-direction:column;gap:4px;position:static;background:transparent}
+.app .pv-head .rd-box{border-radius:8px;padding:4px 12px}
+.app .pv-head .rd-cust{min-height:42px}
+.app .pv-f{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:0 8px;min-height:40px;font-size:13px;line-height:18px}
+.app .pv-f>label{color:var(--ink-3);font-weight:600}
+.app .pv-f .v{display:flex;gap:8px;align-items:center}
+.app .pv-f .inp{height:32px;display:inline-flex;align-items:center;padding:0 12px;font-size:13px}
+.app .pv-f.m{grid-template-columns:56px 1fr;align-items:start}
+.app .pv-f.m label{padding-top:8px}
+.app .pv-f textarea{min-height:52px;height:auto;padding:8px 12px;font-size:13px;line-height:18px;resize:vertical}
+.app .pv .cbx{display:inline-grid;place-items:center;width:16px;height:16px;border:1px solid var(--line-strong);border-radius:4px;background:#fff;flex:none;padding:0;cursor:pointer}
+.app .pv .cbx.on{background:var(--ink);border-color:var(--ink)}
+.app .pv .cbx.on::after{content:"";width:8px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
+.app .pv-sec{border:1px solid var(--line);border-radius:8px;padding:0 12px;flex:none}
+.app .pv-sec.open{border-color:var(--line-strong);padding-bottom:4px}
+.app .pv-sh{display:flex;align-items:center;gap:8px;min-height:36px;width:100%;border:0;background:transparent;padding:0;font-size:13px;line-height:18px;text-align:left;cursor:pointer;color:var(--ink)}
+.app .pv-sh b{font-weight:600}
+.app .pv-sh .arw{color:var(--ink-4)}
+.app .pv .d{color:var(--ink-3);font-size:12px;line-height:16px;font-weight:400}
+.app .pv-in{display:flex;flex-direction:column}
+.app .pv-in .pm-rows,.app .pv-in .pm-goods,.app .pv-in .pm-prods{border-top:1px solid var(--line);padding:8px 0}
+.app .pv-pr{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;min-height:40px;border-top:1px solid var(--line);font-size:13px;line-height:18px}
+.app .pv-pr>:last-child:not(.pv-del){grid-column:span 2}
+.app .pv .pb{display:inline-flex;height:20px;align-items:center;padding:0 8px;border-radius:4px;font-size:12px;font-weight:600;line-height:16px}
+.app .pv-pick{position:relative;min-width:0}
+.app .pv-pick select{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.app .pv-pick::after{content:" ▾";color:var(--ink-4)}
+.app .pv-del{border:0;background:transparent;color:var(--ink-4);cursor:pointer;width:20px;height:20px;padding:0;font-size:12px}
+.app .pv-add{width:20px;text-align:center;color:var(--ink-3)}
+.app .pv-addsel{border:0;background:transparent;font-size:13px;color:var(--ink-3);height:32px;padding:0;cursor:pointer}
+.app .pv-amt{display:flex;gap:6px;align-items:center}
+.app .pv-amt .pm-num{width:96px;height:32px;font-size:13px;text-align:right}
+.app .pv-amt .sel{height:32px;font-size:12px;width:96px;padding:0 8px}
+.app .pv-vat{display:inline-flex;gap:4px;align-items:center;font-size:12px;color:var(--ink-3);white-space:nowrap}
+.app .pv-pr .btn.sm{height:32px;font-size:13px;padding:0 12px}
+.app .pv-rh{display:flex;align-items:center;height:22px;font-size:13px;font-weight:600;line-height:18px;margin-top:4px}
+.app .pv-tn{display:grid;grid-template-columns:16px 1fr 136px;gap:8px;align-items:center;height:44px;font-size:14px;line-height:20px}
+.app .pv-tn .pm-num{height:40px;width:136px;text-align:right;font-size:14px;background:#fff}
+.app .pv-sum{font-size:13px;color:var(--ink-2);line-height:20px}
+.app .pv-due{border-top:1px solid var(--line-strong);padding-top:8px;display:flex;flex-direction:column;align-items:flex-end}
+.app .pv-due label{font-size:13px;color:var(--ink-3);font-weight:600;line-height:18px}
+.app .pv-due b{font-size:28px;line-height:36px;font-weight:700}
+.app .pv-due span{font-size:13px;font-weight:600;line-height:18px}
+.app .pv-due .ok{color:var(--grn,#15803D)}
+.app .pv-due .bad{color:var(--red)}
+.app .pv-due .warn{color:#965A00}
+.app .pv-ft{height:72px;flex:none;display:flex;align-items:center;gap:8px;padding:0 24px;border-top:1px solid var(--line)}
+.app .pv-ft .btn{height:40px;padding:0 16px;font-size:14px}
+.app .pv-ft .btn.p:disabled{background:#E9A3A8;border-color:#E9A3A8;color:#fff;opacity:1}
+.app .pv-err{margin:0;color:var(--red);font-size:13px;line-height:18px;max-width:360px}
+@media (max-width:767px){
+  .app .pv{left:0;top:0;transform:none;width:100%;height:100dvh;max-width:none;max-height:none;border-radius:0}
+  .app .pv-hd{height:52px;padding:0 16px}
+  .app .pv-hd>b{font-size:16px;line-height:24px}
+  .app .pv-cols{display:flex;flex-direction:column;overflow:auto}
+  .app .pv-l{padding:12px 16px;overflow:visible}
+  .app .pv-r{border-left:0;border-top:1px solid var(--line);padding:12px 16px;overflow:visible}
+  .app .pv-ft{height:auto;padding:12px 16px}
+  .app .pv-ft .btn{height:48px;flex:1}
+  .app .pv-ft .btn.p{flex:2}
+  .app .pv-ft .sp{display:none}
+  .app .pv-tn{grid-template-columns:16px 1fr 136px}
+}
+.app .pv-head .rd-cust button.btn{display:none}
+.app .pv-sh .arw{font-size:12px}
+.app .pv-fail{background:#FBEAEB;border:1px solid #E9A3A8;border-radius:12px;padding:12px 16px;font-size:13px;line-height:20px;display:flex;flex-direction:column;gap:8px}
+.app .pv-fail p{margin:0}
+.app .pv-fail b{color:var(--red)}
+.app .pv-fail .bt{display:flex;gap:8px}
+.app .pv-fail .btn.sm{height:32px;padding:0 12px;font-size:13px;background:#fff}
+.app .pv-fail .btn.sm.p{background:var(--red);color:#fff;border-color:var(--red)}
+.app .pv .mo{display:none!important}
+@media (max-width:767px){
+  .app .pv .pc{display:none!important}
+  .app .pv .mo{display:flex!important}
+  .app .pv{background:var(--bg-page,#F4F4F6)}
+  .app .pv-hd{background:#fff;justify-content:flex-start}
+  .app .pv-hd>.num,.app .pv-hd>.sp{display:none}
+  .app .pv-x{order:-1;font-size:18px;width:24px}
+  .app .pv-cols{overflow-x:hidden}
+  .app .pv-cols>*{min-width:0;width:100%;box-sizing:border-box}
+  .app .pv-l,.app .pv-r{background:transparent;border-top:0;gap:12px}
+  .app .pv-head .rd-box{background:#fff}
+  .app .pv-head .rd-ms{background:#fff}
+  .app .pv-sec{background:#fff;border-radius:12px}
+  .app .pv-sh{min-height:48px}
+  .app .pv-f .inp{height:40px;background:#fff}
+  .app .pv-pr{grid-template-columns:auto minmax(0,1fr) auto auto}
+  .app .pv-amt .pm-num{width:80px}
+  .app .pv-amt .sel{width:84px}
+  .app .pv-ft{background:#fff}
+}
+.app .pv .pv-head{width:auto!important;max-width:100%;position:static!important;inset:auto;height:auto;max-height:none;box-shadow:none;border:0;transform:none}
