@@ -1,8 +1,9 @@
 "use client";
 /* 제품 > 판매: 판매 내역(총계 줄 + 건별) + 제품 판매 입력 팝업 */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { sb } from "@/lib/sb";
+import { sb, type Staff } from "@/lib/sb";
 import { useMe } from "@/lib/me";
+import { sendRequest } from "@/lib/approval";
 import { won, downloadCsv } from "@/lib/sales";
 import { useSales, useExport, periodLabel } from "../../ui";
 import {
@@ -93,7 +94,7 @@ export default function ProductSales() {
       </div>
 
       {open && <SaleModal branch={one} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); }} />}
-      {detail && <SaleDetail r={detail} owner={me.tier === "owner"} onClose={() => setDetail(null)} onVoided={() => { setDetail(null); load(); }} />}
+      {detail && <SaleDetail r={detail} owner={me.tier === "owner"} tier={me.tier} onClose={() => setDetail(null)} onVoided={() => { setDetail(null); load(); }} />}
     </>
   );
 }
@@ -219,8 +220,9 @@ function SaleModal({ branch, onClose, onSaved }: { branch: string; onClose: () =
 }
 
 /* ── 판매 상세 / 취소 ─────────────────────────────────────────── */
-function SaleDetail({ r, owner, onClose, onVoided }: { r: Row; owner: boolean; onClose: () => void; onVoided: () => void }) {
+function SaleDetail({ r, owner, tier, onClose, onVoided }: { r: Row; owner: boolean; tier: Staff["tier"]; onClose: () => void; onVoided: () => void }) {
   const [ask, setAsk] = useState(false);
+  const [sent, setSent] = useState("");
   const [why, setWhy] = useState("");
   const [err, setErr] = useState("");
   const pays = useMemo(() => ([["카드", r.card], ["현금", r.cash], ["계좌", r.account], ["미수", r.unpaid], ["할인", r.discount]] as [string, number][]).filter(([, v]) => v), [r]);
@@ -229,10 +231,20 @@ function SaleDetail({ r, owner, onClose, onVoided }: { r: Row; owner: boolean; o
     if (error) return setErr(friendly(error.message));
     onVoided();
   }
+  // 대표관리자가 아니면 판매 취소는 요청 → 승인 (070 · 051)
+  async function askIt() {
+    if (!why.trim()) return setErr("취소 사유를 써 주세요.");
+    setErr("");
+    const q = await sendRequest({ tier }, { branch: r.branch, kind: "pay_cancel", targetType: "goods_sale", targetId: r.id, amount: r.total, reason: why.trim(),
+      payload: { customer: r.customer_name ?? "", when: mdhm(r.sold_at), items: itemsOf(r) } });
+    if (q.state === "need_sql") return setErr("판매 취소 요청은 서버 준비(070·051 SQL) 후에 돼요.");
+    if (q.error) return setErr(q.error);
+    setAsk(false); setSent("대표관리자에게 판매 취소를 요청했어요");
+  }
   return (
     <Modal title="제품 판매 내역" sub={`${mdhm(r.sold_at)} · ${r.branch}`} onClose={onClose}
       foot={<>
-        {owner && !r.voided && !ask && <button className="btn danger" style={{ marginRight: "auto" }} onClick={() => setAsk(true)}>판매 취소</button>}
+        {!r.voided && !ask && !sent && <button className="btn danger" style={{ marginRight: "auto" }} onClick={() => setAsk(true)}>{owner ? "판매 취소" : "판매 취소 요청"}</button>}
         <button className="btn" onClick={onClose}>닫기</button>
       </>}>
       <div className="gd-form">
@@ -251,12 +263,13 @@ function SaleDetail({ r, owner, onClose, onVoided }: { r: Row; owner: boolean; o
       {r.memo && <div className="rd-box">{r.memo}</div>}
       {ask && (
         <div className="gd-ask">
-          <b>판매를 취소할까요?</b>
-          <span>매출에서 빠지고 재고가 다시 늘어나요.</span>
-          <input className="inp" placeholder="취소 사유 (선택)" value={why} onChange={(e) => setWhy(e.target.value)} />
-          <div className="gd-row"><button className="btn" onClick={() => setAsk(false)}>그만두기</button><button className="btn p" onClick={voidIt}>취소하기</button></div>
+          <b>{owner ? "판매를 취소할까요?" : "대표관리자에게 판매 취소를 요청할까요?"}</b>
+          <span>{owner ? "매출에서 빠지고 재고가 다시 늘어나요." : "승인되면 매출에서 빠지고 재고가 다시 늘어나요."}</span>
+          <input className="inp" placeholder={owner ? "취소 사유 (선택)" : "취소 사유 (꼭 써 주세요)"} value={why} onChange={(e) => setWhy(e.target.value)} />
+          <div className="gd-row"><button className="btn" onClick={() => setAsk(false)}>그만두기</button><button className="btn p" onClick={owner ? voidIt : askIt}>{owner ? "취소하기" : "요청 보내기"}</button></div>
         </div>
       )}
+      {sent && <p className="ap-ok" style={{ margin: 0 }}>{sent}</p>}
       {err && <p className="sl-err" style={{ margin: 0 }}>{err}</p>}
     </Modal>
   );
