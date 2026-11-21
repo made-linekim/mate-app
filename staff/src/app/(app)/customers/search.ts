@@ -5,6 +5,10 @@ export type Row = {
   key: string; branch: string; customer_no: string | null; name: string; phone: string | null; manager: string | null;
   registered_on: string | null; last_visit_on: string | null; membership: string | null; has_membership: boolean | null;
   min_remaining: number | null; ends_on: string | null; source: string | null; tags: string | null; total: number;
+  // 050 SQL 뒤에 오는 칸 (없으면 undefined)
+  gender?: string | null; age?: number | null; next_rsv?: string | null; deleted_at?: string | null;
+  // 고객 앱 기록 (아직 서버에 없음)
+  status_tags?: string[]; lounge?: string | null;
 };
 
 // 조건으로 찾기. customer_search 가 아직 없으면 예전 customer_list 로 되는 조건만 찾아요.
@@ -18,3 +22,9 @@ export async function searchCustomers(conds: Cond[], q: string, branch: string |
   return { data: (o.data ?? []) as Row[], error: o.error?.message ?? "" };
 }
 
+
+// 성별·나이 한 줄 (여 42)
+export const sexAge = (r: { gender?: string | null; age?: number | null }) => {
+  const g = r.gender ? (/^(f|w|여)/i.test(r.gender) ? "여" : /^(m|남)/i.test(r.gender) ? "남" : r.gender) : "";
+  return [g, r.age ?? ""].filter((x) => x !== "").join(" ");
+};

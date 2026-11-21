@@ -1,7 +1,7 @@
 // 고객 검색조건 (뷰티사랑넷 흐름: 조건 하나 → 기간/회차 → 관리 선택 → 선택완료). 서버 customer_search 와 같은 모양.
 export type CondT =
   | "usage" | "rsv" | "birthday" | "first_visit" | "last_visit" | "dormant"
-  | "period_end" | "period_sold" | "period_hold" | "count_left" | "count_sold" | "count_used" | "member" | "new" | "initial";
+  | "period_end" | "period_sold" | "period_hold" | "count_left" | "count_sold" | "count_used" | "member" | "new" | "initial" | "manager" | "deleted" | "report_unsent" | "lounge_idle";
 export type Cond = { t: CondT; from?: string; to?: string; days?: number; min?: number; max?: number; programs?: string[]; v?: string };
 export const INITIALS = ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
 
@@ -66,16 +66,18 @@ export function condText(c: Cond, progName?: (id: string) => string) {
 }
 
 // 기본 칩 (뷰티사랑넷 저장 조건 참고). 날짜는 열 때마다 오늘 기준으로 다시 계산
-export type Chip = { id: string; name: string; conds: Cond[]; builtin?: boolean };
+export type Chip = { id: string; name: string; conds: Cond[]; builtin?: boolean; app?: boolean };
+// v3 확정 시안(U-PC-CUS-1) 저장된 조건 칩 순서 그대로. 리포트·라운지 칩은 고객 앱 기록이 생기면 찾을 수 있어요(app: true).
 export function builtinChips(): Chip[] {
   const t = today();
   return [
-    { id: "b-all", name: "전체고객", conds: [], builtin: true },
-    { id: "b-member", name: "보유고객", conds: [{ t: "member" }], builtin: true },
-    { id: "b-new", name: "금월 신규고객", conds: [{ t: "new", from: monthStart(t), to: monthEnd(t) }], builtin: true },
-    { id: "b-new-1", name: "전월 신규고객", conds: [{ t: "new", from: monthStart(t, -1), to: monthEnd(t, -1) }], builtin: true },
-    { id: "b-left", name: "잔여횟수 10회미만", conds: [{ t: "count_left", min: 1, max: 9 }], builtin: true },
-    { id: "b-end", name: "당월 만료 회원권", conds: [{ t: "period_end", from: monthStart(t), to: monthEnd(t) }], builtin: true },
-    { id: "b-dormant", name: "미방문 60일 이상", conds: [{ t: "dormant", days: 60 }], builtin: true },
+    { id: "b-all", name: "전체", conds: [], builtin: true },
+    { id: "b-new", name: "금월 신규", conds: [{ t: "new", from: monthStart(t), to: monthEnd(t) }], builtin: true },
+    { id: "b-left2", name: "잔여 2회 이하", conds: [{ t: "count_left", min: 0, max: 2 }], builtin: true },
+    { id: "b-left", name: "잔여 10회 미만", conds: [{ t: "count_left", min: 0, max: 9 }], builtin: true },
+    { id: "b-end", name: "기간 종료", conds: [{ t: "period_end", from: monthStart(t), to: monthEnd(t) }], builtin: true },
+    { id: "b-dormant", name: "미방문 30일 이상", conds: [{ t: "dormant", days: 30 }], builtin: true },
+    { id: "b-report", name: "주간 리포트 미발송", conds: [{ t: "report_unsent" }], builtin: true, app: true },
+    { id: "b-lounge", name: "라운지 3일 미참여", conds: [{ t: "lounge_idle" }], builtin: true, app: true },
   ];
 }
