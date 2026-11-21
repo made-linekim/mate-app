@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { sb, TIER_LABEL, type Staff } from "@/lib/sb";
+import { sb, TIER_LABEL, BRANCHES, type Staff } from "@/lib/sb";
+import { readTopBranch, setTopBranch } from "@/lib/branch";
 import { MeCtx } from "@/lib/me";
 
 // 메뉴: 실제로 쓰는 것만 보여요.
@@ -11,11 +12,11 @@ const NAV: { group: string; items: Item[] }[] = [
   { group: "업무", items: [
     { href: "/schedule", label: "예약", icon: "cal" },
     { href: "/work", label: "오늘 할 일", icon: "check" },
-    { href: "/customers", label: "고객", icon: "user" },
+    { href: "/customers", label: "고객", icon: "team" },
   ] },
   { group: "성과", items: [
     { href: "/dashboard", label: "대시보드", icon: "grid" },
-    { href: "/sales", label: "매출", icon: "won" },
+    { href: "/sales", label: "매출", icon: "card" },
     { href: "/stats", label: "통계", icon: "bar" },
     { href: "/marketing", label: "마케팅", icon: "mega" },
   ] },
@@ -55,7 +56,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const [me, setMe] = useState<Staff | null | undefined>(undefined);
   const [bye, setBye] = useState(false);
-  useEffect(() => { setBye(false); }, [path]);
+  const [meMenu, setMeMenu] = useState(false);
+  const [q, setQ] = useState("");
+  const [topBr, setTopBrS] = useState("");
+  const setTopBr = (b: string) => { setTopBrS(b); setTopBranch(b); };
+  useEffect(() => { setBye(false); setMeMenu(false); }, [path]);
+  useEffect(() => { if (me) setTopBrS(readTopBranch(me)); }, [me]);
 
   // 모바일에서 표를 카드로 보여 줄 때 칸 이름(data-label)을 머리줄에서 붙여 줘요 (가로 스크롤 없이)
   useEffect(() => {
@@ -114,18 +120,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
           <div className="topr">
-            <span className="btn topbr">{me.branch}</span>
-            <Link href="/schedule?new=1" className="btn topnew" onClick={() => window.dispatchEvent(new Event("rsv:new"))}>+ 새 예약</Link>
-            <div className="mecard">
+            <label className={`topbr ${me.tier === "owner" ? "" : "fixed"}`} title={me.tier === "owner" ? "지점 바꾸기" : undefined}>
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><path d="M4 20V9.5L12 4l8 5.5V20M9 20v-6h6v6M3 20h18" {...P} /></svg>
+              {me.tier === "owner" ? (
+                <select aria-label="지점" value={topBr} onChange={(e) => setTopBr(e.target.value)}>
+                  {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              ) : <span>{me.branch}</span>}
+              {me.tier === "owner" && <svg className="cv" viewBox="0 0 24 24" width="16" height="16" aria-hidden><path d="M6 9l6 6 6-6" {...P} /></svg>}
+            </label>
+            <form className="topq" role="search" onSubmit={(e) => { e.preventDefault(); const v = q.trim(); if (!v) return; const u = `/customers?q=${encodeURIComponent(v)}`; if (path === "/customers") window.location.assign(u); else router.push(u); }}>
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><circle cx="11" cy="11" r="6.5" {...P} /><path d="M16 16l4 4" {...P} /></svg>
+              <input placeholder="고객 이름 · 뒤 4자리" aria-label="고객 찾기" value={q} onChange={(e) => setQ(e.target.value)} />
+            </form>
+            <Link href="/schedule?new=1" className="btn p topnew" onClick={() => window.dispatchEvent(new Event("rsv:new"))}>
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden><path d="M12 5v14M5 12h14" {...P} strokeWidth={2.2} /></svg>새 예약
+            </Link>
+            <button className="mecard" onClick={() => setMeMenu((v) => !v)} aria-haspopup="menu" aria-expanded={meMenu}>
               <div className="av">{me.name.slice(0, 1)}</div>
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, textAlign: "left" }}>
                 <div className="nm">{me.name}</div>
-                <div className="sb">{me.title || TIER_LABEL[me.tier]} · {me.branch}</div>
+                <div className="sb">{me.title || TIER_LABEL[me.tier]}</div>
               </div>
-              <button className="btn t sm" style={{ padding: 0, width: 28, color: "var(--ink-4)" }} onClick={() => setBye(true)} title="로그아웃" aria-label="로그아웃">
-                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M14 4h4.5A1.5 1.5 0 0120 5.5v13a1.5 1.5 0 01-1.5 1.5H14M10 8l-4 4 4 4M6 12h10" {...P} /></svg>
-              </button>
-            </div>
+            </button>
+            {meMenu && (
+              <>
+                <div className="me-dim" onClick={() => setMeMenu(false)} />
+                <div className="me-menu" role="menu">
+                  <div className="me-who"><b>{me.name}</b><span>{me.title || TIER_LABEL[me.tier]} · {me.branch}</span></div>
+                  <button role="menuitem" onClick={() => { setMeMenu(false); setBye(true); }}>로그아웃</button>
+                </div>
+              </>
+            )}
           </div>
         </aside>
         <div className="main">{children}</div>

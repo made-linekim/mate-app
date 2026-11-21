@@ -13,7 +13,7 @@ const FILTERS: StatusFilter[] = ["all", "active", "leave", "resigned"];
 export default function StaffSettings() {
   const me = useMe();
   const isAdmin = me.tier === "owner" || me.tier === "manager";
-  const { branch, pick } = useBranch(true);
+  const { branch, pick } = useBranch();
   const [list, setList] = useState<Staff[]>([]);
   const [perms, setPerms] = useState<Perm[]>([]);
   const [status, setStatus] = useState<StatusFilter>("active");

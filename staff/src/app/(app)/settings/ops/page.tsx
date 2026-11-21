@@ -12,7 +12,7 @@ function N({ children }: { children: React.ReactNode }) { return <div className=
 
 /* 시안 U-PC-SET-OP 운영 (지점장=관리자 / 대표 / 직원) */
 export default function OpsPage() {
-  const { branch, pick, owner } = useBranch();
+  const { branch, pick, owner } = useBranch(false, true);
   const { lead } = useLead();
   const { data, save } = useSettings(branch);
   const orig = val(data, "ops", OPS0);

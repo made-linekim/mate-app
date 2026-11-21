@@ -1,7 +1,7 @@
 "use client";
 /* 설정 v3 부품 — 시안(SET_v3) HTML 구조·클래스를 그대로 써요. 모양은 s3.css(시안 CSS 복사본)에서 와요. */
-import { useCallback, useContext, useEffect, useState } from "react";
-import { SetCtx } from "./ui";
+import { useCallback, useEffect, useState } from "react";
+import { useTopBranch } from "@/lib/branch";
 import { sb, TIER_LABEL, BRANCHES, type Tier } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { friendly } from "../membership/ui";
@@ -220,14 +220,16 @@ export function Toast({ text, onDone }: { text: string; onDone: () => void }) {
   return <div className="toast" role="status">{text}</div>;
 }
 
-/* 대표관리자만: 화면 위에 지점 고르기 (시안 대표 화면 brpick). 다른 직급은 자기 지점만 봐요. */
-export function useBranch(allowAll = false) {
+/* 지점: 대표관리자는 상단바에서 고른 지점(useTopBranch)을 따라가요. 다른 직급은 자기 지점만.
+   showPick: 시안에 지점 고르기(brpick)가 있는 화면만 (연결 · 운영 대표). allowAll: '전체'도 고를 수 있음 (연결). */
+export function useBranch(allowAll = false, showPick = allowAll) {
   const me = useMe();
-  const { branch, setBranch } = useContext(SetCtx);
+  const [top, setTop] = useTopBranch(me);
+  const [all, setAll] = useState(false);
   const owner = me.tier === "owner";
-  const b = owner ? (branch === "all" && !allowAll ? (me.branch || BRANCHES[0]) : branch || me.branch || BRANCHES[0]) : me.branch;
-  const pick = owner ? <BrPick value={b} onChange={setBranch} all={allowAll} /> : null;
-  return { branch: b, pick, owner, setBranch };
+  const b = owner ? (allowAll && all ? "all" : top) : me.branch;
+  const pick = owner && showPick ? <BrPick value={b} all={allowAll} onChange={(x) => { if (x === "all") setAll(true); else { setAll(false); setTop(x); } }} /> : null;
+  return { branch: b, pick, owner, setBranch: setTop };
 }
 /* 저장 결과 한 줄 (시안에는 없고, 저장이 됐는지 알려 줘요 — 머리 오른쪽 버튼 옆) */
 export function Msg({ text }: { text: string }) {

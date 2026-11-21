@@ -23,3 +23,4 @@
 .mo-sheet .acts button{height:40px;border:1px solid #CFCFD4;border-radius:8px;background:#fff;font-size:14px;font-weight:600;font-family:inherit;color:#292929}
 .mo-sheet .kv{display:flex;justify-content:space-between;font-size:14px;line-height:20px;padding:8px 0;border-bottom:1px solid #E5E5E8}
 .mo-sheet .kv span{color:#5F5F5F}
+.mo-sel{border:0;background:none;font-size:13px;line-height:18px;color:#5F5F5F;font-family:inherit;text-align:right;appearance:none;-webkit-appearance:none;padding:0}

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sb, TIER_LABEL } from "@/lib/sb";
 import { useMe } from "@/lib/me";
+import { BRANCHES } from "@/lib/sb";
+import { useTopBranch } from "@/lib/branch";
 
 type Day = { d: number; open: boolean; s: string; e: string };
 
@@ -14,6 +16,7 @@ export default function MorePage() {
   const me = useMe();
   const router = useRouter();
   const lead = me.tier !== "staff";
+  const [br, setBr] = useTopBranch(me);
   const [bye, setBye] = useState(false);
   const [mine, setMine] = useState(false);
   const [hours, setHours] = useState<string>("");
@@ -31,7 +34,7 @@ export default function MorePage() {
 
   return (
     <div className="mo">
-      <div className="mo-hd"><b>더보기</b><span className="sp" /><span className="br">{me.branch}</span></div>
+      <div className="mo-hd"><b>더보기</b><span className="sp" /><span className="br">{br}</span></div>
       <div className="mo-note">
         <svg viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" /></svg>
         {lead ? "더보기에는 현장에서 쓰는 항목만 두었어요. 설정은 관리자 이상이 보기만 하고, 바꾸려면 PC에서 해요." : "더보기에는 현장에서 쓰는 항목만 두었어요. 설정은 PC에서 관리자가 바꿔요."}
@@ -39,7 +42,9 @@ export default function MorePage() {
       <div className="mo-me"><div className="av">{me.name.slice(0, 1)}</div><div><b>{me.name}</b><span>{me.title || TIER_LABEL[me.tier]} · {me.branch}</span></div></div>
       <div className="mo-list">
         <button type="button" className="mo-row" onClick={() => setMine(true)}>내 정보 · 내 근무시간<em>열기</em></button>
-        {lead && <div className="mo-row" style={{ cursor: "default" }}>지점 바꾸기<em>{me.branch}</em></div>}
+        {lead && (me.tier === "owner"
+          ? <label className="mo-row">지점 바꾸기<select className="mo-sel" value={br} onChange={(e) => setBr(e.target.value)} aria-label="지점 바꾸기">{BRANCHES.map((b) => <option key={b}>{b}</option>)}</select></label>
+          : <div className="mo-row" style={{ cursor: "default" }}>지점 바꾸기<em>{me.branch}</em></div>)}
         {lead && <Link className="mo-row" href="/settings">설정 보기<em>보기만</em></Link>}
       </div>
       <button type="button" className="mo-out" onClick={() => setBye(true)}>로그아웃</button>

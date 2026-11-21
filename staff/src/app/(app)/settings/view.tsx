@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sb } from "@/lib/sb";
 import { useMe } from "@/lib/me";
-import { V3i, useSettings, val } from "./kit";
+import { V3i, useBranch, useSettings, val } from "./kit";
 import { BASIC0 } from "./defaults";
 
 type Day = { d: number; open: boolean; s: string; e: string };
@@ -31,15 +31,16 @@ export const maskTel = (t: string) => t.replace(/^(\d{2,3})-?(\d{3,4})-?(\d{4})$
 export default function MobileView() {
   const me = useMe();
   const router = useRouter();
-  const { data } = useSettings(me.branch);
+  const { branch } = useBranch();
+  const { data } = useSettings(branch);
   const [progs, setProgs] = useState<{ name: string; minutes: number; active: boolean; grp: string }[]>([]);
   useEffect(() => { sb.rpc("program_admin_list").then(({ data }) => setProgs((data ?? []) as typeof progs)); }, []);
-  const b = val(data, "basic", BASIC0(me.branch));
+  const b = val(data, "basic", BASIC0(branch));
   const close = val(data, "close", { day: "22:00" } as { day: string });
   const hours = val(data, "hours", { days: [] as Day[] });
   const dur = progs.filter((p) => p.active && p.grp === "시술").map((p) => `${p.name} ${p.minutes}분`).join(" · ") || `${b.dur}분`;
   const rows: [string, string][] = [
-    ["지점 이름", b.name || me.branch], ["주소", b.addr || "—"], ["대표 전화", b.tel ? (b.mask ? maskTel(b.tel) : b.tel) : "—"],
+    ["지점 이름", b.name || branch], ["주소", b.addr || "—"], ["대표 전화", b.tel ? (b.mask ? maskTel(b.tel) : b.tel) : "—"],
     ["예약 단위", `${b.unit}분`], ["기본 소요", dur], ["업무시간", hoursText(hours.days)], ["마감 기준", `그날 ${close.day}`],
   ];
   return (
