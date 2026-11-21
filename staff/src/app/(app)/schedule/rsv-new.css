@@ -1,0 +1,254 @@
+/* 새 예약 · 예약 수정 패널 — v3 확정 시안 P17·P18·P19·P20·P29 (CHART_v3) 의 CSS 값을 옮김. .rd 안에서만 써요. */
+.app .rsv-body.dock{grid-template-columns:var(--panel-w) minmax(0,1fr) 480px}
+.app .rsv-body.dock.nopanel{grid-template-columns:minmax(0,1fr) 480px}
+@media (max-width:1100px){.app .rsv-body.dock,.app .rsv-body.dock.nopanel{grid-template-columns:minmax(0,1fr) 400px}}
+
+.app .rd .hd{height:64px;padding:0 24px;border-bottom:0}
+.app .rd .hd .rn-title{font-size:20px;line-height:28px;font-weight:700}
+.app .rd .rn-tabs{height:56px;display:flex;align-items:center;padding:0 24px;border-bottom:1px solid var(--line);flex:none;background:#fff}
+.app .rd .rn-seg{display:flex;gap:4px;background:#ECECEF;border-radius:12px;padding:4px}
+.app .rd .rn-seg button{height:32px;padding:0 14px;border-radius:8px;border:0;background:transparent;color:var(--ink-3);font-weight:600;font-size:14px;white-space:nowrap;cursor:pointer}
+.app .rd .rn-seg button.on{background:#FBEAEB;color:var(--red);box-shadow:inset 0 0 0 1px #E9A3A8}
+.app .rd-docked .bd{padding:12px 24px;gap:8px}
+.app .rd-docked .ft{padding:0 24px}
+
+/* 예약표에서 고른 칸 */
+.app .rd .rn-pre{background:var(--bg-soft);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;display:flex;gap:8px;align-items:center;line-height:18px;flex-wrap:wrap}
+.app .rd .rn-pre b{font-size:14px}
+
+/* 고객 고르기 */
+.app .rd .rd-custpick{border:0;padding:0;background:transparent;display:flex;flex-direction:column;gap:8px;position:relative}
+.app .rd .rn-cm{width:max-content}
+.app .rd .rn-q .inp{width:100%;border-color:var(--ink)}
+.app .rd .rn-res{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(41,41,41,.14);padding:4px 0;max-height:360px;overflow:auto}
+.app .rd .rn-rr{display:grid;grid-template-columns:32px 1fr;grid-template-rows:auto auto;gap:4px 12px;align-items:center;padding:8px 16px;font-size:13px;line-height:18px;border:0;border-top:1px solid var(--line);background:#fff;width:100%;text-align:left;cursor:pointer}
+.app .rd .rn-rr:first-child{border-top:0}
+.app .rd .rn-rr.on,.app .rd .rn-rr:hover{background:#FBEAEB}
+.app .rd .rn-rr .av{grid-row:span 2;width:32px;height:32px;border-radius:50%;background:#F4F4F6;display:grid;place-items:center;font-weight:600;color:var(--ink-2)}
+.app .rd .rn-rr b{font-weight:700}
+.app .rd .rn-rr .pn{color:var(--ink-3);font-size:12px;line-height:16px}
+.app .rd .rn-rr .m{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:16px}
+.app .rd .rn-newc{display:block;width:100%;text-align:left;padding:12px 16px;border:0;border-top:1px solid var(--line);background:#fff;font-size:13px;font-weight:600;color:var(--red);line-height:18px;cursor:pointer}
+.app .rd .rn-newc span{font-weight:400;color:var(--ink-3)}
+.app .rd .rn-none{display:flex;flex-direction:column;gap:2px;padding:12px 16px;font-size:13px}
+.app .rd .rn-none span{color:var(--ink-3);font-size:12px}
+
+/* 고른 고객 (P18: 이름 줄 흰색, 나머지 연회색 칸) */
+.app .rd .rd-box{border-radius:8px;padding:4px 12px}
+.app .rd .rd-cust{min-height:42px;background:#fff}
+.app .rd .rd-cust b{font-size:16px;line-height:24px}
+.app .rd .rd-cust .num{font-size:13px}
+.app .rd .rd-row{min-height:32px;align-items:center;font-size:13px}
+.app .rd .rd-k{width:72px;font-weight:600;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.app .rd .rn-i{color:var(--ink-3);flex:none}
+.app .rd .rd-ms>div{min-height:32px;font-size:13px}
+.app .rd .rd-ms b{width:112px;font-size:14px;font-weight:600}
+
+.app .rd .rd-sec b{font-size:13px;font-weight:600}
+.app .rd .rd-grid{grid-template-columns:72px 1fr;gap:8px;font-size:13px}
+.app .rd .rd-grid .rd-k,.app .rd .rd-memo .rd-k{font-weight:600;color:var(--ink-3)}
+.app .rd .rd-pick{background:var(--bg-soft);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.app .rd .rn-reph{font-size:13px}
+
+/* 매출등록 탭 */
+.app .rd .rn-sale{border:1px dashed var(--line-strong);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.app .rd .rn-sale p{margin:0;font-size:13px;color:var(--ink-3);line-height:18px}
+.app .rd .rn-sale-bt{display:flex;gap:8px}
+
+@media (max-width:767px){
+  .app .rd .hd{height:56px;padding:0 16px}
+  .app .rd .hd .rn-title{font-size:16px;line-height:24px}
+  .app .rd .rn-tabs{height:48px;padding:0 16px;overflow-x:auto;scrollbar-width:none}
+  .app .rd .rn-seg button{padding:0 10px;font-size:13px}
+}
+.app .rd .rd-line{flex-wrap:nowrap;gap:8px}
+.app .rd .rd-line input[type=date]{width:140px!important;flex:none}
+.app .rd .rd-line .sel{width:84px!important;flex:none}
+.app .rd .rd-line .rd-ro{width:72px;flex:none;background:var(--bg-soft)}
+@media (max-width:767px){.app .rd .rd-line{flex-wrap:wrap}}
+.app .rd .rd-memo{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:8px;margin-top:4px}
+.app .rd .rd-memo textarea{min-height:32px;height:auto;padding:6px 12px;font-size:13px;line-height:18px}
+.app .rd .rn-rec{font-size:12px;color:var(--ink-4);line-height:16px}
+/* 반복 (P20) */
+.app .rd .rn-rep{display:flex;flex-direction:column;gap:8px}
+.app .rd .rn-wd{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.app .rd .rn-day{width:28px;height:28px;border-radius:50%;border:1px solid var(--line-strong);background:#fff;font-size:12px;font-weight:600;color:var(--ink-2);cursor:pointer;padding:0}
+.app .rd .rn-day.on{border-color:var(--red);color:var(--red);background:#FBEAEB}
+.app .rd .rn-pv{border-top:1px solid var(--line);padding-top:4px}
+.app .rd .rn-pvh{font-size:13px;font-weight:600;height:28px;display:flex;align-items:center;gap:8px}
+.app .rd .rn-pr{display:grid;grid-template-columns:20px 84px 48px 1fr auto;gap:8px;align-items:center;min-height:30px;font-size:13px;border-top:1px solid var(--line)}
+.app .rd .rn-pr .i{color:var(--ink-4)}
+.app .rd .rn-pr .t{color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .rd .rn-pr.bad{background:#FBEAEB}
+.app .rd .rn-pr.bad .t{color:var(--red);font-weight:600}
+.app .rd .rn-pr.off{opacity:.55}
+.app .rd .rn-pr .btn.sm{height:24px;padding:0 8px;font-size:12px}
+.app .rd .rn-chk{display:flex;gap:12px;align-items:center;background:#FFF1DC;border-radius:12px;padding:8px 16px;font-size:13px;line-height:18px}
+.app .rd .rn-chk b{color:#965A00}
+.app .rd .rn-rep .rd-line input[type=date]{width:150px!important}
+/* 검색 결과 없음 (P29) */
+.app .rd .rn-nf{border:1px dashed var(--line-strong);border-radius:12px;margin:8px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.app .rd .rn-nf b{font-size:14px}
+.app .rd .rn-nf p{margin:0;font-size:12px;color:var(--ink-3);line-height:18px}
+.app .rd .rn-nf .bt{display:flex;gap:8px;margin-top:4px}
+.app .rd .rn-new{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.app .rd .rn-res:has(.rn-nf){box-shadow:none}
+.app .rd .bd.rn-nfmode>.rd-custpick~*{display:none}
+.app .rd .rd-custpick>.rn-new{margin-top:0}
+/* 오른쪽 예약 패널은 화면 높이에 맞춰 붙어 있어요 (시안: 저장·결제 버튼이 항상 아래에 보임) */
+.app .rd.rd-docked{min-width:0;width:100%;position:sticky;top:64px;height:calc(100dvh - 64px);max-height:calc(100dvh - 64px);align-self:start}
+.app .rd.rd-docked .bd{flex:1;min-height:0;overflow:auto}
+/* P29 세부: 결과 없음 카드는 바깥 틀 없이, 신규 등록 칸은 32px 줄로 촘촘하게 */
+.app .rd .rn-res:has(.rn-nf){border:0;padding:0;background:transparent;max-height:none}
+.app .rd .rn-res .rn-nf{margin:0;padding:16px}
+.app .rd .rn-nf b{font-size:14px;line-height:20px}
+.app .rd .rn-nf p{font-size:13px;line-height:20px}
+.app .rd .rn-new{padding:8px 12px;gap:0;font-size:13px;line-height:18px}
+.app .rd .rn-new .rn-nh{height:28px;display:flex;align-items:center;font-size:13px;font-weight:600}
+.app .rd .rn-new .rd-grid{min-height:32px;align-items:center;gap:0 8px;margin:0}
+.app .rd .rn-new .rd-grid .rd-k{color:var(--ink-2)}
+.app .rd .rn-new .inp{height:32px;font-size:13px;padding:0 12px}
+.app .rd .rn-new .rn-rec{margin-top:4px;color:var(--ink-3)}
+.app .rd .rd-grid>*{min-width:0}
+.app .rd .rd-line input[type=date]{flex:0 1 140px;min-width:118px}
+.app .rd .rn-pb{display:flex;gap:4px}
+.app .rd .rn-pr .btn.rn-mv{border-color:var(--red);color:var(--red)}
+.app .rd .rn-rep>.rd-sec{justify-content:flex-start;gap:8px}
+/* 저장 실패·정원 초과 안내 띠 (P30·P38) — 본문 맨 위, 적어 둔 내용은 그대로 */
+.app .rd .rn-ban{border-radius:12px;padding:12px 16px;display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:20px}
+.app .rd .rn-ban p{margin:0}
+.app .rd .rn-ban.bad{background:#FBEAEB;border:1px solid #E9A3A8}
+.app .rd .rn-ban.bad b{color:var(--red)}
+.app .rd .rn-ban.warn{background:#FFF1DC}
+.app .rd .rn-ban.warn b{color:#965A00}
+.app .rd .rn-ban .bt{display:flex;gap:8px;flex-wrap:wrap}
+.app .rd .rn-ban .btn.sm{height:32px;padding:0 12px;font-size:13px;background:#fff}
+.app .rd .rn-ban .btn.sm.p{background:var(--red);color:#fff;border-color:var(--red)}
+.app .rd .rn-full{color:#965A00;font-weight:600}
+.app .rd .ft .btn:disabled{background:#ECECEF;color:var(--ink-4);border-color:transparent;opacity:1}
+.app .rd .rn-rr .lvm,.app .rd .rn-mo,.app .rd .mo,.app .rd .rn-rsum{display:none}
+/* 모바일 새 예약 (M05·M06·M07·M19) — 회색 바탕에 흰 카드, 닫기(×)는 제목 왼쪽, 아래 저장 1 : 결제 2 */
+@media (max-width:767px){
+  .app .rd .hd{height:52px;gap:8px;justify-content:flex-start}
+  .app .rd .hd .rd-x{order:-1;margin:0;width:24px;height:24px;font-size:20px;line-height:24px;padding:0;background:transparent;border:0}
+  .app .rd .rn-tabs{height:auto;padding:0 16px 8px;border-bottom:0;background:var(--bg-page,#F4F4F6)}
+  .app .rd .rn-seg{background:transparent;padding:0;width:100%}
+  .app .rd .rn-seg button{flex:1;height:28px;font-size:13px}
+  .app .rd .rn-seg button.on{box-shadow:none}
+  .app .rd .bd{background:var(--bg-page,#F4F4F6);padding:8px 16px 16px!important;gap:12px!important}
+  .app .rd .rn-pre{background:#fff}
+  .app .rd .rn-cm{width:100%;background:transparent;padding:0}
+  .app .rd .rn-cm button{flex:1;height:28px}
+  .app .rd .rn-cm button.on{box-shadow:none}
+  .app .rd .rn-q .inp{height:40px;background:#fff}
+  .app .rd .rn-res{background:transparent;border:0;box-shadow:none;padding:0;max-height:none;overflow:visible;display:flex;flex-direction:column;gap:12px}
+  .app .rd .rn-rr{display:flex;flex-direction:column;align-items:flex-start;gap:4px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+  .app .rd .rn-rr:first-child{border-top:1px solid var(--line)}
+  .app .rd .rn-rr.on{border-color:var(--red);background:#FBEAEB}
+  .app .rd .rn-rr:hover{background:#fff}.app .rd .rn-rr.on:hover{background:#FBEAEB}
+  .app .rd .rn-rr .av,.app .rd .rn-rr .lvp{display:none}
+  .app .rd .rn-rr .lvm{display:inline}
+  .app .rd .rn-rr b{font-size:14px}
+  .app .rd .rn-rr .m{white-space:normal;font-size:12px}
+  .app .rd .rn-newc{border:0;background:transparent;padding:0 4px;font-size:13px}
+  .app .rd .rn-newc span{display:none}
+  .app .rd .bd.rn-srch>.rd-custpick~*{display:none}
+  .app .rd .rd-box,.app .rd .rd-pick,.app .rd .rd-ms{background:#fff}
+  .app .rd .rn-dt{grid-template-columns:1fr}
+  .app .rd .rn-dt .rd-k,.app .rd .rn-dt .rd-dim{display:none}
+  .app .rd .rn-dt .rd-line{flex-wrap:nowrap}
+  .app .rd .rn-dt .rd-line input[type=date]{flex:1 1 auto!important;width:auto!important;min-width:0}
+  .app .rd .rn-dt .rd-line .sel,.app .rd .rn-dt .rd-line .rd-ro{width:76px!important;flex:none;font-size:14px}
+  .app .rd .rn-dt .inp,.app .rd .rn-dt .sel{height:40px;background:#fff}
+  .app .rd .rn-same{font-size:12px;grid-template-columns:1fr;color:var(--ink-3)}
+  .app .rd .rn-same .rd-k,.app .rd .rn-same .rd-dim,.app .rd .rd-memo~.rn-rec{display:none}
+  .app .rd .rn-mo{display:inline}
+  .app .rd .pc{display:none!important}
+  .app .rd p.mo,.app .rd b.mo{display:block}.app .rd div.mo{display:flex}.app .rd button.mo{display:inline-flex;align-items:center;justify-content:center}
+  .app .rd .rn-ban.mo{flex-direction:column;gap:4px}
+  .app .rd .rn-ban.mo .bt{margin-top:8px}
+  .app .rd .rn-ban.mo .btn.sm{height:40px;padding:0 14px;font-size:14px}
+  .app .rd .rn-nf{background:#fff}
+  .app .rd .rn-nf .btn.sm{height:40px;padding:0 12px;font-size:14px}
+  .app .rd .rn-new{padding:12px;gap:8px;background:#fff}
+  .app .rd .rn-new .rd-grid{grid-template-columns:1fr}
+  .app .rd .rn-new .rd-grid .rd-k,.app .rd .rn-new .rn-rec{display:none}
+  .app .rd .rn-new .inp{height:40px;font-size:14px}
+  .app .rd .rn-new .seg{width:100%!important;background:transparent;padding:0}
+  .app .rd .rn-new .seg button{flex:1;box-shadow:none}
+  .app .rd span.mo{display:inline}
+  .app .rd .seg button{justify-content:center;text-align:center}
+  /* 모바일 반복 (M08): 고객은 한 줄 요약, 이력·회원권·비고는 접고, 칸 이름 없이 넓게 */
+  .app .rd .rn-repmode .rd-cust .btn,.app .rd .rn-repmode .rd-cust .rn-ph,.app .rd .rn-repmode>.rd-box:not(.rd-cust):not(.rd-pick),.app .rd .rn-repmode .rn-rep>.rd-sec{display:none}
+  .app .rd .rn-repmode .rd-cust{min-height:40px}
+  .app .rd .rn-repmode .rd-cust b{font-size:14px}
+  .app .rd .rn-repmode .rn-rsum{display:inline;font-size:12px;color:var(--ink-3)}
+  .app .rd .rn-rep .rd-grid{grid-template-columns:1fr}
+  .app .rd .rn-rep .rd-grid>.rd-k{display:none}
+  .app .rd .rn-rep .rn-wd{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  .app .rd .rn-rep .rn-wd .seg{grid-column:1/-1;width:100%;background:transparent;padding:0}
+  .app .rd .rn-rep .rn-wd .seg button{flex:1;box-shadow:none}
+  .app .rd .rn-rep .rn-day{width:auto;height:40px;border-radius:20px;font-size:14px}
+  .app .rd .rn-rep .rd-line .rd-ro{width:auto;flex:1;height:40px;background:#fff}
+  .app .rd .rn-rep .rd-line .rd-dim{display:none}
+  .app .rd .rn-pv{background:transparent}
+  .app .rd .rn-pr{grid-template-columns:16px 76px 1fr auto;min-height:32px}
+  .app .rd .rn-pr>span.num{display:none}
+  .app .rd .rn-st{grid-template-columns:1fr}
+  .app .rd .rn-st .rd-k{display:none}
+  .app .rd .rn-st .sel{max-width:none!important;height:40px;background-color:#fff}
+  .app .rd .rn-cm button{justify-content:center;text-align:center}
+  .app .rd .rn-dt .rd-line .sel{padding:0 8px;background-image:none;-webkit-appearance:none;appearance:none;text-align:center}
+  .app .rd .rd-memo{grid-template-columns:1fr}
+  .app .rd .rd-memo .rd-k{display:none}
+  .app .rd .rd-memo textarea{background:#fff;height:40px}
+  .app .rd .ft{padding:12px 16px!important;gap:8px;height:auto}
+  .app .rd .ft>div[style]{display:none}
+  .app .rd .ft>.btn{flex:1;height:48px;font-size:15px}
+  .app .rd .ft>.btn.p{flex:2}
+  .app .rd .ft>.rd-dim{display:none}
+}
+/* 모바일 날짜·시간 시트 (M07) */
+.app .rd .rn-pk-dim{position:fixed;inset:0;background:rgba(41,41,41,.45);z-index:40}
+.app .rd .rn-pk{position:fixed;left:0;right:0;bottom:0;max-height:88dvh;background:#fff;border-radius:16px 16px 0 0;z-index:41;display:flex;flex-direction:column}
+.app .rd .rn-pk-hd{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:16px}
+.app .rd .rn-pk-hd .rd-x{background:transparent;border:0;font-size:20px;width:24px;height:24px;padding:0}
+.app .rd .rn-pk-bd{flex:1;min-height:0;overflow:auto;padding:0 16px 12px}
+.app .rd .rn-pk-mh{display:flex;align-items:center;justify-content:space-between;height:36px}
+.app .rd .rn-pk-mh b{font-size:15px}
+.app .rd .rn-pk-mh button{background:transparent;border:0;font-size:18px;width:28px;height:28px;cursor:pointer}
+.app .rd .rn-pk-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px 6px;text-align:center}
+.app .rd .rn-pk-cal .w{font-size:12px;color:var(--ink-3);line-height:24px}
+.app .rd .rn-pk-cal .c{border:0;background:transparent;border-radius:8px;padding:4px 0;display:flex;flex-direction:column;align-items:center;gap:0;cursor:pointer}
+.app .rd .rn-pk-cal .c b{font-size:15px;font-weight:600;line-height:20px}
+.app .rd .rn-pk-cal .c span{font-size:13px;color:var(--ink-3);line-height:18px;min-height:18px}
+.app .rd .rn-pk-cal .c span.hot{color:#965A00}
+.app .rd .rn-pk-cal .c.on{background:#FBEAEB;color:var(--red)}
+.app .rd .rn-pk-cal .c.on span{color:var(--red)}
+.app .rd .rn-pk-cal .c.off{background:repeating-linear-gradient(135deg,#F4F4F6 0 4px,#fff 4px 8px);color:var(--ink-3);cursor:default}
+.app .rd .rn-pk-sh{display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:16px 0 8px;font-size:13px;color:var(--ink-3)}
+.app .rd .rn-pk-sh b{font-size:15px;color:var(--ink)}
+.app .rd .rn-pk-row{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:8px;padding:6px 0}
+.app .rd .rn-pk-row .n{font-size:14px}
+.app .rd .rn-pk-row .ts{display:flex;flex-wrap:wrap;gap:8px}
+.app .rd .rn-pk-row .t{height:40px;min-width:64px;padding:0 10px;border:1px solid var(--line-strong);border-radius:8px;background:#fff;font-size:14px;cursor:pointer}
+.app .rd .rn-pk-row .t.on{border-color:var(--red);color:var(--red);background:#FBEAEB}
+.app .rd .rn-pk-row .t:disabled{background:#F4F4F6;border-color:transparent;color:var(--ink-4);text-decoration:line-through;cursor:default}
+.app .rd .rn-pk-ft{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.app .rd .rn-pk-ft .btn{flex:1;height:48px;font-size:15px}
+.app .rd .rn-pk-ft .btn.p{flex:2}
+@media (max-width:767px){
+  .app .rd .rn-dbtn{flex:1 1 auto;text-align:left;height:40px;background:#fff;font-size:14px;padding:0 12px}
+  .app .rd .rn-tbtn{width:76px;flex:none;height:40px;background:#fff;font-size:14px;padding:0 8px}
+}
+@media (max-width:767px){.app .rd button.rn-dbtn{justify-content:flex-start}}
+/* 결제 완료 요약 (P06) — 아래 칸 초록 띠 */
+.app .rd .ft.rn-pft{height:auto;padding:16px 24px;border-top:1px solid var(--line)}
+.app .rd .rn-paid{flex:1;background:#E7F5EC;border-radius:12px;padding:12px 16px;display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:20px;color:var(--ink-2)}
+.app .rd .rn-paid .h{display:flex;align-items:center;gap:8px;min-height:32px}
+.app .rd .rn-paid .h b{font-size:15px;color:var(--ink)}
+.app .rd .rn-paid .h .sp{flex:1}
+.app .rd .rn-paid .ok{width:22px;height:22px;border-radius:50%;background:#15803D;color:#fff;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:700}
+.app .rd .rn-paid .btn.sm{height:32px;background:#fff;border-color:transparent}
+.app .rd .rn-paid .d{color:var(--ink-3);font-size:12px}
+.app .rd .rn-paid .cx{display:flex;gap:6px;align-items:center;margin-top:4px}
