@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { sb } from "@/lib/sb";
+import { useMe } from "@/lib/me";
 import { todayKST } from "@/lib/sales";
 import { dot, errText, monthRange, thisMonth, type Col, type Row } from "@/lib/stats";
 import { monthOptions, useStats, ymLabel } from "../ui";
 
 /* 뷰티사랑넷 집계 조건 흐름: 조회방법(월·날짜·기간) → 직원 → 항목 → 구분 → 고객 검색 → 조회
-   조회하면 조건은 한 줄 요약으로 접혀요 (시안 STAT-4 '조건 바꾸기') */
+   v3 C2: 조건은 늘 펼친 한 줄 카드(직원 · 항목 · 구분 체크) + 조회 버튼. 직원 권한은 '나(본인)'로 고정 */
 
 export const ITEMS: { k: string; l: string; t: "won" | "min" | "num" }[] = [
   { k: "amount", l: "결제 금액", t: "won" }, { k: "service", l: "관리 금액", t: "won" },
@@ -52,7 +53,7 @@ export function itemCols(items: string[], money: boolean): Col[] {
 export function SumFilter({ query, onApply, staffCount }: { query: SumQuery; onApply: (q: SumQuery) => void; staffCount?: number }) {
   const { branch } = useStats();
   const t = todayKST();
-  const [open, setOpen] = useState(false);
+  const me = useMe();
   const [mode, setMode] = useState<Mode>("month");
   const [ym, setYm] = useState(thisMonth());
   const [day, setDay] = useState(t);
@@ -72,8 +73,7 @@ export function SumFilter({ query, onApply, staffCount }: { query: SumQuery; onA
     let r = monthRange(ym), label = ymLabel(ym);
     if (mode === "day") { r = { from: day, to: day }; label = dot(day); }
     if (mode === "range") { r = { from, to }; label = `${dot(from)} ~ ${dot(to)}`; }
-    onApply({ ...r, label, staff, items, kinds, q: q.trim() });
-    setOpen(false);
+    onApply({ ...r, label, staff: me.tier === "staff" ? [me.name] : staff, items, kinds, q: q.trim() });
   }
   const togg = (list: string[] | null, all: string[], v: string) => {
     const cur = list ?? all;
@@ -81,84 +81,56 @@ export function SumFilter({ query, onApply, staffCount }: { query: SumQuery; onA
     return next.length === all.length ? null : next;
   };
 
-  const sumText = [
-    query.label,
-    branch ?? "전 지점",
-    query.staff ? `직원 ${query.staff.length}명` : "직원 전체",
-    query.kinds ? `구분 ${query.kinds.length}개` : "구분 전체",
-    query.q ? `‘${query.q}’` : null,
-  ].filter(Boolean).join(" · ");
+  const own = me.tier === "staff";
+  const Ck = ({ on, label, onClick, lock }: { on: boolean; label: string; onClick?: () => void; lock?: boolean }) => (
+    <button type="button" className={`st-ck2 ${on ? "on" : ""} ${lock ? "lock" : ""}`} aria-pressed={on} onClick={onClick} disabled={lock}><i aria-hidden />{label}</button>
+  );
 
   return (
     <div className="st-cond st-noprint">
-      <div className="st-cond-bar">
-        <span className="st-cond-sum">{sumText}{staffCount != null ? ` · ${staffCount}명 조회됨` : ""}</span>
-        <button className={`btn sm ${open ? "" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "접기" : "조건 바꾸기"}</button>
-      </div>
-      {open && (
-        <div className="st-cond-panel">
-          <div className="st-frow">
-            <span className="st-flabel">조회 방법</span>
-            <div className="st-fval">
-              <div className="seg" role="tablist">
-                {([["month", "월"], ["day", "날짜"], ["range", "기간"]] as const).map(([k, l]) => (
-                  <button key={k} role="tab" aria-selected={mode === k} className={mode === k ? "on" : ""} onClick={() => setMode(k)}>{l}</button>
-                ))}
-              </div>
-              {mode === "month" && (
-                <select className="sel st-sel" aria-label="월" value={ym} onChange={(e) => setYm(e.target.value)}>
-                  {monthOptions().map((m) => <option key={m} value={m}>{ymLabel(m)}</option>)}
-                </select>
-              )}
-              {mode === "day" && <input className="inp st-date" type="date" aria-label="날짜" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} />}
-              {mode === "range" && (
-                <span className="st-range">
-                  <input className="inp" type="date" aria-label="시작일" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} />
-                  <span>~</span>
-                  <input className="inp" type="date" aria-label="종료일" value={to} min={from} onChange={(e) => e.target.value && setTo(e.target.value)} />
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="st-frow">
-            <span className="st-flabel">직원</span>
-            <div className="st-fval st-chips">
-              <button className={`chip ${staff === null ? "on" : ""}`} onClick={() => setStaff(null)}>전체</button>
-              {names.map((n) => (
-                <button key={n} className={`chip ${staff === null || staff.includes(n) ? "on" : ""}`} onClick={() => setStaff(togg(staff, names, n))}>{n}</button>
-              ))}
-            </div>
-          </div>
-          <div className="st-frow">
-            <span className="st-flabel">항목</span>
-            <div className="st-fval st-chips">
-              {ITEMS.map((i) => (
-                <button key={i.k} className={`chip ${items.includes(i.k) ? "on" : ""}`}
-                  onClick={() => setItems(items.includes(i.k) ? items.filter((x) => x !== i.k) : ITEMS.map((x) => x.k).filter((k) => k === i.k || items.includes(k)))}>{i.l}</button>
-              ))}
-            </div>
-          </div>
-          <div className="st-frow">
-            <span className="st-flabel">구분</span>
-            <div className="st-fval st-chips">
-              <button className={`chip ${kinds === null ? "on" : ""}`} onClick={() => setKinds(null)}>전체</button>
-              {KINDS.map((k) => (
-                <button key={k} className={`chip ${kinds === null || kinds.includes(k) ? "on" : ""}`} onClick={() => setKinds(togg(kinds, KINDS, k))}>{KIND_LABEL[k] ?? k}</button>
-              ))}
-            </div>
-          </div>
-          <div className="st-frow">
-            <span className="st-flabel">고객 검색</span>
-            <div className="st-fval">
-              <input className="inp" placeholder="이름 또는 전화번호 4자리 이상" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && apply()} />
-            </div>
-          </div>
-          <div className="st-cond-go">
-            <button className="btn" onClick={() => setOpen(false)}>닫기</button>
-            <button className="btn p" onClick={apply}>조회</button>
-          </div>
+      <div className="st-c2-top">
+        <div className="seg" role="tablist" aria-label="조회 방법">
+          {([["month", "월"], ["day", "날짜"], ["range", "기간"]] as const).map(([k, l]) => (
+            <button key={k} role="tab" aria-selected={mode === k} className={mode === k ? "on" : ""} onClick={() => setMode(k)}>{l}</button>
+          ))}
         </div>
-      )}
+        {mode === "month" && (
+          <select className="sel st-sel" aria-label="월" value={ym} onChange={(e) => setYm(e.target.value)}>
+            {monthOptions().map((m) => <option key={m} value={m}>{ymLabel(m)}</option>)}
+          </select>
+        )}
+        {mode === "day" && <input className="inp st-date" type="date" aria-label="날짜" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} />}
+        {mode === "range" && (
+          <span className="st-range">
+            <input className="inp" type="date" aria-label="시작일" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} />
+            <span>~</span>
+            <input className="inp" type="date" aria-label="종료일" value={to} min={from} onChange={(e) => e.target.value && setTo(e.target.value)} />
+          </span>
+        )}
+        <input className="inp st-c2-q" placeholder="고객 이름 · 뒤 4자리" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && apply()} />
+        {staffCount != null && <span className="st-c2-n">{staffCount}명 조회됨</span>}
+      </div>
+      <div className="st-c2">
+        <span className="st-c2-l">직원</span>
+        {own ? (
+          <><Ck on lock label={`나 (본인)`} /><span className="st-c2-h">직원 권한은 본인 기록만</span></>
+        ) : (
+          <>
+            <Ck on={staff === null} label="전체" onClick={() => setStaff(null)} />
+            {names.map((n) => <Ck key={n} on={staff !== null && staff.includes(n)} label={n} onClick={() => setStaff(togg(staff ?? [], names, n) ?? null)} />)}
+          </>
+        )}
+        <span className="st-c2-sep" />
+        <span className="st-c2-l">항목</span>
+        {ITEMS.slice(0, 7).map((i) => (
+          <Ck key={i.k} on={items.includes(i.k)} label={i.l}
+            onClick={() => setItems(items.includes(i.k) ? (items.length > 1 ? items.filter((x) => x !== i.k) : items) : ITEMS.map((x) => x.k).filter((k) => k === i.k || items.includes(k)))} />
+        ))}
+        <span className="st-c2-sep" />
+        <span className="st-c2-l">구분</span>
+        {KINDS.map((k) => <Ck key={k} on={kinds === null || kinds.includes(k)} label={KIND_LABEL[k] ?? k} onClick={() => setKinds(togg(kinds, KINDS, k))} />)}
+        <button className="btn st-c2-go" onClick={apply}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="6" /><path d="M20 20l-4.5-4.5" /></svg>조회</button>
+      </div>
     </div>
   );
 }

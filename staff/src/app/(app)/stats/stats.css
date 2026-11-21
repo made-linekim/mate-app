@@ -169,3 +169,28 @@
  .st-chart-card{break-inside:avoid}
  .st-table table.t td,.st-table table.t th{height:auto;padding:4px 8px;font-size:11px}
 }
+
+/* v3 C2 조회 조건 카드 (시안 U-PC-STAT-3·4) */
+.st-c2-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.st-c2-top .seg{flex:none}
+.st-c2-q{width:220px}
+.st-c2-n{margin-left:auto;font-size:var(--fs-sm);color:var(--ink-3)}
+.st-c2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);padding:12px 16px;margin-bottom:16px}
+.st-c2-l{font-size:var(--fs-sm);color:var(--ink-3);margin-right:2px}
+.st-c2-h{font-size:var(--fs-xs);color:var(--ink-3)}
+.st-c2-sep{width:1px;height:20px;background:var(--line);margin:0 6px}
+.st-ck2{all:unset;cursor:pointer;box-sizing:border-box;height:34px;padding:0 12px 0 10px;border:1px solid var(--line);border-radius:999px;display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-sm);font-weight:600;color:var(--ink-2);background:var(--bg)}
+.st-ck2 i{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--line-strong);box-sizing:border-box}
+.st-ck2.on{border-color:var(--red);color:var(--red);background:var(--red-50)}
+.st-ck2.on i{background:var(--red);border-color:var(--red)}
+.st-ck2.lock{cursor:default}
+.st-c2-go{margin-left:auto;background:var(--ink);color:#fff;border-color:var(--ink);display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 18px}
+.st-star.on{color:#F4B400}
+.st-star:not(.on) svg path{fill:var(--ink-5,#D5D5DA);stroke:none}
+@media (max-width:767px){
+ .st-c2-q{width:100%}
+ .st-c2-sep{display:none}
+ .st-c2-l{width:100%}
+ .st-c2-go{width:100%;justify-content:center;margin-left:0}
+}
+.st-cond{background:none!important;border:0!important;padding:0!important;box-shadow:none!important}

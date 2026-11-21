@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { sb } from "@/lib/sb";
+import { useMe } from "@/lib/me";
+import { Lock } from "@/lib/v3";
 import { errText, fmt, type Col, type Row } from "@/lib/stats";
 import { DataTable, Empty, ExportBtns, Info, useStats } from "../../ui";
 
@@ -12,7 +14,9 @@ const SHOW = 30;
 
 export default function RemainMembership() {
   const { branch } = useStats();
-  const [mgr, setMgr] = useState("");
+  const me = useMe();
+  const own = me.tier === "staff";
+  const [mgr, setMgr] = useState(own ? me.name : "");
   const [d, setD] = useState<Remain | null>(null);
   const [err, setErr] = useState("");
   const [onlySoon, setOnlySoon] = useState(false);
@@ -44,10 +48,12 @@ export default function RemainMembership() {
         <span className="st-meta">{d?.branch ?? branch ?? "전 지점"} · 지금 기준</span>
         <Info text={`쓰고 있는 회원권만 모았어요. 남은 회차가 2회 이하이거나 만료가 2주 안이면 '임박'이에요.${d && !d.money ? " 매출 권한이 없어서 금액은 빠져 있어요." : " 남은 금액은 남은 회차 × 단가예요. 옛 시스템에서 옮긴 회원권은 단가가 비어 있으면 0으로 보여요."}`} />
         <div className="st-sp" />
-        <select className="sel st-sel st-noprint" aria-label="담당" value={mgr} onChange={(e) => setMgr(e.target.value)}>
-          <option value="">담당 전체</option>
-          {(d?.managers ?? []).map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
+        {own ? <Lock>담당 {me.name} · 본인 고객만</Lock> : (
+          <select className="sel st-sel st-noprint" aria-label="담당" value={mgr} onChange={(e) => setMgr(e.target.value)}>
+            <option value="">담당 전체</option>
+            {(d?.managers ?? []).map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        )}
         {d && <ExportBtns name={`잔여회원권_${d.branch}`} cols={cCols} rows={cust} disabled={!cust.length} />}
       </div>
 

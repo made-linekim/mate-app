@@ -45,10 +45,13 @@ export function useSetBranch(allowAll = false) {
   return branch || me.branch || BRANCHES[0];
 }
 
-export function Head({ title, children }: { title: string; children?: React.ReactNode }) {
+export function Head({ title, meta, children }: { title: string; meta?: string; children?: React.ReactNode }) {
+  const branch = useSetBranch(true);
   return (
     <div className="st-head">
       <h2>{title}</h2>
+      <span className="st-only">직원만</span>
+      <span className="st-hmeta">{branch === "all" ? "전 지점" : branch}{meta ? ` · ${meta}` : ""}</span>
       <div className="st-act">{children}</div>
     </div>
   );
@@ -114,4 +117,32 @@ export function periodLabel(days: number | null) {
   if (days % 365 === 0) return `${(days / 365) * 12}개월`;
   if (days % 30 === 0) return `${days / 30}개월`;
   return `${days}일`;
+}
+
+/* v3 C1 설정: 검은 번호 원 + 회색 바탕 위 2~3개 선택지 (고른 것은 흰 바탕 + 빨간 점). 켜고 끄기도 '사용 / 안 함' */
+export function Num({ n }: { n: number }) {
+  return <span className="st-num">{n}</span>;
+}
+export function Radio<T extends string | number | boolean>({ value, options, onChange, disabled, label }: { value: T; options: { v: T; l: string }[]; onChange: (v: T) => void; disabled?: boolean; label?: string }) {
+  return (
+    <span className="st-rad" role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button key={String(o.v)} type="button" role="radio" aria-checked={o.v === value} className={o.v === value ? "on" : ""} disabled={disabled} onClick={() => onChange(o.v)}>
+          <i aria-hidden />{o.l}
+        </button>
+      ))}
+    </span>
+  );
+}
+export function UseRadio({ on, onChange, disabled, label }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean; label?: string }) {
+  return <Radio value={on} options={[{ v: true, l: "사용" }, { v: false, l: "안 함" }]} onChange={onChange} disabled={disabled} label={label} />;
+}
+/** 번호 붙은 설정 한 줄: 번호 · 이름 · 선택지 · 짧은 설명 */
+export function Row({ n, label, children, help }: { n: number; label: string; children: React.ReactNode; help?: string }) {
+  return (
+    <div className="st-row">
+      <span className="st-row-l"><Num n={n} />{label}</span>
+      <span className="st-row-v">{children}{help && <span className="st-row-h">{help}</span>}</span>
+    </div>
+  );
 }

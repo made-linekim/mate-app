@@ -89,6 +89,7 @@ export function tableCsv(cols: Col[], rows: Row[]) {
 export function errText(e: { code?: string; message?: string } | null) {
   if (!e) return "";
   if (e.code === "PGRST202" || /Could not find the function/i.test(e.message ?? "")) return "통계용 DB 준비가 아직이에요. 041_통계_집계.sql 을 실행하면 바로 보여요.";
+  if (/OWN_ONLY/.test(e.message ?? "")) return "직원 권한은 본인 기록이 들어간 리포트만 볼 수 있어요.";
   if (e.code === "42501" || /NO_PERMISSION/.test(e.message ?? "")) return "통계를 볼 권한이 없어요. 대표관리자에게 '집계·통계' 권한을 요청해 주세요.";
   return "불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.";
 }

@@ -86,3 +86,15 @@
  .sl-tabs a{height:32px;padding:0 12px;border:1px solid var(--line-strong);border-radius:999px;margin:0;font-size:var(--fs-sm)}
  .sl-tabs a.on{border-color:var(--red);background:var(--red-50);color:var(--red)}
 }
+
+/* v3 C4 매출 메뉴 드롭다운 */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.sl-menu{position:relative}
+.sl-menu-b{all:unset;cursor:pointer;box-sizing:border-box;height:48px;padding:0 14px 0 16px;border:1px solid var(--line-strong);border-radius:var(--r-ctl);background:var(--bg);display:inline-flex;align-items:center;gap:10px}
+.sl-menu-b span{font-size:var(--fs-sm);color:var(--ink-3)}
+.sl-menu-b b{font-size:var(--fs-lg);font-weight:700;color:var(--ink)}
+.sl-menu-dim{position:fixed;inset:0;z-index:29}
+.sl-menu-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:30;min-width:220px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-ctl);box-shadow:var(--shadow-overlay);padding:6px;display:flex;flex-direction:column}
+.sl-menu-pop a{padding:10px 12px;border-radius:8px;font-size:var(--fs-md);font-weight:600;color:var(--ink-2);text-decoration:none}
+.sl-menu-pop a:hover{background:var(--bg-sub)}
+.sl-menu-pop a.on{background:var(--red-50);color:var(--red)}

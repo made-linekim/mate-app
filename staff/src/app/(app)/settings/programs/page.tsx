@@ -4,7 +4,7 @@ import { sb, BRANCHES } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { won } from "@/lib/sales";
 import { friendly } from "../../membership/ui";
-import { Head, Ico, IconBtn, Msg, Switch } from "../ui";
+import { Head, Ico, IconBtn, Msg, UseRadio } from "../ui";
 
 type G = { id: string; name: string; short: string; grp: string; color: string; minutes: number; unit_price: number; capacity: number; branches: string[]; sort: number; active: boolean };
 const GRPS = ["시술", "체험", "상담", "업무", "행사"];
@@ -45,7 +45,7 @@ export default function Programs() {
 
   return (
     <>
-      <Head title="프로그램 설정"><Msg text={msg} /></Head>
+      <Head title="프로그램 설정" meta="관리 항목"><Msg text={msg} /></Head>
       <div className="st-note">금액·시간을 바꾸면 앞으로 잡는 예약부터 반영돼요. 이미 잡힌 예약은 그대로예요.{owner ? "" : " 수정은 대표관리자만 할 수 있어요."}</div>
       <div className="st-bar">
         <label className="st-q"><Ico n="search" /><input className="inp" placeholder="프로그램 이름" value={q} onChange={(e) => setQ(e.target.value)} /></label>
@@ -65,7 +65,7 @@ export default function Programs() {
                   <td className="r num">{g.capacity}건</td>
                   <td className="r num">{won(g.unit_price)}</td>
                   <td>{branchText(g.branches)}</td>
-                  <td><Switch on={g.active} disabled={!owner} label={`${g.name} 사용`} onChange={(v) => save({ ...g, active: v }, false)} /></td>
+                  <td><UseRadio on={!!g.active} disabled={!owner} label={`${g.name} 사용`} onChange={(v) => save({ ...g, active: v }, false)} /></td>
                   <td>{owner && <IconBtn n="edit" label="고치기" onClick={() => setEdit({ ...g })} />}</td>
                 </tr>
               )),
@@ -125,7 +125,7 @@ export default function Programs() {
                 </div>
               </div>
               <div className="field"><label>사용</label>
-                <div className="row"><Switch on={edit.active} label="사용" onChange={(v) => setEdit({ ...edit, active: v })} /><span className="st-ro">{edit.active ? "새 예약에서 골라요" : "숨김 · 새 예약에서 안 보여요"}</span></div>
+                <div className="row"><UseRadio on={!!edit.active} label="사용" onChange={(v) => setEdit({ ...edit, active: v })} /><span className="st-ro">{edit.active ? "새 예약에서 골라요" : "숨김 · 새 예약에서 안 보여요"}</span></div>
               </div>
               <p className="help">지난 예약·매출 기록은 그대로 남아요. 숨기면 새 예약에서만 안 보여요.</p>
             </div>
