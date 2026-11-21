@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
 import { sb, callFn, BRANCHES, LOGIN_ID_RE, type Staff, type Tier } from "@/lib/sb";
-import { MANAGER, type Preset } from "../perms/Detail";
+import Link from "next/link";
+import { MANAGER, type Preset } from "../perms/roles";
 import { useMe } from "@/lib/me";
 
-/* 직원 등록 · 세부설정 드로어 (예전 /staff 화면에서 옮김, 권한 규칙은 그대로) */
+/* 직원 등록 · 수정 드로어. 권한은 설정 › 권한(시안 U-PC-SET-12)에서 봐요. */
 /* ---------- 직원 등록 ---------- */
 export function CreateDrawer({ titles, presets, onClose, onDone }: { titles: string[]; presets: Preset[]; onClose: () => void; onDone: () => void }) {
   const me = useMe();
@@ -42,15 +43,15 @@ export function CreateDrawer({ titles, presets, onClose, onDone }: { titles: str
               <div className="st-code num">{code}</div>
               <p style={{ fontSize: 13, color: "var(--ink-3)" }}>
                 직원은 로그인 화면의 &lsquo;첫 로그인&rsquo;에서 아이디 <b>{f.login_id.trim().toLowerCase()}</b>와 이 코드로 비밀번호를 정해요.
-                코드는 72시간 동안 쓸 수 있고, 이 창을 닫으면 다시 볼 수 없어요(세부설정에서 새로 발급 가능).
+                코드는 72시간 동안 쓸 수 있고, 이 창을 닫으면 다시 볼 수 없어요(직원 수정에서 새로 발급 가능).
               </p>
-              <p style={{ fontSize: 13, color: "var(--ink-3)" }}>권한은 고른 직급의 세부설정으로 시작해요. 한 사람만 다르게 하려면 직원 목록의 [세부설정]을 눌러요.</p>
+              <p style={{ fontSize: 13, color: "var(--ink-3)" }}>권한은 역할 기본값으로 시작해요. 한 사람만 다르게 하려면 설정 › 권한의 직원별 권한에서 바꿔요.</p>
             </div>
           ) : (
             <>
               <Row label="이름 *"><input className="inp" value={f.name} onChange={set("name")} /></Row>
               <Row label="아이디 *" help="영문 소문자·숫자·_ 4~20자. 로그인할 때 써요"><input className="inp" autoCapitalize="none" value={f.login_id} onChange={set("login_id")} /></Row>
-              <Row label="직급" help="고르거나 새 이름을 써요. 그 직급 세부설정이 그대로 들어가요">
+              <Row label="직무" help="고르거나 새 이름을 써요 (예: 케어메이트)">
                 <input className="inp" list="st-titles" value={f.title} onChange={set("title")} />
                 <TitleList titles={titles} />
               </Row>
@@ -84,9 +85,9 @@ export function CreateDrawer({ titles, presets, onClose, onDone }: { titles: str
   );
 }
 
-/* ---------- 직원 수정 (이름 · 직급 · 지점 · 상태). 권한은 [세부설정] 창에서 ---------- */
-export function EditDrawer({ target, titles, presets, onDetail, onClose, onDone }:
-  { target: Staff; titles: string[]; presets: Preset[]; onDetail?: () => void; onClose: () => void; onDone: () => void }) {
+/* ---------- 직원 수정 (이름 · 직무 · 지점 · 상태). 권한은 설정 › 권한에서 ---------- */
+export function EditDrawer({ target, titles, presets, onClose, onDone }:
+  { target: Staff; titles: string[]; presets: Preset[]; onClose: () => void; onDone: () => void }) {
   const me = useMe();
   const isOwner = me.tier === "owner";
   const isSelf = target.id === me.id;
@@ -140,14 +141,14 @@ export function EditDrawer({ target, titles, presets, onDetail, onClose, onDone 
           <Row label="이름"><input className="inp" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Row>
           <Row label="아이디"><span>{target.login_id}</span></Row>
           {target.tier !== "owner" && (
-            <Row label="직급" help="고르거나 새 이름을 써요">
+            <Row label="직무" help="고르거나 새 이름을 써요">
               <input className="inp" list="st-titles" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
               <TitleList titles={titles} />
             </Row>
           )}
           {moved && (
-            <label className="pd-cb" style={{ margin: "4px 0 12px" }}>
-              <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />세부설정도 새 직급 기본값으로 맞추기
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, margin: "4px 0 12px" }}>
+              <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />권한도 새 직무의 처음 값으로 맞추기
             </label>
           )}
           {isOwner && !isSelf && (
@@ -183,10 +184,9 @@ export function EditDrawer({ target, titles, presets, onDetail, onClose, onDone 
               </div>
             </Row>
           )}
-          <Row label="세부설정" help="켠 메뉴 · 기능만 보여요">
+          <Row label="권한">
             {target.tier === "owner" ? <span style={{ color: "var(--ink-3)" }}>대표관리자는 모든 권한이에요</span>
-              : onDetail ? <button className="pl-det" onClick={onDetail}>세부설정 열기</button>
-              : <span style={{ color: "var(--ink-3)" }}>대표관리자만 바꿀 수 있어요</span>}
+              : <Link href="/settings/perms" className="btn sm">설정 › 권한에서 보기</Link>}
           </Row>
           {msg && <p style={{ color: "var(--red)", fontSize: 13 }}>{msg}</p>}
         </div>

@@ -26,7 +26,7 @@ export const SET_NAV: { group: string; items: SetItem[] }[] = [
   ] },
   { group: "직원", items: [
     { label: "직원", href: "/settings/staff", icon: "team", help: "직원 등록 · 계정" },
-    { label: "직급 · 권한", href: "/settings/perms", icon: "key", help: "직급마다 쓰는 메뉴 · 기능" },
+    { label: "권한", href: "/settings/perms", icon: "key", help: "역할별 기본 권한 · 직원별 권한" },
   ] },
 ];
 export function SetIcon({ n, s = 20 }: { n: keyof typeof SET_ICONS; s?: number }) {

@@ -4,7 +4,7 @@ import { sb, STATUS_LABEL, TIER_LABEL, type Perm, type Staff } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { Chip, HelpD, Msg, PageH, useBranch } from "../kit";
 import { CreateDrawer, EditDrawer } from "./drawers";
-import Detail, { titleOf, type Preset } from "../perms/Detail";
+import { titleOf, type Preset } from "../perms/roles";
 import { isOn } from "@/lib/perm";
 
 type StatusFilter = "all" | "active" | "leave" | "resigned";
@@ -21,7 +21,6 @@ export default function StaffSettings() {
   const [editing, setEditing] = useState<Staff | null>(null);
   const [err, setErr] = useState("");
   const [presets, setPresets] = useState<Preset[]>([]);
-  const [detail, setDetail] = useState<Staff | null>(null);
   const [note, setNote] = useState("");
 
   const load = useCallback(async () => {
@@ -49,7 +48,6 @@ export default function StaffSettings() {
   };
   const permText = (s: Staff) => (s.tier === "owner" ? "모든 권한" : s.tier === "manager" ? "관리자 권한" : `${perms.filter((x) => isOn(s.perms?.[x.key])).length}개 켬`) + (excN(s) ? ` · 예외 ${excN(s)}` : "");
   const titles = [...new Set(["@manager", ...presets.map((x) => x.name), ...list.filter((x) => x.tier === "staff").map((x) => x.title || "직원")])];
-  const canDetail = (t: Staff) => t.tier !== "owner" && t.id !== me.id && (me.tier === "owner" || (me.tier === "manager" && t.tier === "staff" && t.branch === me.branch));
 
   const roleName = (s: Staff) => TIER_LABEL[s.tier];
   const ext = (s: Staff) => s as Staff & { team?: string | null; level?: number | null };
@@ -81,17 +79,12 @@ export default function StaffSettings() {
             </tbody>
           </table>
         </div>
-        <HelpD>{[shown.filter((s) => s.tier !== "owner" && !ext(s).team).map((s) => s.name).join("·") && `${shown.filter((s) => s.tier !== "owner" && !ext(s).team).map((s) => s.name).join("·")}은 아직 팀에 넣지 않았어요.`, "대표관리자는 이 지점 목록에 두지 않아요. 줄을 누르면 고치고 세부설정을 열 수 있어요."].filter(Boolean).join(" ")}</HelpD>
+        <HelpD>{[shown.filter((s) => s.tier !== "owner" && !ext(s).team).map((s) => s.name).join("·") && `${shown.filter((s) => s.tier !== "owner" && !ext(s).team).map((s) => s.name).join("·")}은 아직 팀에 넣지 않았어요.`, "대표관리자는 이 지점 목록에 두지 않아요. 줄을 누르면 고칠 수 있어요. 권한은 설정 › 권한에서 봐요."].filter(Boolean).join(" ")}</HelpD>
       </div>
 
       {creating && <CreateDrawer titles={titles} presets={presets} onClose={() => setCreating(false)} onDone={load} />}
-      {detail && (
-        <Detail mode="person" target={detail.id} list={list} perms={perms} presets={presets} titles={titles}
-          onClose={() => setDetail(null)} onDone={(m) => { setDetail(null); setNote(m); load(); }} />
-      )}
       {editing && (
         <EditDrawer target={editing} titles={titles} presets={presets}
-          onDetail={canDetail(editing) ? () => { const t = editing; setEditing(null); setDetail(t); } : undefined}
           onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} />
       )}
     </div>
