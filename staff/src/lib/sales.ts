@@ -1,6 +1,6 @@
 "use client";
 import type { Staff } from "./sb";
-import { has } from "./perm";
+import { has, isReq } from "./perm";
 
 // 매출 스위치는 모두 owner_only 라서 관리자도 대표관리자가 켜 준 경우에만 보여요. (서버 RPC 가 최종 검사)
 export const canSee = (me: Staff, key: string) => has(me, key);
@@ -17,7 +17,8 @@ export const TABS: { tab: Tab; href: string; label: string; keys: string[] }[] =
   { tab: "receivable", href: "/sales/receivable", label: "미수금", keys: ["sales.receivable"] },
   { tab: "accounts", href: "/sales/accounts", label: "수입지출 계정", keys: ["sales.accounts"] },
 ];
-export const tabOk = (me: Staff, keys: string[]) => keys.some((k) => canSee(me, k));
+// 요청 권한(직원이 요청만 보낼 수 있음)도 메뉴는 보여요. 화면이 요청 양식으로 열려요.
+export const tabOk = (me: Staff, keys: string[]) => keys.some((k) => canSee(me, k) || (me.tier === "staff" && isReq(me.perms?.[k])));
 
 export type Sale = {
   dedup_key: string; branch: string; paid_at: string | null; day: string; customer_key: string | null; customer_name: string;

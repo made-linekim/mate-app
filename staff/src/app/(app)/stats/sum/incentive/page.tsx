@@ -4,7 +4,8 @@ import { sb } from "@/lib/sb";
 import { useMe } from "@/lib/me";
 import { canSee } from "@/lib/sales";
 import { errText, monthRange, thisMonth, type Col, type Row } from "@/lib/stats";
-import { DataTable, Empty, ExportBtns, Info, monthOptions, useStats, ymLabel } from "../../ui";
+import { C2_ALL, DataTable, Empty, ExportBtns, StTitle, useFilterReady, useStats, ymLabel, type C2Val } from "../../ui";
+import { SumFilter } from "../filter";
 
 type Inc = { rows: Row[]; branch: string; can_edit: boolean; rates: Record<string, { rate?: number; per?: number }> | null };
 const COLS: Col[] = [
@@ -21,16 +22,21 @@ export default function Incentive() {
   const [err, setErr] = useState("");
   const [edit, setEdit] = useState<Record<string, { rate: string; per: string }> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [c2, setC2] = useState<C2Val>(C2_ALL);
+  const ready = useFilterReady();
   const money = canSee(me, "sales.others") || canSee(me, "sales.own");
 
   const load = useCallback(() => {
     const r = monthRange(ym);
     setErr("");
-    sb.rpc("stats_incentive", { p_branch: br, p_from: r.from, p_to: r.to }).then(({ data, error }) => {
+    if (ready === null) return;
+    const args: Record<string, unknown> = { p_branch: br, p_from: r.from, p_to: r.to };
+    if (ready) { args.p_progs = c2.progs; args.p_groups = c2.groups; }
+    sb.rpc("stats_incentive", args).then(({ data, error }) => {
       if (error) { setErr(errText(error)); setD(null); return; }
       setD(data as Inc);
     });
-  }, [br, ym]);
+  }, [br, ym, c2.progs, c2.groups, ready]);
   useEffect(() => { load(); }, [load]);
 
   function openEdit() {
@@ -52,20 +58,18 @@ export default function Incentive() {
 
   const closed = ym < thisMonth();
   if (!money) return <Empty text="인센티브는 매출 권한이 있는 직원에게만 보여요" sub="대표관리자에게 '본인 매출 보기' 권한을 요청해 주세요." />;
+  const rows = (d?.rows ?? []).filter((r) => c2.staff === null || c2.staff.includes(String(r.staff)));
+  const q = { ...monthRange(ym), label: ymLabel(ym), staff: c2.staff, items: ["amount"], kinds: null, q: "", progs: c2.progs, groups: c2.groups };
   return (
     <>
-      <div className="st-dhead">
-        <h2>인센티브</h2>
-        <span className="st-meta">{br} · {ymLabel(ym)}</span>
-        <Info text="매출 인센티브 = 매출 × 요율, 관리 수당 = 관리 횟수 × 1회 수당이에요. 요율은 대표관리자가 '요율 설정'에서 정해요. 관리자·직원은 자기 몫만 봐요." />
-        <div className="st-sp" />
-        <select className="sel st-sel st-noprint" aria-label="월" value={ym} onChange={(e) => setYm(e.target.value)}>
-          {monthOptions().map((m) => <option key={m} value={m}>{ymLabel(m)}</option>)}
-        </select>
-        {d?.can_edit && !edit && <button className="btn sm st-noprint" onClick={openEdit}>요율 설정</button>}
-        {d && <ExportBtns name={`인센티브_${br}_${ymLabel(ym)}`} cols={COLS} rows={d.rows} disabled={!d.rows.length} />}
-      </div>
-      {!closed && <div className="st-warn">{+ym.slice(5, 7)}월 마감 전이라 미리보기예요. 매출이나 요율이 바뀌면 숫자도 바뀌어요.</div>}
+      {!closed && <div className="st-warn st3-warn">{+ym.slice(5, 7)}월 마감 전에는 미리보기예요. 요율이 바뀌면 이 숫자도 바뀌어요.</div>}
+      <StTitle title="인센티브" meta={`${br} · ${+ym.slice(5, 7)}월`} />
+      <SumFilter query={q} ready={ready} compact monthOnly help={`${+ym.slice(5, 7)}월 · ${br} · 조회됨`}
+        onApply={(n) => { setYm(n.from.slice(0, 7)); setC2({ staff: n.staff, progs: n.progs, groups: n.groups }); }}
+        right={<>
+          {d?.can_edit && !edit && <button className="btn st-noprint" onClick={openEdit}>요율 설정</button>}
+          {d && <ExportBtns name={`인센티브_${br}_${ymLabel(ym)}`} cols={COLS} rows={rows} disabled={!rows.length} />}
+        </>} />
 
       {edit && (
         <div className="card st-edit">
@@ -89,8 +93,9 @@ export default function Incentive() {
 
       {err ? <Empty text={err} />
         : !d ? <div className="st-skel">불러오는 중…</div>
-        : !d.rows.length ? <Empty text="보여 줄 직원이 없어요" sub="설정 > 직원에서 직원을 등록하면 여기에 나와요." />
-        : <DataTable cols={COLS} rows={d.rows} />}
+        : !rows.length ? <Empty text="보여 줄 직원이 없어요" sub="설정 > 직원에서 직원을 등록하면 여기에 나와요." />
+        : <DataTable cols={COLS} rows={rows} noSum={["rate"]} />}
+      <p className="st3-note">매출 인센티브 = 매출 × 요율, 관리 수당 = 관리 횟수 × 1회 수당이에요. 요율은 대표관리자가 정해요. 관리자·직원은 자기 몫만 봐요.</p>
     </>
   );
 }
