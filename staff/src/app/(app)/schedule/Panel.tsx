@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { sb } from "@/lib/sb";
 import WorkMemo from "./WorkMemo";
-import { type Rsv, todayKST, addDays, dow, DOW } from "@/lib/schedule";
+import { BOARD, BOARD_DEFAULT, BoardWidget, type WKey } from "./Widgets";
+import { type Rsv, todayKST, addDays } from "@/lib/schedule";
 
 const monthEnd = (d: string) => addDays(`${addDays(`${d.slice(0, 8)}28`, 4).slice(0, 8)}01`, -1);
 const man = (n: number) => (Math.abs(n) >= 10000 ? `${Math.round(n / 10000).toLocaleString()}만` : n.toLocaleString());
@@ -26,20 +27,29 @@ export const Ico = {
   off: <svg className="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2" {...P} /><path d="M3 10h18M9 14l6 5M15 14l-6 5" {...P} /></svg>,
 };
 
-type W = "rsv" | "sales" | "check" | "exp" | "cust" | "staff";
-const WIDGETS: { k: W; l: string }[] = [
-  { k: "rsv", l: "예약 현황" }, { k: "sales", l: "매출 현황" }, { k: "check", l: "챙길 일" },
-  { k: "exp", l: "만료예정 회원권" }, { k: "cust", l: "고객 현황" }, { k: "staff", l: "담당자별 예약" },
+// 우리만 있는 위젯(챙길 일 · 매출 목표) + 뷰티사랑넷 현황보드 위젯(Widgets.tsx)
+type Own = "check" | "goal";
+type Key = Own | WKey;
+const OWN: { k: Own; cat: "기타"; l: string; d: string }[] = [
+  { k: "check", cat: "기타", l: "챙길 일", d: "해피콜 마감 지남, 재등록 미연락, 미수금" },
+  { k: "goal", cat: "기타", l: "이번 달 매출 목표", d: "이번 달 매출과 목표 달성률" },
 ];
+const ALL: { k: Key; cat: string; l: string; d: string }[] = [...BOARD, ...OWN];
+const CATS = ["전체", "예약", "매출", "고객", "회원권", "기타"] as const;
+const DEF: Key[] = ["check", ...BOARD_DEFAULT];
+const STORE = "rsv.widgets.v2";
 const TABS = ["현황", "업무 메모", "문자", "네이버"] as const;
 
-export default function Panel({ branch, day, dayRows, staffName, onFold }: { branch: string; day: string; dayRows: Rsv[]; staffName: (id: string) => string; onFold?: () => void }) {
+export default function Panel({ branch, onFold }: { branch: string; day?: string; dayRows?: Rsv[]; staffName?: (id: string) => string; onFold?: () => void }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("현황");
-  const [hide, setHide] = useState<W[]>([]);
+  const [list, setList] = useState<Key[]>(DEF);
   const [edit, setEdit] = useState(false);
-  useEffect(() => { try { setHide(JSON.parse(localStorage.getItem("rsv.widgets.hide") || "[]")); } catch {} }, []);
-  const flip = (k: W) => setHide((h) => { const n = h.includes(k) ? h.filter((x) => x !== k) : [...h, k]; try { localStorage.setItem("rsv.widgets.hide", JSON.stringify(n)); } catch {} return n; });
-  const on = (k: W) => !hide.includes(k);
+  const [add, setAdd] = useState(false);
+  const [cat, setCat] = useState<(typeof CATS)[number]>("전체");
+  useEffect(() => { try { const v = JSON.parse(localStorage.getItem(STORE) || "null"); if (Array.isArray(v)) setList(v.filter((k: Key) => ALL.some((w) => w.k === k))); } catch {} }, []);
+  const save = (n: Key[]) => { setList(n); try { localStorage.setItem(STORE, JSON.stringify(n)); } catch {} };
+  const move = (i: number, d: number) => { const n = [...list]; const j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; save(n); };
+  const name = (k: Key) => ALL.find((w) => w.k === k)?.l ?? k;
   return (
     <aside className="rv3-side">
       {onFold && <button className="rv3-fold" onClick={onFold} aria-label="왼쪽 패널 닫아두기">{Ico.left}닫아두기</button>}
@@ -48,20 +58,40 @@ export default function Panel({ branch, day, dayRows, staffName, onFold }: { bra
       </div>
       {tab === "현황" ? (
         <>
-          {on("rsv") && <RsvW rows={dayRows} day={day} />}
-          {on("sales") && <SalesW branch={branch} />}
-          {on("check") && <CheckW branch={branch} />}
-          {on("exp") && <ExpiringW branch={branch} />}
-          {on("cust") && <CustomerW branch={branch} />}
-          {on("staff") && <ByStaffW rows={dayRows} staffName={staffName} />}
-          <button className="btn3 t" onClick={() => setEdit(!edit)}>{Ico.plus}위젯 추가 · 편집</button>
-          {edit && (
-            <div className="card w">
-              {WIDGETS.map((w) => (
-                <label key={w.k} className="wl" style={{ gap: 8, cursor: "pointer" }}>
-                  <input type="checkbox" checked={on(w.k)} onChange={() => flip(w.k)} />{w.l}
-                </label>
-              ))}
+          {list.map((k, i) => (
+            <div key={k} className={edit ? "wedit" : undefined}>
+              {edit && (
+                <div className="wbar"><b>{name(k)}</b>
+                  <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="위로">↑</button>
+                  <button onClick={() => move(i, 1)} disabled={i === list.length - 1} aria-label="아래로">↓</button>
+                  <button className="del" onClick={() => save(list.filter((x) => x !== k))} aria-label="빼기">빼기</button>
+                </div>
+              )}
+              {k === "check" ? <CheckW branch={branch} /> : k === "goal" ? <SalesW branch={branch} /> : <BoardWidget k={k} branch={branch} />}
+            </div>
+          ))}
+          {list.length === 0 && <div className="card mempty">위젯 추가를 눌러 보고 싶은 항목을 골라 주세요.</div>}
+          <div className="wbtns">
+            <button className="btn3 sm" onClick={() => { setAdd(true); setEdit(false); }}>{Ico.plus}위젯 추가</button>
+            <button className={`btn3 sm ${edit ? "p" : ""}`} onClick={() => { setEdit(!edit); setAdd(false); }}>{edit ? "편집 끝" : "편집"}</button>
+          </div>
+          {add && (
+            <div className="wadd-dim" onClick={() => setAdd(false)}>
+              <div className="wadd" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="위젯 추가">
+                <div className="hd"><b>위젯 추가</b><button className="btn3 t sm" onClick={() => setAdd(false)}>닫기</button></div>
+                <div className="wcats">{CATS.map((c) => <button key={c} className={cat === c ? "on" : ""} onClick={() => setCat(c)}>{c}</button>)}</div>
+                <div className="bd">
+                  {ALL.filter((w) => cat === "전체" || w.cat === cat).map((w) => {
+                    const used = list.includes(w.k);
+                    return (
+                      <button key={w.k} className={`wi ${used ? "used" : ""}`} onClick={() => save(used ? list.filter((x) => x !== w.k) : [...list, w.k])}>
+                        <span className="tx"><b><span className="cap">[{w.cat}]</span> {w.l}</b><span className="cap">{w.d}</span></span>
+                        <span className={`bdg ${used ? "grn" : ""}`}>{used ? "사용 중" : "추가"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
         </>
@@ -69,20 +99,6 @@ export default function Panel({ branch, day, dayRows, staffName, onFold }: { bra
         <div className="card mempty">{tab} 화면은 준비 중이에요.</div>
       )}
     </aside>
-  );
-}
-
-function RsvW({ rows, day }: { rows: Rsv[]; day: string }) {
-  const n = (f: (r: Rsv) => boolean) => rows.filter(f).length;
-  return (
-    <div className="card w">
-      <div className="wt">{Ico.cal}<b>예약 현황</b><span className="r cap num">{Number(day.slice(5, 7))}.{day.slice(8)} ({DOW[dow(day)]})</span></div>
-      <div className="w4 num">
-        {([["예약", n((r) => r.status === "예약" || r.status === "완료")], ["방문", n((r) => r.status === "완료")], ["노쇼", n((r) => r.status === "노쇼")], ["취소", n((r) => r.status === "취소")]] as const).map(([l, v]) => (
-          <div key={l}><div className="v">{v}</div><div className="l">{l}</div></div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -105,7 +121,7 @@ function SalesW({ branch }: { branch: string }) {
   const pct = s && s.target ? Math.round((100 * s.actual) / s.target) : null;
   return (
     <div className="card w">
-      <div className="wt">{Ico.won}<b>매출 현황</b><span className="r cap">{Number(todayKST().slice(5, 7))}월</span></div>
+      <div className="wt">{Ico.won}<b>이번 달 매출 목표</b><span className="r cap">{Number(todayKST().slice(5, 7))}월</span></div>
       <div className="big num">{s ? man(s.actual) : "-"}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0 4px" }}>
         <div className="bar6"><i style={{ width: `${Math.min(pct ?? 0, 100)}%` }} /></div>
@@ -147,58 +163,3 @@ function CheckW({ branch }: { branch: string }) {
   );
 }
 
-function Fold({ icon, title, value, children, href }: { icon: React.ReactNode; title: string; value: string; children?: React.ReactNode; href?: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="card">
-      <button className="wc" onClick={() => setOpen(!open)} aria-expanded={open}>
-        {icon}<b>{title}</b><span className="r"><b className="num">{value}</b>{open ? Ico.chevD : Ico.chev}</span>
-      </button>
-      {open && <div className="wfold">{children}{href && <Link href={href} className="wl" style={{ color: "var(--ink-3)", fontWeight: 600 }}>전체 보기<span className="r">{Ico.chev}</span></Link>}</div>}
-    </div>
-  );
-}
-
-function ExpiringW({ branch }: { branch: string }) {
-  const [d, setD] = useState<{ n: number; rows: { customer: string; name: string; end_on: string | null; remain: number }[] } | null>(null);
-  useEffect(() => {
-    let on = true;
-    sb.rpc("membership_holdings", { p_branch: branch, p_filter: "soon" }).then(({ data, error }) => {
-      if (!on || error || !data) return setD(null);
-      const rows = (data.rows ?? []) as { customer_key: string; customer: string; name: string; end_on: string | null; remain: number }[];
-      setD({ n: new Set(rows.map((r) => r.customer_key)).size, rows });
-    });
-    return () => { on = false; };
-  }, [branch]);
-  return (
-    <Fold icon={Ico.clock} title="만료예정 회원권" value={d ? `${d.n}명` : "-"} href="/membership">
-      {d?.rows.slice(0, 5).map((r, i) => (
-        <div key={i} className="wl"><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.customer} · {r.name}</span><span className="r cap num">{r.end_on ? r.end_on.slice(5).replace("-", ".") : `${r.remain}회`}</span></div>
-      ))}
-    </Fold>
-  );
-}
-
-function CustomerW({ branch }: { branch: string }) {
-  const [n, setN] = useState<number | null>(null);
-  useEffect(() => {
-    let on = true;
-    sb.rpc("customer_list", { p_q: null, p_branch: branch, p_filter: "all", p_limit: 1, p_offset: 0 }).then(({ data, error }) => {
-      if (on) setN(error ? null : Number((data as { total: number }[] | null)?.[0]?.total ?? 0));
-    });
-    return () => { on = false; };
-  }, [branch]);
-  return <Fold icon={Ico.users} title="고객 현황" value={n === null ? "-" : `${n.toLocaleString()}명`} href="/customers" />;
-}
-
-function ByStaffW({ rows, staffName }: { rows: Rsv[]; staffName: (id: string) => string }) {
-  const m = new Map<string, number>();
-  rows.filter((r) => r.status === "예약" || r.status === "완료").forEach((r) => m.set(r.staff_id || "", (m.get(r.staff_id || "") ?? 0) + 1));
-  const list = [...m.entries()].sort((a, b) => b[1] - a[1]);
-  return (
-    <Fold icon={Ico.user} title="담당자별 예약" value={`${list.filter(([k]) => k).length}명`}>
-      {list.length === 0 && <div className="wl cap">이 날 예약이 없어요</div>}
-      {list.map(([k, v]) => <div key={k} className="wl">{k ? staffName(k) : "담당 미정"}<span className="r cap num">{v}건</span></div>)}
-    </Fold>
-  );
-}
