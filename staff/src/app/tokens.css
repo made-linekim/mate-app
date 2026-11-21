@@ -527,6 +527,18 @@ table.t tr:hover td{background:var(--bg-soft)}
 .pm-err{color:var(--red);font-size:var(--fs-sm);margin:0 0 8px}
 .pm-go{width:100%;margin-top:auto}
 .pm-mbar{display:none}
+.pm-goods{display:flex;flex-direction:column}
+.pm-g{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;min-height:52px;padding:6px 0;border-bottom:1px solid var(--line)}
+.pm-g .nm{display:flex;flex-direction:column;min-width:0}
+.pm-g .nm b{font-size:var(--fs-md);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm-g .nm span{font-size:var(--fs-xs);color:var(--ink-3)}
+.pm-g em{font-style:normal;font-size:var(--fs-md)}
+.pm-g .qty{display:flex;align-items:center;gap:4px}
+.pm-g .qty button{width:32px;height:32px;border:1px solid var(--line-strong);border-radius:var(--r-ctl);background:var(--bg);font-size:16px;color:var(--ink)}
+.pm-g .qty button:disabled{opacity:.4}
+.pm-g .qty b{min-width:24px;text-align:center}
+.pm-g.on .nm b{color:var(--red)}
+.pm-gsum{padding:12px 0;font-weight:600}
 .rd-paid{margin-top:16px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--bg-soft);display:flex;flex-direction:column;gap:6px;font-size:var(--fs-sm)}
 .rd-paid .t{display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-md)}
 .rd-paid .t b{font-size:var(--fs-lg)}

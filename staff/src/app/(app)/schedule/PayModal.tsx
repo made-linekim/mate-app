@@ -9,6 +9,7 @@ type Ms = { id: string; name: string; kind: string; end_on: string | null; share
 type Prod = { id: string; name: string; kind: "회차" | "기간"; valid_days: number | null; price: number; items: { program_id: string; program: string; count: number }[] };
 type Ctx = { customer: { name: string } | null; memberships: Ms[]; products: Prod[]; prices: Record<string, number> };
 type Line = { program_id: string; name: string };
+type Goods = { id: string; category: string; name: string; price: number; stock: number; on_sale: boolean };
 export type PayRsv = { id: string; day: string; start_time: string; customer_key: string; customer_name: string; program_id: string | null; staff_name: string | null };
 
 const won = (n: number) => n.toLocaleString("ko-KR");
@@ -43,6 +44,15 @@ export default function PayModal({ branch, rsv, programs, onClose, onDone }: {
   const [sellPrice, setSellPrice] = useState(0);
   const [sellStart, setSellStart] = useState(rsv.day);
   const [pName, setPName] = useState("");
+  // 제품: 제품 메뉴(재고)가 있으면 거기서 고르고 재고가 빠져요. 없으면 이름·금액 직접 입력
+  const [goods, setGoods] = useState<Goods[] | null>(null);
+  const [gq, setGq] = useState<Record<string, number>>({});
+  useEffect(() => {
+    sb.rpc("goods_list", { p_branch: branch }).then(({ data, error }) => setGoods(error ? null : ((data ?? []) as Goods[]).filter((g) => g.on_sale)));
+  }, [branch]);
+  const gLines = (goods ?? []).filter((g) => (gq[g.id] ?? 0) > 0).map((g) => ({ g, qty: gq[g.id] }));
+  const gSub = gLines.reduce((a, x) => a + x.qty * x.g.price, 0);
+  const setQty = (id: string, n: number) => setGq((q) => ({ ...q, [id]: Math.max(0, Math.min(99, n)) }));
   const [pQty, setPQty] = useState(1);
   const [pUnit, setPUnit] = useState(0);
   const [pay, setPay] = useState({ card: 0, cash: 0, account: 0, local: 0 });
@@ -70,9 +80,12 @@ export default function PayModal({ branch, rsv, programs, onClose, onDone }: {
   const svcAmt = lines.reduce((a, l) => a + (covered.has(l.program_id) ? 0 : price(l.program_id)), 0);
   const sell = ctx?.products.find((p) => p.id === sellId) ?? null;
   const sellAmt = sell ? sellPrice : 0;
-  const prodAmt = pName.trim() ? pQty * pUnit : 0;
+  const useGoods = !!goods && goods.length > 0;
+  const freeAmt = !useGoods && pName.trim() ? pQty * pUnit : 0;
+  const prodAmt = useGoods ? gSub : freeAmt;
   const base = svcAmt + sellAmt + prodAmt + extra;
-  const vatAmt = vat ? Math.round(base * 0.1) : 0;
+  const rsvBase = svcAmt + sellAmt + freeAmt + extra;          // 예약 결제로 남는 부분
+  const vatAmt = vat ? Math.round(rsvBase * 0.1) + (useGoods ? Math.round(gSub * 0.1) : 0) : 0;
   const gross = base + vatAmt;
   const discount = Math.min(disc, gross);
   const due = gross - discount;
@@ -92,26 +105,42 @@ export default function PayModal({ branch, rsv, programs, onClose, onDone }: {
     setErr("");
     if (unpaid < 0) return setErr(`받은 금액이 ${won(-unpaid)}원 많아요.`);
     if (!dedItems.length && gross === 0) return setErr("차감하거나 결제할 내용이 없어요.");
+    // 제품(재고)은 제품 판매로 따로 기록: 결제 수단은 카드 → 현금 → 계좌 → 지역화폐 순서로 제품 몫을 먼저 떼어요
+    const gTotal = useGoods ? gSub + (vat ? Math.round(gSub * 0.1) : 0) : 0;
+    const rsvGross = gross - gTotal;
+    if (gTotal > 0 && !dedItems.length && rsvGross === 0) return setErr("관리 결제 없이 제품만 팔 때는 매출 › 제품 › 판매에서 입력해 주세요.");
+    const rsvDisc = Math.min(discount, rsvGross);
+    const gDisc = discount - rsvDisc;
+    let need = gTotal - gDisc;
+    const gPay = { card: 0, cash: 0, account: 0, local: 0 };
+    for (const k of ["card", "cash", "account", "local"] as const) { const t = Math.min(pay[k], need); gPay[k] = t; need -= t; }
+    const rPay = { card: pay.card - gPay.card, cash: pay.cash - gPay.cash, account: pay.account - gPay.account, local: pay.local - gPay.local };
     setBusy(true);
     const p = {
       deduct: dedItems.map((i) => ({ item_id: i.id, qty: 1 })),
       services: lines.map((l) => ({ program_id: l.program_id, name: l.name, amount: covered.has(l.program_id) ? 0 : price(l.program_id) })),
-      extra: extra + vatAmt,
-      discount,
+      extra: extra + (vat ? Math.round(rsvBase * 0.1) : 0),
+      discount: rsvDisc,
       sell: sell ? { product_id: sell.id, name: sell.name, kind: sell.kind, start_on: sellStart, valid_days: sell.valid_days ?? 90, price: sellPrice,
         items: sell.items.map((i) => ({ program_id: i.program_id, total: i.count, service: 0 })) } : null,
-      product: prodAmt > 0 ? { name: pQty > 1 ? `${pName.trim()} ${pQty}개` : pName.trim(), amount: prodAmt } : null,
-      pay,
+      product: freeAmt > 0 ? { name: pQty > 1 ? `${pName.trim()} ${pQty}개` : pName.trim(), amount: freeAmt } : null,
+      pay: rPay,
       memo: [discount > 0 ? discT : "", vat ? "부가세 포함" : "", memo.trim()].filter(Boolean).join(" · "),
       staff: rsv.staff_name ?? "",
     };
     const { error } = await sb.rpc("pay_checkout", { p_branch: branch, p_key: rsv.customer_key, p_rsv: rsv.id, p });
+    if (error) { setBusy(false); return setErr(error.message); }
+    if (gLines.length) {
+      const g = await sb.rpc("goods_sale_create", { p_branch: branch, p: {
+        customer_key: rsv.customer_key, lines: gLines.map((x) => ({ goods_id: x.g.id, qty: x.qty, price: x.g.price })),
+        vat, discount: gDisc, pay: gPay, memo: memo.trim(), staff_name: rsv.staff_name ?? "" } });
+      if (g.error) { setBusy(false); setErr(`관리 결제는 끝났어요. 제품 판매만 저장하지 못했어요: ${g.error.message} (매출 › 제품 › 판매에서 다시 입력해 주세요)`); return; }
+    }
     setBusy(false);
-    if (error) return setErr(error.message);
     onDone();
   };
 
-  const cnt = { svc: lines.length, cnt: sell?.kind === "회차" ? 1 : 0, per: sell?.kind === "기간" ? 1 : 0, prod: prodAmt > 0 ? 1 : 0 };
+  const cnt = { svc: lines.length, cnt: sell?.kind === "회차" ? 1 : 0, per: sell?.kind === "기간" ? 1 : 0, prod: gLines.length || (freeAmt > 0 ? 1 : 0) };
   const TABS: [typeof tab, string][] = [["svc", "관리 결제"], ["cnt", "회차권 판매"], ["per", "기간권 판매"], ["prod", "제품 판매"]];
   const svcProgs = programs.filter((p) => p.grp !== "업무" && p.grp !== "행사");
 
@@ -196,7 +225,8 @@ export default function PayModal({ branch, rsv, programs, onClose, onDone }: {
                   <span className="pm-k">판매</span>
                   <div className="pm-v col">
                     {sell && <div className="pm-line"><span>{sell.name}</span><b className="num">{won(sellAmt)}</b></div>}
-                    {prodAmt > 0 && <div className="pm-line"><span>{pName} {pQty}개</span><b className="num">{won(prodAmt)}</b></div>}
+                    {freeAmt > 0 && <div className="pm-line"><span>{pName} {pQty}개</span><b className="num">{won(freeAmt)}</b></div>}
+                    {gLines.map((x) => <div key={x.g.id} className="pm-line"><span>{x.g.name} {x.qty}개</span><b className="num">{won(x.qty * x.g.price)}</b></div>)}
                   </div>
                 </div>
               )}
@@ -225,13 +255,33 @@ export default function PayModal({ branch, rsv, programs, onClose, onDone }: {
           )}
           {ctx && tab === "cnt" && sellList("회차")}
           {ctx && tab === "per" && sellList("기간")}
-          {ctx && tab === "prod" && (
+          {ctx && tab === "prod" && useGoods && (
+            <div className="pm-goods">
+              {goods!.map((g) => {
+                const q = gq[g.id] ?? 0;
+                return (
+                  <div key={g.id} className={`pm-g ${q > 0 ? "on" : ""}`}>
+                    <div className="nm"><b>{g.name}</b><span className="num">{g.category ? `${g.category} · ` : ""}재고 {g.stock}개</span></div>
+                    <em className="num">{won(g.price)}</em>
+                    <div className="qty">
+                      <button onClick={() => setQty(g.id, q - 1)} disabled={q === 0} aria-label="빼기">−</button>
+                      <b className="num">{q}</b>
+                      <button onClick={() => setQty(g.id, q + 1)} aria-label="더하기">+</button>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="pm-line pm-gsum"><span>제품 합계 {gLines.reduce((a, x) => a + x.qty, 0)}개</span><b className="num">{won(gSub)}원</b></div>
+            </div>
+          )}
+          {ctx && tab === "prod" && !useGoods && (
             <div className="pm-rows">
+              {goods && <p className="pm-empty">등록된 제품이 없어 직접 입력해요 · 매출 › 제품 › 제품 항목에서 만들 수 있어요</p>}
               <div className="pm-row"><span className="pm-k">제품</span><div className="pm-v"><input className="inp" placeholder="예: 홈케어 앰플" value={pName} onChange={(e) => setPName(e.target.value)} /></div></div>
               <div className="pm-row"><span className="pm-k">수량 · 단가</span><div className="pm-v">
                 <select className="sel pm-qty" value={pQty} onChange={(e) => setPQty(+e.target.value)}>{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}개</option>)}</select>
                 <Num v={pUnit} on={setPUnit} label="단가" /></div></div>
-              <div className="pm-row"><span className="pm-k">금액</span><div className="pm-v"><b className="num">{won(prodAmt)}원</b></div></div>
+              <div className="pm-row"><span className="pm-k">금액</span><div className="pm-v"><b className="num">{won(freeAmt)}원</b></div></div>
             </div>
           )}
         </div>
