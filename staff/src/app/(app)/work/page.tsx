@@ -8,7 +8,7 @@ import ApprovalBoard from "@/lib/ApprovalBoard";
 import "./work.css";
 import "./work3.css";
 import { HcRow, LogDrawer, kst } from "./log-drawer";
-import HappyBoard from "./HappyBoard";
+import HcV3 from "./HcV3";
 
 // 오늘 할 일 (v3 확정 시안 U-PC-TODO-1~4 · U-MO-TODO-1~4): 해피콜 · 지난 마감 · 승인 대기 · 남은 업무
 // 데이터: work_today + happycall_list. 기록: work_item_done/assign/reopen/add(053) · task_check_set · rsv_work_memo_*(인수인계)
@@ -108,7 +108,7 @@ function Work() {
       <header className="wv3-sub">
         <div className="wv3-mrow">
           <h1>오늘 할 일</h1>
-          {tab === "overdue" && <BranchSel tier={me.tier} branch={branch} set={setBranch} />}
+          {(tab === "overdue" || tab === "happycall") && <BranchSel tier={me.tier} branch={branch} set={setBranch} />}
           {tab === "remaining" && lead && <AddWork branch={branch} staff={staff} onDone={(t) => { load(); say({ text: t }); }} />}
         </div>
         <div className="sg">
@@ -118,15 +118,10 @@ function Work() {
             </button>
           ))}
         </div>
-        {tab === "happycall" && prog && (
-          <div className="prog">오늘 완료 <em className="num">{prog.done} / {prog.total}</em>
-            <div className="bar"><i style={{ width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%` }} /></div>
-          </div>
-        )}
       </header>
-      <div className={`wv3-page${tab === "happycall" ? " hc-bg" : ""}`}>
+      <div className="wv3-page">
         {err && <p className="wv3-err">{err}</p>}
-        {tab === "happycall" && <HappyBoard branch={branch} today={day} onCount={onCount} />}
+        {tab === "happycall" && <HcV3 branch={branch} today={day} onCount={onCount} />}
         {tab === "overdue" && (
           <Overdue branchSel={<BranchSel tier={me.tier} branch={branch} set={setBranch} />} items={overdue} hc={hcOverMine} loaded={!!data} lead={lead} staff={staff} day={day}
             onHc={(row) => setOpen({ row, preset: "" })} reload={load} say={say} />
