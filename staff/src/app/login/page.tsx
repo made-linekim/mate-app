@@ -24,7 +24,7 @@ export default function Login() {
       await sb.auth.signOut();
       return router.push(`/first-login?id=${encodeURIComponent(id.trim().toLowerCase())}`);
     }
-    router.replace("/staff");
+    router.replace("/schedule");
   }
 
   return (

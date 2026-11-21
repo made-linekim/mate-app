@@ -1,0 +1,186 @@
+/* 설정 v3 — s3.css(시안 CSS) 위에 실제 입력칸·버튼으로 바꾸면서 필요한 것만 덧붙여요 */
+.s3{background:var(--bg-page);min-height:calc(100vh - var(--nav-h,64px))}
+.s3 .st7{align-items:flex-start}
+.s3 .lnav{position:sticky;top:calc(var(--nav-h,64px) + 16px);overflow:visible}
+.s3 .lnav a{cursor:pointer}
+.s3 .lnav a:not(.on):hover{background:var(--bg-soft)}
+.s3 .ct{overflow:visible;align-self:stretch}
+.s3 .ct .body{overflow:visible}
+.s3 .pageh .ttl{font-size:var(--fs-20);line-height:var(--lh-28);font-weight:var(--fw-b)}
+.s3 .lab.il{display:inline-flex;align-items:center}
+/* 시안의 span/div 모양을 진짜 입력칸·버튼에 그대로 */
+.s3 button.btn,.s3 a.btn{font-family:inherit;cursor:pointer;min-width:0}
+.s3 .btn:disabled{cursor:default}
+.s3 .btn.p:disabled{opacity:1}
+.s3 input.inp,.s3 select.sel{font-family:inherit;outline:none;margin:0}
+.s3 input.inp{display:block}
+.s3 input.inp.num{text-align:right}
+.s3 input.inp:focus,.s3 select.sel:focus{border-color:var(--ink)}
+.s3 input.inp:disabled,.s3 select.sel:disabled{background:var(--bg-sub);color:var(--ink-3);opacity:1;-webkit-text-fill-color:var(--ink-3)}
+.s3 select.sel{appearance:none;-webkit-appearance:none;background-image:none;padding:0 var(--sp-12)!important;cursor:pointer;text-align:left}
+.s3 select.sel.sm{padding:0 var(--sp-12)!important}
+.s3 .v3radio span[role=radio]{cursor:pointer;user-select:none}
+.s3 .v3radio span[aria-disabled=true]{cursor:default}
+.s3 .sw{cursor:pointer}
+.s3 .sw.lock{cursor:default}
+.s3 .chip{cursor:pointer;user-select:none}
+.s3 .chip[aria-disabled=true]{cursor:default}
+.s3 .brpick .b{cursor:pointer}
+.s3 table.tbl tr:hover td{background:inherit}
+.s3 .msg{font-size:var(--fs-13);line-height:var(--lh-18);color:var(--red)}
+.s3 .msg.ok{color:var(--grn)}
+/* 운영 · 연결 · 권한(관리자) 시안은 머리 좌우 여백이 32 */
+.s3 .ct.p32 .pageh{padding-left:var(--sp-32);padding-right:var(--sp-32)}
+.s3 .ct.p32 .ltool{padding-left:var(--sp-32);padding-right:var(--sp-32)}
+.s3 .ct.p32 .body{padding-left:var(--sp-32);padding-right:var(--sp-32)}
+.s3 .toast{z-index:70}
+.s3 .mask{z-index:60}
+.s3 .modal{z-index:61}
+/* 서랍도 어두운 막(60) 위에 — 아래에 있으면 저장을 눌러도 막이 받아 서랍만 닫혀요 */
+.s3 .drawer{z-index:61}
+@media (max-width:767px){
+ .s3 .st7{flex-direction:column;align-items:stretch}
+ .s3 .ct{min-width:0;width:100%}
+ .s3 .lnav{display:none}
+ .s3 .ct .pageh,.s3 .ct.p32 .pageh{padding:12px 16px 8px;flex-wrap:wrap}
+ .s3 .ct .body,.s3 .ct.p32 .body{padding:0 16px 96px}
+ .s3 .ct .ltool,.s3 .ct.p32 .ltool{padding-left:16px;padding-right:16px}
+ .s3 .op-row .lab{min-width:0;width:100%}
+ .s3 .set2,.s3 .grid2{grid-template-columns:minmax(0,1fr)!important}
+ .s3 .v3card{overflow-x:hidden}
+ .s3 .crow2,.s3 .crow2.na{grid-template-columns:minmax(0,1fr)}
+ .s3 .op-row input.inp,.s3 .op-row select.sel{max-width:100%}
+ .s3 .hol-grid{grid-template-columns:minmax(0,1fr)!important}
+ .s3 .tree .item{flex-wrap:wrap;row-gap:8px}
+ .s3 .tree .item .nm{width:100%}
+ .s3 .cal{max-width:none}
+ /* 표 → 한 줄씩 카드 (가로 스크롤 없음, 11/21 규칙) */
+ .s3 .v3card .tbl,.s3 .op-card .tbl{display:block}
+ .s3 .v3card .tbl tbody,.s3 .op-card .tbl tbody,.s3 .op-card .tbl thead{display:block}
+ .s3 .v3card .tbl tr,.s3 .op-card .tbl tr{display:flex;flex-wrap:wrap;gap:4px 12px;padding:10px 12px;border-bottom:1px solid var(--line)}
+ .s3 .v3card .tbl tr:has(th),.s3 .op-card .tbl tr:has(th),.s3 .op-card .tbl thead tr{display:none}
+ .s3 .v3card .tbl td,.s3 .op-card .tbl td{height:auto;border:0;padding:0;white-space:normal}
+ .s3 .v3card .tbl td:first-child,.s3 .op-card .tbl td:first-child{width:100%;font-weight:600}
+ .s3 .v3card .tbl td:last-child:has(.btn){width:100%}
+}
+/* 모바일 설정 보기 (U-MO-MORE-1_설정보기, 390 기준) */
+.mv{background:var(--bg-page,#F4F4F6);min-height:100%}
+.mv-hd{height:52px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 16px}
+.mv-hd b{font-size:18px;line-height:26px;font-weight:700}
+.mv-x{height:32px;padding:0 13px;border-radius:8px;border:1px solid var(--line);background:var(--bg-sub);font-size:14px;font-weight:600;color:var(--ink-2);font-family:inherit}
+.mv-bd{padding:12px 16px 96px}
+.mv-note{height:36px;display:flex;align-items:center;gap:8px;padding:0 15px;background:#fff;border:1px solid var(--line);border-radius:8px;font-size:13px;color:var(--ink-3);margin-bottom:12px}
+.mv-note svg.v3i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--ink-3)}
+.mv-row{display:flex;flex-direction:column;gap:2px;padding:12px 0 13px;border-bottom:1px solid var(--line)}
+.mv-row span{font-size:12px;line-height:16px;color:var(--ink-3)}
+.mv-row b{font-size:15px;line-height:22px;font-weight:400;color:var(--ink);word-break:keep-all}
+.mv-foot{margin:13px 0 0;font-size:12px;line-height:16px;color:var(--ink-3)}
+/* 앱 공통 .sel/.inp 의 width:100% 를 끊어요 (시안은 내용 너비) */
+.s3 select.sel{width:auto;max-width:100%;flex:none}
+.s3 .op-row input.inp,.s3 .item input.inp,.s3 .tbl input.inp{flex:none}
+.s3 span.sel,.s3 span.inp{width:auto;flex:none}
+.s3 .op-row{flex-wrap:wrap}
+.s3 .op-card.req{max-width:640px}
+/* 권한 · 대표관리자 (시안 U-PC-SET-12_권한대표 — 이 화면만 카드 2단 틀이라 .pmv 안에만 씀) */
+.s3 .pmv{flex:1;min-width:0;padding:24px 32px 32px 24px}
+.s3 .pmv svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.s3 .pmv .ph{display:flex;align-items:center;gap:12px;margin-bottom:16px;background:none;border:0;border-radius:0;height:auto;min-height:40px}
+.s3 .pmv .ph h1{font-size:20px;line-height:28px;font-weight:700;margin:0}
+.s3 .pmv .phr{margin-left:auto;display:flex;align-items:center;gap:8px}
+.s3 .pmv .btn{height:40px;border-radius:8px;padding:0 16px;display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;border:1px solid var(--line-strong);background:#fff;color:var(--ink);white-space:nowrap}
+.s3 .pmv .btn.p{background:var(--red);border-color:var(--red);color:#fff}
+.s3 .pmv .btn.p:disabled{opacity:1}
+.s3 .pmv .btn.sm{height:32px;padding:0 12px;font-size:13px}
+.s3 .pmv .note{display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:8px;background:#fff;border:1px solid var(--line);font-size:13px;color:var(--ink-3);margin:0 0 16px}
+.s3 .pmv .grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+.s3 .pmv .c6{grid-column:span 6}
+.s3 .pmv .card{display:block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:0;overflow:hidden}
+.s3 .pmv .card .hd{height:56px;padding:0 20px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+.s3 .pmv .card .hd h2{font-size:16px;line-height:24px;font-weight:700;margin:0}
+.s3 .pmv .card .hd .r{margin-left:auto;display:flex;align-items:center;gap:8px}
+.s3 .pmv .cap{font-size:12px;line-height:16px;color:var(--ink-4)}
+.s3 .pmv .link{font-size:13px;font-weight:600;color:var(--ink-3);display:flex;align-items:center;gap:4px;background:none;border:0;cursor:pointer;font-family:inherit;padding:0}
+.s3 .pmv .bdg{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;line-height:16px;white-space:nowrap;background:var(--bg-sub);color:var(--ink-3);vertical-align:middle}
+.s3 .pmv .bdg.red{background:var(--red-50);color:var(--red)}
+.s3 .pmv .bdg.grn{background:var(--grn-50);color:var(--grn)}
+.s3 .pmv .bdg.amb{background:var(--amb-50,#FFF1DC);color:var(--amb,#965A00)}
+.s3 .pmv .bdg.ol{background:#fff;box-shadow:inset 0 0 0 1px var(--line-strong);color:var(--ink-3)}
+.s3 .pmv .bdg svg.i{width:12px;height:12px;stroke-width:2.2}
+.s3 .pmv .cnt{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;background:var(--bg-sub);color:var(--ink-3)}
+.s3 .pmv .cnt.red{background:var(--red);color:#fff}
+.s3 .pmv table.ptb{width:100%;border-collapse:collapse}
+.s3 .pmv .ptb th{height:40px;background:var(--bg-soft);font-size:12px;font-weight:600;color:var(--ink-3);text-align:left;padding:0 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.s3 .pmv .ptb td{height:48px;padding:0 12px;border-bottom:1px solid var(--line);font-size:14px;white-space:nowrap}
+.s3 .pmv .ptb tr:last-child td{border-bottom:0}
+.s3 .pmv .ptb .c{text-align:center}
+.s3 .pmv .ptb .num{text-align:right}
+.s3 .pmv .ptb td.ell{max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.s3 .pmv .ptb.stf td{height:52px}
+.s3 .pmv .ok{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;background:var(--grn-50);color:var(--grn);font-size:12px;font-weight:600}
+.s3 .pmv .ok svg.i{width:12px;height:12px;stroke-width:2.6}
+.s3 .pmv .lk{color:var(--ink-4);display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600}
+.s3 .pmv .no{color:var(--ink-4);font-size:12px}
+.s3 .pmv .nm{display:flex;align-items:center;gap:12px}
+.s3 .pmv .nm .t{font-weight:600;line-height:20px}
+.s3 .pmv .nm .s{font-size:12px;color:var(--ink-4);line-height:16px}
+.s3 .pmv .av{width:32px;height:32px;border-radius:50%;background:var(--bg-sub);display:grid;place-items:center;font-size:13px;font-weight:600;color:var(--ink-2);flex:none}
+.s3 .pmv .tg{width:32px;height:20px;border-radius:999px;background:var(--line-strong);position:relative;display:inline-block;vertical-align:middle;border:0;padding:0;cursor:pointer}
+.s3 .pmv .tg:after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.s3 .pmv .tg.on{background:var(--ink)}
+.s3 .pmv .tg.on:after{left:14px}
+.s3 .pmv .tg.ex{background:var(--red)}
+.s3 .pmv .tg.ex.off{background:#fff;box-shadow:inset 0 0 0 2px var(--red)}
+.s3 .pmv .tg.ex.off:after{background:var(--red);width:12px;height:12px;top:4px;left:4px}
+.s3 .pmv .tg.lock{cursor:default}
+.s3 .pmv tr.exr td{background:#FDF5F5}
+.s3 .pmv tr.exr td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.s3 .pmv .selw{position:relative;display:inline-flex;align-items:center}
+.s3 .pmv .selw select.sel{height:32px;padding:0 32px 0 36px!important;border:1px solid var(--line-strong);border-radius:8px;font-weight:600;color:var(--ink-2);background:#fff}
+.s3 .pmv .selw.role select.sel{width:112px;padding:0 12px!important}
+.s3 .pmv .selw svg.i{position:absolute;pointer-events:none;color:var(--ink-2)}
+.s3 .pmv .selw svg.i:first-child{left:12px}
+.s3 .pmv .selw svg.i:last-child{right:10px}
+.s3 .pmv .selw select.sel:disabled{background:var(--bg-sub)}
+/* 권한 오른쪽 창 (시안 .panel 400) */
+.s3 .panel.pmp{width:400px;flex:none;align-self:stretch;position:sticky;top:var(--nav-h,64px);height:calc(100vh - var(--nav-h,64px))}
+.s3 .panel.pmp .phd h2{font-size:16px;line-height:24px;font-weight:700;margin:0}
+.s3 .panel.pmp svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.s3 .panel.pmp .note{display:flex;gap:8px;align-items:flex-start}
+.s3 .panel.pmp .field label.il{display:inline-flex;align-items:center}
+.s3 .panel.pmp textarea.ta{width:100%;font-family:inherit;resize:vertical;min-height:88px}
+.s3 .panel.pmp select.sel{width:auto}
+.s3 .cks{white-space:nowrap}
+.s3 .cks .ck{margin-right:3px}
+.s3 .ck svg.i{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.s3 .ltool .note svg.i,.s3 .sec .note svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+@media (max-width:767px){
+ .s3 .pmv{padding:12px 16px 96px}
+ .s3 .pmv .ph{flex-wrap:wrap}
+ .s3 .pmv .phr{margin-left:0;width:100%}
+ .s3 .pmv .note{height:auto;padding:10px 12px}
+ .s3 .pmv .c6{grid-column:span 12}
+ .s3 .pmv .card .hd{flex-wrap:wrap;height:auto;min-height:56px;padding:12px 16px}
+ .s3 .pmv table.ptb,.s3 .pmv .ptb tbody{display:block}
+ .s3 .pmv .ptb thead{display:none}
+ .s3 .pmv .ptb tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+ .s3 .pmv .ptb td{height:auto;border:0;padding:0;white-space:normal}
+ .s3 .pmv .ptb td:first-child{width:100%}
+ .s3 .pmv .ptb td.ell{max-width:none}
+ .s3 .pmv .ptb td.c[data-l]:before{content:attr(data-l);font-size:11px;color:var(--ink-4);margin-right:4px}
+ .s3 .panel.pmp{position:fixed;inset:0;width:auto;height:auto;z-index:65}
+ .s3 .pmv tr.exr{background:#FDF5F5;box-shadow:inset 3px 0 0 var(--red)}
+ .s3 .pmv tr.exr td,.s3 .pmv tr.exr td:first-child{background:none;box-shadow:none}
+ .s3 .ct.pmm .sech{flex-wrap:wrap;row-gap:4px}
+ .s3 .ct.pmm .sech .sub{width:100%}
+ .s3 .ct.pmm .tbl tr.ex td{background:none}
+ .s3 .ct.pmm .wrap{overflow-x:hidden}
+ .s3 .ct.pmm .tbl,.s3 .ct.pmm .tbl tbody{display:block}
+ .s3 .ct.pmm .tbl thead{display:none}
+ .s3 .ct.pmm .tbl tr{display:flex;flex-wrap:wrap;gap:4px 12px;padding:10px 12px;border-bottom:1px solid var(--line)}
+ .s3 .ct.pmm .tbl td{height:auto;border:0;padding:0;white-space:normal}
+ .s3 .ct.pmm .tbl td.c[data-l]:before{content:attr(data-l);font-size:11px;color:var(--ink-4);margin-right:4px}
+ .s3 .ct.pmm .tbl td:first-child{width:100%;font-weight:600}
+}
+/* 서랍 저장 실패 안내 — 저장 버튼 바로 위, 읽기 쉽게 크게 */
+.s3 .derr{margin:0;padding:10px 12px;border-radius:8px;background:var(--red-50);color:var(--red);font-size:var(--fs-14, 14px);line-height:20px;font-weight:600}
+.s3 .inp.bad{border-color:var(--red)}

@@ -28,7 +28,7 @@ function Form() {
       await callFn("first-login", { login_id: lid, code, new_password: pw });
       const { error } = await sb.auth.signInWithPassword({ email: emailOf(lid), password: pw });
       if (error) throw new Error("비밀번호는 정했어요. 로그인 화면에서 다시 들어와 주세요");
-      router.replace("/staff");
+      router.replace("/schedule");
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
