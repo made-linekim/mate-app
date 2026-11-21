@@ -1,5 +1,6 @@
 "use client";
 // 예약 (메라 시안 P01): 왼쪽 현황보드 + 오른쪽 예약표(일간=담당자 열)
+import { has } from "@/lib/perm";
 import { useCallback, useRef, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sb, BRANCHES } from "@/lib/sb";
@@ -59,7 +60,7 @@ export default function SchedulePage() {
     f(); mq.addEventListener("change", f); return () => mq.removeEventListener("change", f);
   }, []);
 
-  const canWrite = me.tier !== "staff" || !!me.perms?.["schedule.reserve"];
+  const canWrite = has(me, "schedule.reserve", false);
   const today = todayKST();
   const [from, to] = useMemo<[string, string]>(() => {
     if (view === "day") return [day, day];

@@ -1,14 +1,14 @@
 "use client";
-import { useMemo, useState } from "react";
-import { sb, callFn, BRANCHES, LOGIN_ID_RE, type Perm, type Staff, type Tier } from "@/lib/sb";
+import { useState } from "react";
+import { sb, callFn, BRANCHES, LOGIN_ID_RE, type Staff, type Tier } from "@/lib/sb";
+import { MANAGER, type Preset } from "../perms/Detail";
 import { useMe } from "@/lib/me";
-import { Switch as StSwitch } from "../ui";
 
 /* 직원 등록 · 세부설정 드로어 (예전 /staff 화면에서 옮김, 권한 규칙은 그대로) */
 /* ---------- 직원 등록 ---------- */
-export function CreateDrawer({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+export function CreateDrawer({ titles, presets, onClose, onDone }: { titles: string[]; presets: Preset[]; onClose: () => void; onDone: () => void }) {
   const me = useMe();
-  const [f, setF] = useState({ name: "", login_id: "", title: "", branch: me.branch, tier: "staff" as Tier, hired_on: "", color: "#94597F" });
+  const [f, setF] = useState({ name: "", login_id: "", title: titles.find((t) => t !== MANAGER) ?? "직원", branch: me.branch, tier: "staff" as Tier, hired_on: "", color: "#94597F" });
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState<string | null>(null);
@@ -22,7 +22,8 @@ export function CreateDrawer({ onClose, onDone }: { onClose: () => void; onDone:
     try {
       const r = await callFn<{ setup_code: string }>("staff-admin", {
         action: "create",
-        staff: { ...f, name: f.name.trim(), title: f.title.trim() || null, hired_on: f.hired_on || null, perms: {} },
+        staff: { ...f, name: f.name.trim(), title: f.title.trim() || null, hired_on: f.hired_on || null,
+          perms: presets.find((x) => x.name === (f.tier === "manager" ? MANAGER : f.title.trim() || "직원"))?.perms ?? {} },
       });
       setCode(r.setup_code);
       onDone();
@@ -43,13 +44,16 @@ export function CreateDrawer({ onClose, onDone }: { onClose: () => void; onDone:
                 직원은 로그인 화면의 &lsquo;첫 로그인&rsquo;에서 아이디 <b>{f.login_id.trim().toLowerCase()}</b>와 이 코드로 비밀번호를 정해요.
                 코드는 72시간 동안 쓸 수 있고, 이 창을 닫으면 다시 볼 수 없어요(세부설정에서 새로 발급 가능).
               </p>
-              <p style={{ fontSize: 13, color: "var(--ink-3)" }}>권한은 모두 꺼진 상태로 시작해요. 세부설정에서 켜 주세요.</p>
+              <p style={{ fontSize: 13, color: "var(--ink-3)" }}>권한은 고른 직급의 세부설정으로 시작해요. 한 사람만 다르게 하려면 직원 목록의 [세부설정]을 눌러요.</p>
             </div>
           ) : (
             <>
               <Row label="이름 *"><input className="inp" value={f.name} onChange={set("name")} /></Row>
               <Row label="아이디 *" help="영문 소문자·숫자·_ 4~20자. 로그인할 때 써요"><input className="inp" autoCapitalize="none" value={f.login_id} onChange={set("login_id")} /></Row>
-              <Row label="직책" help="예: 실장, 원장, 트레이너"><input className="inp" value={f.title} onChange={set("title")} /></Row>
+              <Row label="직급" help="고르거나 새 이름을 써요. 그 직급 세부설정이 그대로 들어가요">
+                <input className="inp" list="st-titles" value={f.title} onChange={set("title")} />
+                <TitleList titles={titles} />
+              </Row>
               <Row label="지점">
                 <select className="sel" value={f.branch} onChange={set("branch")} disabled={me.tier !== "owner"}>
                   {BRANCHES.map((b) => <option key={b}>{b}</option>)}
@@ -80,9 +84,9 @@ export function CreateDrawer({ onClose, onDone }: { onClose: () => void; onDone:
   );
 }
 
-/* ---------- 세부설정 (기본정보 + 권한 + 다른 직원에게 동일 적용) ---------- */
-export function EditDrawer({ target, all, perms, onClose, onDone }:
-  { target: Staff; all: Staff[]; perms: Perm[]; onClose: () => void; onDone: () => void }) {
+/* ---------- 직원 수정 (이름 · 직급 · 지점 · 상태). 권한은 [세부설정] 창에서 ---------- */
+export function EditDrawer({ target, titles, presets, onDetail, onClose, onDone }:
+  { target: Staff; titles: string[]; presets: Preset[]; onDetail?: () => void; onClose: () => void; onDone: () => void }) {
   const me = useMe();
   const isOwner = me.tier === "owner";
   const isSelf = target.id === me.id;
@@ -90,30 +94,13 @@ export function EditDrawer({ target, all, perms, onClose, onDone }:
     name: target.name, title: target.title ?? "", status: target.status, tier: target.tier,
     hired_on: target.hired_on ?? "", color: target.color ?? "#DDDDDD", branch: target.branch,
   });
-  const [p, setP] = useState<Record<string, boolean>>({ ...(target.perms ?? {}) });
-  const [others, setOthers] = useState<string[]>([]);
+  const [follow, setFollow] = useState(true);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState<string | null>(null);
-
-  const menus = useMemo(() => {
-    const m = new Map<string, Perm[]>();
-    perms.forEach((x) => m.set(x.menu, [...(m.get(x.menu) ?? []), x]));
-    return [...m.entries()];
-  }, [perms]);
-  const locked = (x: Perm) => x.owner_only && !isOwner;
-  // 같은 권한을 받을 수 있는 다른 직원: 직원 등급, 내가 고칠 수 있는 지점
-  const candidates = all.filter((s) => s.id !== target.id && s.tier === "staff" && s.status !== "resigned" && (isOwner || s.branch === me.branch));
-
-  // 관리자가 저장할 땐 대표 전용 권한은 대상의 기존 값을 그대로 둠
-  const mergeFor = (s: Staff) => {
-    if (isOwner) return { ...p };
-    const keep: Record<string, boolean> = {};
-    perms.filter((x) => x.owner_only).forEach((x) => { if (s.perms?.[x.key]) keep[x.key] = true; });
-    const mine: Record<string, boolean> = {};
-    perms.filter((x) => !x.owner_only).forEach((x) => { if (p[x.key]) mine[x.key] = true; });
-    return { ...mine, ...keep };
-  };
+  const oldKey = target.tier === "manager" ? MANAGER : target.title || "직원";
+  const newKey = f.tier === "manager" ? MANAGER : f.title.trim() || "직원";
+  const moved = target.tier !== "owner" && newKey !== oldKey;
 
   async function save() {
     setMsg(""); setBusy(true);
@@ -123,15 +110,10 @@ export function EditDrawer({ target, all, perms, onClose, onDone }:
         name: f.name.trim(), title: f.title.trim() || null, hired_on: f.hired_on || null, color: f.color,
         ...(isSelf ? {} : { status: f.status }),
         ...(isOwner && !isSelf ? { tier: f.tier, branch: f.branch } : {}),
-        ...(f.tier === "staff" ? { perms: mergeFor(target) } : {}),
+        ...(moved && follow ? { perms: presets.find((x) => x.name === newKey)?.perms ?? {} } : {}),
       };
       const { error } = await sb.from("staff_accounts").update(row).eq("id", target.id);
       if (error) throw new Error(error.message);
-      for (const id of others) {
-        const s = all.find((x) => x.id === id)!;
-        const { error: e2 } = await sb.from("staff_accounts").update({ perms: mergeFor(s) }).eq("id", id);
-        if (e2) throw new Error(`${s.name}: ${e2.message}`);
-      }
       onDone();
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   }
@@ -144,22 +126,25 @@ export function EditDrawer({ target, all, perms, onClose, onDone }:
     } catch (e) { setMsg((e as Error).message); }
   }
 
-  const setAll = (list: Perm[], v: boolean) => {
-    const n = { ...p };
-    list.filter((x) => !locked(x)).forEach((x) => { if (v) n[x.key] = true; else delete n[x.key]; });
-    setP(n);
-  };
-
   return (
     <>
       <div className="dim" onClick={onClose} />
-      <div className="drawer lg" role="dialog" aria-label="직원 세부설정">
-        <div className="hd">{target.name} 세부설정</div>
+      <div className="drawer" role="dialog" aria-label="직원 수정">
+        <div className="hd">직원 수정 · {target.name}</div>
         <div className="bd">
-          <h3 className="st-sec">기본 정보</h3>
           <Row label="이름"><input className="inp" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Row>
           <Row label="아이디"><span>{target.login_id}</span></Row>
-          <Row label="직책"><input className="inp" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Row>
+          {target.tier !== "owner" && (
+            <Row label="직급" help="고르거나 새 이름을 써요">
+              <input className="inp" list="st-titles" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
+              <TitleList titles={titles} />
+            </Row>
+          )}
+          {moved && (
+            <label className="pd-cb" style={{ margin: "4px 0 12px" }}>
+              <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />세부설정도 새 직급 기본값으로 맞추기
+            </label>
+          )}
           {isOwner && !isSelf && (
             <>
               <Row label="지점">
@@ -167,7 +152,7 @@ export function EditDrawer({ target, all, perms, onClose, onDone }:
                   {BRANCHES.map((b) => <option key={b}>{b}</option>)}
                 </select>
               </Row>
-              <Row label="등급">
+              <Row label="등급" help="관리자: 기본 기능 전부 + 대표관리자가 켜 준 것 · 직원: 켠 것만">
                 <select className="sel" value={f.tier} onChange={(e) => setF({ ...f, tier: e.target.value as Tier })}>
                   <option value="staff">직원</option><option value="manager">관리자</option>
                 </select>
@@ -191,60 +176,24 @@ export function EditDrawer({ target, all, perms, onClose, onDone }:
               </div>
             </Row>
           )}
-
-          <h3 className="st-sec">권한</h3>
-          {f.tier !== "staff" ? (
-            <p style={{ color: "var(--ink-3)", fontSize: 13 }}>
-              {f.tier === "owner" ? "대표관리자는 모든 권한이 있어요." : "관리자는 전체 권한이에요. 매출·결제취소·경비·광고비 설정·인쇄/엑셀은 대표관리자만 줄 수 있어요."}
-            </p>
-          ) : (
-            <>
-              {menus.map(([menu, list]) => (
-                <div key={menu} className="st-pgrp">
-                  <div className="h">
-                    <b>{menu}</b>
-                    <button className="btn t sm" onClick={() => setAll(list, true)}>모두 켜기</button>
-                    <button className="btn t sm" onClick={() => setAll(list, false)}>모두 끄기</button>
-                  </div>
-                  {list.map((x) => (
-                    <div key={x.key} className={`it ${locked(x) ? "lock" : ""}`}>
-                      <span>
-                        {x.label}{x.owner_only && <span className="badge" style={{ marginLeft: 8 }}>대표관리자만</span>}
-                      </span>
-                      <Switch on={!!p[x.key]} disabled={locked(x)}
-                        onChange={(v) => { const n = { ...p }; if (v) n[x.key] = true; else delete n[x.key]; setP(n); }} />
-                    </div>
-                  ))}
-                </div>
-              ))}
-
-              <h3 className="st-sec">선택한 권한을 다른 직원에게도 똑같이 적용</h3>
-              <p style={{ color: "var(--ink-3)", fontSize: 13, margin: "0 0 8px" }}>체크한 직원의 권한이 위 설정과 똑같이 바뀌어요.</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {candidates.length === 0 && <span style={{ color: "var(--ink-4)", fontSize: 13 }}>같이 적용할 직원이 없어요</span>}
-                {candidates.map((s) => {
-                  const on = others.includes(s.id);
-                  return (
-                    <button key={s.id} className={`chip ${on ? "on" : ""}`}
-                      onClick={() => setOthers(on ? others.filter((o) => o !== s.id) : [...others, s.id])}>
-                      {on ? "✓ " : ""}{s.name}{s.title ? ` · ${s.title}` : ""}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
+          <Row label="세부설정" help="켠 메뉴 · 기능만 보여요">
+            {target.tier === "owner" ? <span style={{ color: "var(--ink-3)" }}>대표관리자는 모든 권한이에요</span>
+              : onDetail ? <button className="pl-det" onClick={onDetail}>세부설정 열기</button>
+              : <span style={{ color: "var(--ink-3)" }}>대표관리자만 바꿀 수 있어요</span>}
+          </Row>
           {msg && <p style={{ color: "var(--red)", fontSize: 13 }}>{msg}</p>}
         </div>
         <div className="ft">
           <button className="btn" onClick={onClose}>취소</button>
-          <button className="btn p" onClick={save} disabled={busy}>
-            {busy ? "저장 중…" : others.length ? `저장 (${others.length + 1}명에게 적용)` : "저장"}
-          </button>
+          <button className="btn p" onClick={save} disabled={busy}>{busy ? "저장 중…" : "저장"}</button>
         </div>
       </div>
     </>
   );
+}
+
+function TitleList({ titles }: { titles: string[] }) {
+  return <datalist id="st-titles">{titles.filter((t) => t !== MANAGER).map((t) => <option key={t} value={t} />)}</datalist>;
 }
 
 function Row({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
@@ -254,8 +203,4 @@ function Row({ label, help, children }: { label: string; help?: string; children
       <div style={{ display: "flex", alignItems: "center" }}>{children}</div>
     </div>
   );
-}
-
-function Switch(props: { on: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
-  return <StSwitch {...props} />;
 }

@@ -1,4 +1,5 @@
 "use client";
+import type { PermMap } from "./perm";
 import { createBrowserClient } from "@supabase/ssr";
 
 export const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -12,7 +13,7 @@ export const LOGIN_ID_RE = /^[a-z0-9_]{4,20}$/;
 export type Tier = "owner" | "manager" | "staff";
 export type Staff = {
   id: string; login_id: string; name: string; title: string | null; branch: string;
-  tier: Tier; perms: Record<string, boolean>; hired_on: string | null;
+  tier: Tier; perms: PermMap; hired_on: string | null;
   status: "active" | "leave" | "resigned"; color: string | null; updated_at: string;
 };
 export type Perm = { key: string; menu: string; label: string; owner_only: boolean; sort: number };
