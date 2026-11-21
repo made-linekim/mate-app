@@ -85,7 +85,7 @@ export default function PermsPage() {
         <Msg text={msg} />
         <button className="btn p" disabled={noTable} onClick={() => setAdding(true)}><Ico n="plus" />직급 추가</button>
       </Head>
-      {noTable && <p className="st-msg">직급 저장 표가 아직 없어요. 041 SQL을 실행하면 직급 추가 · 세부설정 저장이 돼요.</p>}
+      {noTable && <p className="st-msg">직급 저장 표가 아직 없어요. 044 SQL을 실행하면 직급 추가 · 세부설정 저장이 돼요.</p>}
       <p className="pl-cnt">직급 {titles.length + 1}개 · 사람 {nPeople}명</p>
 
       <div className="card pl-card">

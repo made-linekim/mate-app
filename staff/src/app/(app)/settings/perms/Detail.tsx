@@ -112,7 +112,7 @@ export default function Detail(p: Props) {
     const old = presetOf(name);
     const sort = p.presets.find((x) => x.name === name)?.sort ?? 100;
     const { error } = await sb.from("staff_title_perms").upsert({ name, perms: next, sort });
-    if (error) throw new Error(/staff_title_perms/.test(error.message) ? "직급 저장 표가 아직 없어요. 041 SQL을 먼저 실행해 주세요" : error.message);
+    if (error) throw new Error(/staff_title_perms/.test(error.message) ? "직급 저장 표가 아직 없어요. 044 SQL을 먼저 실행해 주세요" : error.message);
     // 직급을 따르는 사람에게 바로 적용 (예외로 바꿔 둔 칸은 그대로)
     for (const s of membersOf(p.list, name)) {
       if (!isOwner && s.tier !== "staff") continue;

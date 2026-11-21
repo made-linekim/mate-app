@@ -1,7 +1,7 @@
 import type { Staff } from "./sb";
 
 /* 권한 값: true (켬) · {mode, scope, period, show …} (켬 + 하위 선택) · 없음/false (끔)
-   mode:"request" 는 '요청 보내기' 라서 직접 실행은 못 해요 (서버 can() 도 같음, 041 SQL). */
+   mode:"request" 는 '요청 보내기' 라서 직접 실행은 못 해요 (서버 can() 도 같음, 044 SQL). */
 export type PermOpts = { mode?: "ok" | "request"; scope?: string[]; period?: string; show?: string };
 export type PermVal = boolean | PermOpts;
 export type PermMap = Record<string, PermVal>;
