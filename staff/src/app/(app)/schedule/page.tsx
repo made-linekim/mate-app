@@ -10,10 +10,11 @@ import {
   STEP, ROW_H, toMin, todayKST, addDays, dow, DOW, weekStart, lanes,
 } from "@/lib/schedule";
 import RsvDrawer, { type Draft } from "./RsvDrawer";
-import Panel from "./Panel";
+import Panel, { Ico } from "./Panel";
+import "./rsv3.css";
 import Filter from "./Filter";
 
-type View = "day" | "week" | "mbrief" | "list";
+type View = "day" | "week" | "mbrief" | "month" | "list";
 const VIEWS: { k: View; l: string }[] = [
   { k: "day", l: "일간" }, { k: "week", l: "주간" }, { k: "mbrief", l: "월" }, { k: "list", l: "목록" },
 ];
@@ -25,6 +26,7 @@ const monthEnd = (d: string) => addDays(`${addDays(`${d.slice(0, 8)}28`, 4).slic
 const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const nowMin = () => { const d = new Date(Date.now() + 9 * 36e5); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
 const tint = (c: string, pct: number) => `color-mix(in srgb, ${c} ${pct}%, #fff)`;
+const manw = (n: number) => (Math.abs(n) >= 10000 ? `${Math.round(n / 10000).toLocaleString()}만` : n.toLocaleString());
 const STATUS_TXT: Record<string, string> = { 완료: "결제 완료", 노쇼: "노쇼", 취소: "취소" };
 
 export default function SchedulePage() {
@@ -53,6 +55,15 @@ export default function SchedulePage() {
   const [hov, setHov] = useState<{ r: Rsv; x: number; y: number } | null>(null);
   const togglePanel = () => { setPanel((v) => { try { localStorage.setItem("rsv.panel", v ? "0" : "1"); } catch {} return !v; }); };
   const [now, setNow] = useState(nowMin());
+  // 예약 | 매출 보기 (시안 오른쪽 위). 매출을 못 보면 daySales = null
+  const [mode, setMode] = useState<"rsv" | "sales">("rsv");
+  const [salesRows, setSalesRows] = useState<{ day: string; customer_name: string; kind: string | null; amount: number }[] | null>(null);
+  const daySales = useMemo(() => {
+    if (!salesRows) return null;
+    const m = new Map<string, number>();
+    salesRows.forEach((s) => m.set(s.day, (m.get(s.day) ?? 0) + Number(s.amount ?? 0)));
+    return m;
+  }, [salesRows]);
   const [mobile, setMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -99,6 +110,15 @@ export default function SchedulePage() {
     setLoading(false);
   }, [branch, from, to]);
   useEffect(() => { load(); }, [load]);
+  // 날짜 칸의 'N건 · 117만' 매출 (sales_list, 권한 없으면 숨김)
+  useEffect(() => {
+    if (mobile) return;
+    let on = true;
+    const f = `${day.slice(0, 8)}01`;
+    sb.rpc("sales_list", { p_tab: "all", p_from: f, p_to: monthEnd(day), p_branch: branch, p_staff: null, p_q: null, p_customer_key: null, p_kinds: null, p_limit: 2000, p_offset: 0 })
+      .then(({ data, error }) => { if (on) setSalesRows(error ? null : ((data ?? []) as { day: string; customer_name: string; kind: string | null; amount: number }[]).filter((x) => x.day)); });
+    return () => { on = false; };
+  }, [branch, day.slice(0, 7), mobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const progMap = useMemo(() => new Map(programs.map((p) => [p.id, p])), [programs]);
   const staffName = useCallback((id: string) => staff.find((s) => s.id === id)?.name
@@ -305,24 +325,129 @@ export default function SchedulePage() {
     );
   };
 
+  // ── PC (v3 확정 시안 U-PC-RSV-1_예약표대표) ──
+  const nameOf = (r: Rsv) => (r.kind === "고객" ? r.customer_name : r.title || progMap.get(r.program_id ?? "")?.name || r.kind);
+  const pname = (r: Rsv) => { const p = progMap.get(r.program_id ?? ""); return p?.short || p?.name || ""; };
+
+  // 월 간략 / 월: 하루 예약을 전부 보여요 (대표님 결정: "+N건 더보기" 없음)
+  const month3 = (two: boolean) => {
+    const first = `${day.slice(0, 8)}01`;
+    const start = addDays(first, -((dow(first) + 6) % 7)); // 월요일 시작
+    const last = monthEnd(day);
+    const weeks = Math.ceil((((dow(first) + 6) % 7) + Number(last.slice(8))) / 7);
+    const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i));
+    return (
+      <div className="mg3">
+        {["월", "화", "수", "목", "금", "토", "일"].map((d, i) => <div key={d} className={`mh ${i === 5 ? "sat" : i === 6 ? "sun" : ""}`}>{d}</div>)}
+        {cells.map((d) => {
+          const inM = d.slice(0, 7) === day.slice(0, 7);
+          const hol = holidayOf(d);
+          const list = shown.filter((r) => r.day === d);
+          const won = daySales?.get(d) ?? 0;
+          if (!inM) return <div key={d} className="dc dim"><div className="dh"><span className="dn num">{Number(d.slice(8))}</span></div></div>;
+          return (
+            <div key={d} className={`dc ${d === today ? "today" : ""} ${draft && !draft.id && draft.day === d ? "pick" : ""}`}
+              onClick={() => { if (!hol) openNew(d, Math.max(dStart, 10 * 60)); }}>
+              <div className="dh">
+                <span className="dn num">{Number(d.slice(8))}</span>
+                {hol ? <span className="sm"><span className="bdg">{Ico.off}휴무</span></span>
+                  : (list.length > 0 || won > 0) && <span className="sm num">{list.length}건{daySales && won ? ` · ${manw(won)}` : ""}</span>}
+              </div>
+              {mode === "sales" ? (salesRows ?? []).filter((s) => s.day === d).map((s, i) => (
+                <div key={i} className="blk sale num"><span>{s.customer_name || s.kind || "매출"}</span><b>{manw(s.amount)}</b></div>
+              )) : list.map((r) => {
+                const p = progMap.get(r.program_id ?? "");
+                const c = p?.color ?? "#8A8A8A";
+                const off = r.status === "취소" || r.status === "노쇼";
+                const past = r.status === "완료" || d < today;
+                const open = (e: React.MouseEvent) => { e.stopPropagation(); setHov(null); setDraft({ ...r }); };
+                const hover = (e: React.MouseEvent) => { const b = (e.currentTarget as HTMLElement).getBoundingClientRect(); setHov({ r, x: b.left, y: b.bottom }); };
+                if (off) return (
+                  <button key={r.id} className="blk cx num" onClick={open} onMouseEnter={hover} onMouseLeave={() => setHov(null)}>
+                    <span className={`bt ${r.status === "노쇼" ? "ns" : "cc"}`}>{r.status}</span>{r.start_time.slice(0, 5)} {nameOf(r)}
+                  </button>
+                );
+                const st = { background: past ? tint(c, 25) : c, color: past ? "#292929" : "#fff" };
+                return two ? (
+                  <button key={r.id} className="blk two num" style={st} onClick={open} onMouseEnter={hover} onMouseLeave={() => setHov(null)}>
+                    <span>{r.start_time.slice(0, 5)} {nameOf(r)}</span><span>{pname(r)}{r.staff_name ? ` · ${r.staff_name}` : ""}</span>
+                  </button>
+                ) : (
+                  <button key={r.id} className="blk num" style={st} onClick={open} onMouseEnter={hover} onMouseLeave={() => setHov(null)}>
+                    {r.start_time.slice(0, 5)} {nameOf(r)} {r.kind === "고객" ? pname(r) : ""}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // 일간(직원별) / 주간(요일별) 시간표 — 시안 업무메모 화면의 표 (흰 블록·회색 테두리). 40분 관리도 두 줄이 보이게 1시간 = 72px
+  const HOUR = 72;
+  const timeGrid = () => {
+    const days7 = Array.from({ length: 7 }, (_, i) => addDays(from, i));
+    const cols = view === "day"
+      ? staffCols.map((c) => ({ key: c.id, day, head: c.name, sub: `${dayRows.filter((r) => (r.staff_id || NO_STAFF) === c.id && r.status !== "취소").length}건`, staffId: c.id as string | undefined }))
+      : days7.map((d) => ({ key: d, day: d, head: `${Number(d.slice(8))} (${DOW[dow(d)]})`, sub: holidayOf(d) ? "휴무" : `${rows.filter((r) => r.day === d && r.status !== "취소").length}건`, staffId: undefined as string | undefined }));
+    const hours = Array.from({ length: (dEnd - dStart) / 60 }, (_, i) => dStart + i * 60);
+    const H = hours.length * HOUR;
+    const y = (m: number) => ((m - dStart) / 60) * HOUR;
+    return (
+      <div className="dg" style={{ gridTemplateColumns: `78px repeat(${cols.length}, minmax(${view === "day" ? 140 : 110}px, 1fr))` }}>
+        <div className="dg-h" style={{ borderLeft: 0 }} />
+        {cols.map((c) => <div key={c.key} className="dg-h" style={{ color: view === "week" && (c.day === today) ? "var(--red)" : undefined }}>{c.head}<span>{c.sub}</span></div>)}
+        <div className="dg-axis" style={{ height: H }}>{hours.map((m) => <div key={m} className="num" style={{ top: y(m) }}>{hhmm(m)}</div>)}</div>
+        {cols.map((c) => {
+          const off = !!holidayOf(c.day);
+          const items = shown.filter((r) => r.day === c.day && (view === "week" || (r.staff_id || NO_STAFF) === c.staffId));
+          const placed = lanes(items.map((r) => ({ r, start: toMin(r.start_time), minutes: r.minutes })));
+          return (
+            <div key={c.key} className="dg-col" style={{ height: H, background: off ? "#ECECEF" : undefined }}>
+              {hours.map((m) => [m, m + 30]).flat().map((m) => (
+                <div key={m} className={`dg-slot ${m % 60 ? "half" : ""}`} style={{ top: y(m), height: HOUR / 2, cursor: canWrite && !off ? "pointer" : "default" }}
+                  onClick={() => !off && openNew(c.day, m, c.staffId)} title={canWrite && !off ? `${hhmm(m)} 예약 등록` : undefined} />
+              ))}
+              {placed.map(({ r, start, minutes, lane, lanes: n }) => {
+                const off2 = r.status === "취소" || r.status === "노쇼";
+                const done = r.status === "완료";
+                const sub = [pname(r) || r.kind, done ? "완료" : off2 ? r.status : view === "week" ? r.staff_name : ""].filter(Boolean).join(" · ");
+                return (
+                  <button key={r.id} className={`rb ${done ? "done" : ""} ${off2 ? "off" : ""} ${draft?.id === r.id ? "sel" : ""}`}
+                    style={{ top: y(start) + 2, height: Math.max((minutes / 60) * HOUR - 4, 42), left: `calc(${(lane / n) * 100}% + 6px)`, width: `calc(${100 / n}% - 12px)` }}
+                    onClick={(e) => { e.stopPropagation(); setDraft({ ...r }); }}
+                    title={`${r.start_time.slice(0, 5)} ${nameOf(r)} · ${pname(r)}${r.staff_name ? ` · 담당 ${r.staff_name}` : ""}${r.memo ? `\n${r.memo}` : ""}`}>
+                    <b className="num">{r.start_time.slice(0, 5)} {nameOf(r)}</b><span>{sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const listView = () => (
-    <table className="t">
-      <thead><tr><th>날짜</th><th>시간</th><th>고객 · 내용</th><th>프로그램</th><th>담당</th><th>상태</th></tr></thead>
+    <table className="lt">
+      <thead><tr><th>날짜</th><th>시간</th><th>고객 · 내용</th><th>관리</th><th>담당</th><th>상태</th></tr></thead>
       <tbody>
         {shown.map((r) => {
           const p = progMap.get(r.program_id ?? "");
           return (
-            <tr key={r.id} onClick={() => setDraft({ ...r })} style={{ cursor: "pointer" }}>
-              <td className="num">{r.day.slice(5).replace("-", "/")} ({DOW[dow(r.day)]})</td>
+            <tr key={r.id} onClick={() => setDraft({ ...r })}>
+              <td className="num">{Number(r.day.slice(5, 7))}.{r.day.slice(8)} ({DOW[dow(r.day)]})</td>
               <td className="num">{r.start_time.slice(0, 5)}</td>
-              <td><b>{r.kind === "고객" ? r.customer_name : r.title || r.kind}</b></td>
-              <td><span className="lg-sw" style={{ background: p?.color ?? "var(--ink-4)" }} />{p?.name ?? "-"} <span style={{ color: "var(--ink-4)" }}>{r.minutes}분</span></td>
+              <td><b>{nameOf(r)}</b></td>
+              <td><i style={{ display: "inline-block", width: 10, height: 10, borderRadius: 4, marginRight: 6, background: p?.color ?? "#8A8A8A" }} />{p?.name ?? "-"} <span className="cap">{r.minutes}분</span></td>
               <td>{r.staff_name ?? "-"}</td>
-              <td><span className={`badge ${r.status === "완료" ? "ok" : r.status === "노쇼" ? "warn" : r.status === "취소" ? "em" : ""}`}>{STATUS_TXT[r.status] ?? "예약"}</span></td>
+              <td><span className={`bdg ${r.status === "완료" ? "grn" : r.status === "취소" ? "red" : ""}`} style={r.status === "노쇼" ? { background: "var(--ns-bg)", color: "var(--ns-ink)" } : undefined}>{STATUS_TXT[r.status] ?? "예약"}</span></td>
             </tr>
           );
         })}
-        {shown.length === 0 && !loading && <tr><td colSpan={6} style={{ color: "var(--ink-3)", textAlign: "center" }}>이번 달 예약이 없어요</td></tr>}
+        {shown.length === 0 && !loading && <tr><td colSpan={6} className="cap" style={{ textAlign: "center" }}>이 기간 예약이 없어요</td></tr>}
       </tbody>
     </table>
   );
@@ -394,76 +519,69 @@ export default function SchedulePage() {
     );
   }
 
+  const PCV: { k: View; l: string }[] = [{ k: "mbrief", l: "월 간략" }, { k: "month", l: "월" }, { k: "week", l: "주간" }, { k: "day", l: "일간" }, { k: "list", l: "목록" }];
+  const isMonth = view === "mbrief" || view === "month";
   return (
-    <div className="rsv">
-
-      <div className={`rsv-body ${draft ? "dock" : ""} ${panel ? "" : "nopanel"}`}>
-        {panel && <Panel branch={branch} dayRows={dayRows} staffName={staffName} onClose={togglePanel} />}
-        <section className="rsv-main">
-          <div className="rsv-bar">
-            <button className={`btn sm pn-tg ${panel ? "on" : ""}`} onClick={togglePanel} title={panel ? "현황보드 닫기" : "현황보드 열기"} aria-pressed={panel}>
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden><rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" /><path d="M9.5 4.5v15" stroke="currentColor" strokeWidth="1.7" /></svg>
-              현황보드 {panel ? "닫기" : "열기"}
-            </button>
-            <button className="btn sm" onClick={() => move(-1)} aria-label="이전">‹</button>
-            <button className="btn sm" onClick={() => move(1)} aria-label="다음">›</button>
-            <button className="btn sm" onClick={() => setDay(today)}>오늘</button>
-            <div className="rsv-date num">{title}</div>
-            <div style={{ flex: 1 }} />
-            {me.tier === "owner" && (
-              <select className="sel rsv-br" value={branch} onChange={(e) => setBranch(e.target.value)} aria-label="지점">
-                {BRANCHES.map((b) => <option key={b}>{b}</option>)}
-              </select>
-            )}
-            <input className="inp rsv-q" placeholder="고객 이름 · 뒤 4자리" value={q}
-              onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} />
-            <div className="seg">
-              {VIEWS.map((v) => <button key={v.k} className={view === v.k ? "on" : ""} onClick={() => setView(v.k)}>{v.l}</button>)}
-            </div>
-          </div>
-          {view === "week" && (
-            <div className="rsv-strip num">
-              {Array.from({ length: Number(monthEnd(day).slice(8)) }, (_, i) => `${day.slice(0, 8)}${String(i + 1).padStart(2, "0")}`).map((d) => (
-                <button key={d} onClick={() => setDay(d)}
-                  className={`${d === day ? "on" : ""} ${dow(d) === 0 || holidayOf(d) ? "red" : ""} ${view === "week" && d >= from && d <= to && d !== day ? "wk" : ""}`}>
-                  {Number(d.slice(8))}
-                </button>
-              ))}
-            </div>
+    <div className="rv3">
+      <header className="rv3-sub">
+        <h1>예약</h1>
+        <div className="sg">{PCV.map((v) => <button key={v.k} className={view === v.k ? "on" : ""} onClick={() => setView(v.k)}>{v.l}</button>)}</div>
+        <div className="r">
+          {me.tier === "owner" && (
+            <Sel icon={Ico.home} label={branch} value={[branch]} single onChange={(v) => v[0] && setBranch(v[0])} opts={BRANCHES.map((b) => ({ v: b, l: b }))} />
           )}
-          <div className="rsv-filters">
-            <Filter label="예약 상태" value={fSt} onChange={setFSt}
-              opts={[{ v: "예약", l: "예약" }, { v: "완료", l: "결제 완료" }, { v: "노쇼", l: "노쇼" }, { v: "취소", l: "취소" }]} />
-            <Filter label="직원" value={fStaff} onChange={setFStaff}
-              opts={[...staff.map((x) => ({ v: x.id, l: x.name })), { v: NO_STAFF, l: "담당 미정" }]} />
-            <Filter label="프로그램" value={fProg} onChange={setFProg}
-              opts={programs.map((x) => ({ v: x.id, l: x.name, sw: x.color }))} />
-            {(fSt.length + fStaff.length + fProg.length > 0) && (
-              <button className="btn t sm flt-clear" onClick={() => { setFSt([]); setFStaff([]); setFProg([]); }}>
-                필터 해제 · {shown.length}건 보는 중
-              </button>
-            )}
+          <Sel icon={Ico.user} label="직원" value={fStaff} onChange={setFStaff} opts={[...staff.map((x) => ({ v: x.id, l: x.name })), { v: NO_STAFF, l: "담당 미정" }]} />
+          <Sel icon={Ico.filter} label="상태" value={fSt} onChange={setFSt} opts={[{ v: "예약", l: "예약" }, { v: "완료", l: "방문 완료" }, { v: "노쇼", l: "노쇼" }, { v: "취소", l: "취소" }]} />
+          <div className="sg">
+            <button className={mode === "rsv" ? "on" : ""} onClick={() => setMode("rsv")}>예약</button>
+            <button className={mode === "sales" ? "on" : ""} onClick={() => setMode("sales")} disabled={daySales === null} title={daySales === null ? "매출을 볼 권한이 없어요" : undefined}>매출</button>
           </div>
-          {err && <p style={{ color: "var(--red)", padding: "0 20px" }}>{err}</p>}
-          {view === "day" && holidayOf(day) && (
-            <div style={{ padding: "0 20px 8px" }}><span className="badge em">지점 휴무일{holidayOf(day)!.reason ? ` · ${holidayOf(day)!.reason}` : ""}</span></div>
-          )}
-          <div className="rsv-scroll">
-            {(view === "day" || view === "week") && grid()}
-            {view === "mbrief" && month()}
+        </div>
+      </header>
+      <div className="rv3-page">
+        <div className={`rv3-wrap ${draft ? "dock" : ""}`}>
+          <Panel branch={branch} day={view === "day" ? day : today} dayRows={view === "day" ? dayRows : rows.filter((r) => r.day === today)} staffName={staffName} />
+          <section className="card rv3-cal">
+            <div className="tool">
+              {view === "day" ? (
+                <>
+                  <button className="ib" onClick={() => move(-1)} aria-label="이전">{Ico.left}</button>
+                  <span className="d num">{Number(day.slice(5, 7))}.{day.slice(8)} ({DOW[dow(day)]})</span>
+                  <button className="ib" onClick={() => move(1)} aria-label="다음">{Ico.chev}</button>
+                </>
+              ) : (
+                <>
+                  <button className="ib" onClick={() => move(-1)} aria-label="이전">{Ico.left}</button>
+                  <h2 className="num">{view === "week" ? `${Number(from.slice(5, 7))}.${from.slice(8)} – ${Number(to.slice(5, 7))}.${to.slice(8)}` : `${day.slice(0, 4)}년 ${Number(day.slice(5, 7))}월`}</h2>
+                  <button className="ib" onClick={() => move(1)} aria-label="다음">{Ico.chev}</button>
+                </>
+              )}
+              <button className="btn3 sm" onClick={() => setDay(today)}>오늘</button>
+              {view === "day" && holidayOf(day) && <span className="bdg">{Ico.off}지점 휴무일</span>}
+              <span style={{ marginLeft: "auto" }} className="cap">빈 곳 클릭 = 새 예약 · 예약 클릭 = 수정</span>
+            </div>
+            {isMonth && (
+              <div className="leg">
+                {programs.filter((p) => !p.parent_id).map((p) => <span key={p.id}><i style={{ background: p.color ?? "#8A8A8A" }} />{p.short || p.name}</span>)}
+                <span style={{ marginLeft: "auto" }}>연한 색 = 지난 예약 · 방문 완료</span>
+                <span><span className="bdg">취소 · 노쇼</span></span>
+              </div>
+            )}
+            {err && <p style={{ color: "var(--red)", padding: "8px 16px" }}>{err}</p>}
+            {view === "mbrief" && month3(false)}
+            {view === "month" && month3(true)}
+            {(view === "day" || view === "week") && timeGrid()}
             {view === "list" && listView()}
-          </div>
-        </section>
-        {/* 오른쪽 예약 입력 (뷰티처럼 늘 열려 있음): 날짜·빈 칸을 누르면 여기 채워져요 */}
-        {/* 오른쪽 예약 창: 날짜·빈 칸·예약을 눌렀을 때만 떠요 */}
-        {draft && (
-          <aside className="rsv-dock">
-            <RsvDrawer key={`${draft.id ?? "new"}-${draft.day}-${draft.start_time}-${draft.staff_id ?? ""}`}
-              docked branch={branch} draft={draft}
-              programs={programs} rows={rows} canWrite={canWrite}
-              onClose={() => setDraft(null)} onSaved={() => { setDraft(null); load(); }} />
-          </aside>
-        )}
+          </section>
+          {draft && (
+            <aside className="rsv-dock">
+              <RsvDrawer key={`${draft.id ?? "new"}-${draft.day}-${draft.start_time}-${draft.staff_id ?? ""}`}
+                docked branch={branch} draft={draft}
+                programs={programs} rows={rows} canWrite={canWrite}
+                onClose={() => setDraft(null)} onSaved={() => { setDraft(null); load(); }} />
+            </aside>
+          )}
+        </div>
       </div>
       {hov && (
         <div className="mg-pop" style={{ left: Math.min(hov.x, (typeof window !== "undefined" ? window.innerWidth : 1600) - 300), top: hov.y + 4 }}>
@@ -472,9 +590,39 @@ export default function SchedulePage() {
             <dt>시간</dt><dd className="num">{hov.r.day.slice(5).replace("-", ".")} ({DOW[dow(hov.r.day)]}) {hov.r.start_time.slice(0, 5)} · {hov.r.minutes}분</dd>
             <dt>관리</dt><dd>{progMap.get(hov.r.program_id ?? "")?.name ?? "-"}</dd>
             <dt>담당</dt><dd>{hov.r.staff_name ?? "담당 미정"}</dd>
-            <dt>상태</dt><dd><span className={`badge ${hov.r.status === "완료" ? "ok" : hov.r.status === "노쇼" ? "warn" : hov.r.status === "취소" ? "em" : ""}`}>{STATUS_TXT[hov.r.status] ?? "예약"}</span></dd>
+            <dt>상태</dt><dd>{STATUS_TXT[hov.r.status] ?? "예약"}</dd>
             {hov.r.memo && <><dt>메모</dt><dd>{hov.r.memo}</dd></>}
           </dl>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 시안의 '직원 전체 ▾' · '상태 전체 ▾' 버튼 (여러 개 고르기)
+function Sel({ icon, label, opts, value, onChange, single }: { icon: React.ReactNode; label: string; opts: { v: string; l: string }[]; value: string[]; onChange: (v: string[]) => void; single?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", off);
+    return () => document.removeEventListener("mousedown", off);
+  }, [open]);
+  const names = opts.filter((o) => value.includes(o.v)).map((o) => o.l);
+  const text = single ? label : !names.length ? `${label} 전체` : names.length === 1 ? names[0] : `${names[0]} 외 ${names.length - 1}`;
+  return (
+    <div className="rsel" ref={ref}>
+      <button className={!single && names.length ? "on" : ""} onClick={() => setOpen(!open)} aria-expanded={open}>{icon}{text}{Ico.chevD}</button>
+      {open && (
+        <div className="pop">
+          {!single && <label><input type="checkbox" checked={!names.length} onChange={() => onChange([])} />전체</label>}
+          {opts.map((o) => (
+            <label key={o.v}>
+              <input type={single ? "radio" : "checkbox"} checked={value.includes(o.v)}
+                onChange={() => { if (single) { onChange([o.v]); setOpen(false); } else onChange(value.includes(o.v) ? value.filter((x) => x !== o.v) : [...value, o.v]); }} />{o.l}
+            </label>
+          ))}
         </div>
       )}
     </div>
